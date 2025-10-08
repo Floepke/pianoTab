@@ -1,0 +1,5 @@
+{
+    "explorer.confirmPermanentDelete": false,
+    "explorer.confirmDelete": false,
+    "explorer.confirmDragAndDrop": false,
+}
