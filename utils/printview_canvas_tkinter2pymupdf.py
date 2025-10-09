@@ -50,7 +50,7 @@ class PdfCanvas(tk.Canvas):
             PdfCanvas(parent, page_width=420, page_height=595)  # A5
             PdfCanvas(parent, page_width=297, page_height=420)  # A6
 
-        Tested with Python 3.7+, Tkinter, and PyMuPDF 1.18.19+ on macOS.
+        Tested with Python 3.13.5, Tkinter, and PyMuPDF 1.18.19+ on macOS.
     '''
 
     def __init__(self, parent, pdf_mode=False, page_width=595, page_height=842):
@@ -129,6 +129,30 @@ class PdfCanvas(tk.Canvas):
         self.delete('all')
         
         print(f'Started page {self.current_page_index + 1} ({self.current_page_width}x{self.current_page_height})')
+        return self
+    
+    def set_page_dimensions(self, page_width, page_height):
+        '''Set default page dimensions and update canvas scroll region.
+        
+        Args:
+            page_width (int): New default page width in points
+            page_height (int): New default page height in points
+            
+        Returns:
+            self: For method chaining
+        '''
+        self.default_page_width = page_width
+        self.default_page_height = page_height
+        
+        # Update canvas scroll region to match new dimensions
+        self.configure(scrollregion=(0, 0, page_width, page_height))
+        
+        # If there's an active page, update its dimensions too
+        if self.page_active:
+            self.current_page_width = page_width
+            self.current_page_height = page_height
+            
+        print(f'Page dimensions set to {page_width}x{page_height}')
         return self
     
     def _check_page_active(self):
