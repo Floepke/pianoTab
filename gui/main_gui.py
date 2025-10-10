@@ -19,6 +19,7 @@ from gui.menu import MenuBar
 from utils.printview_canvas_tkinter2pymupdf import PdfCanvas
 from gui.tool_selector import ToolSelector
 from gui.grid_selector import GridSelector
+from gui.toolbar import Toolbar
 
 # Set CustomTkinter appearance
 ctk.set_appearance_mode('dark')
@@ -135,11 +136,23 @@ class PianoTabGUI:
         # Add more menu handling as needed
         
     def create_editor_area(self):
-        '''Create the main editor area (PdfCanvas without scrollbars).'''
+        '''Create the main editor area (PdfCanvas without scrollbars) with vertical toolbar.'''
         
-        # Create editor canvas container (tkinter frame for PdfCanvas compatibility) - zero padding
-        canvas_frame = ctk.CTkFrame(self.editor_frame)
-        canvas_frame.pack(fill='both', expand=True, padx=0, pady=0)
+        # Create main editor container with horizontal layout
+        editor_container = ctk.CTkFrame(self.editor_frame)
+        editor_container.pack(fill='both', expand=True, padx=0, pady=0)
+        
+        # # Create vertical toolbar (right side of editor) - FIRST to ensure it gets space
+        # self.toolbar = Toolbar(editor_container, self.on_toolbar_action)
+        # self.toolbar.pack(side='right', fill='y', padx=(2, 0), pady=0)
+        
+        # # Ensure toolbar has minimum width and doesn't get hidden
+        # self.toolbar.configure(width=60, height=400)  # Set both width and height
+        # self.toolbar.pack_propagate(False)
+        
+        # Create canvas frame (left side) - AFTER toolbar to fill remaining space
+        canvas_frame = ctk.CTkFrame(editor_container)
+        canvas_frame.pack(side='left', fill='both', expand=True, padx=(0, 2), pady=0)
         
         # Create editor canvas without scrollbars
         self.editor_canvas = PdfCanvas(canvas_frame, page_width=595, page_height=842, pdf_mode=False) # a4 size in points
