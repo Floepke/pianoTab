@@ -72,10 +72,6 @@ class PianoTabApplication:
         self.root.bind("<Control-o>", self.open_file)
         self.root.bind("<Control-n>", self.new_file)
         
-        print("📋 Event handlers connected:")
-        print("   - Mouse clicks on editor canvas")
-        print("   - Keyboard shortcuts: Ctrl+S, Ctrl+O, Ctrl+N")
-        
     def on_editor_click(self, event):
         """Handle mouse clicks in the editor."""
         x, y = self.editor_canvas.canvasx(event.x), self.editor_canvas.canvasy(event.y)

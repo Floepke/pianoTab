@@ -18,6 +18,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from gui.menu import MenuBar
 from utils.printview_canvas_tkinter2pymupdf import PdfCanvas
 from gui.tool_selector import ToolSelector
+from gui.grid_selector import GridSelector
 
 # Set CustomTkinter appearance
 ctk.set_appearance_mode('dark')
@@ -74,9 +75,13 @@ class PianoTabGUI:
         # Left side panel
         self.side_panel_frame = ctk.CTkFrame(self.main_paned, width=300, corner_radius=8)
 
-        # Add the ToolSelector:
+        # Add the ToolSelector
         self.tool_selector = ToolSelector(self.side_panel_frame, self.on_tool_selected)
-        self.tool_selector.pack(fill='both', expand=True, padx=0, pady=0)
+        self.tool_selector.pack(fill='x', padx=5, pady=(5, 0))
+        
+        # Add the GridSelector
+        self.grid_selector = GridSelector(self.side_panel_frame, self.on_grid_changed)
+        self.grid_selector.pack(fill='x', padx=5, pady=(5, 5))
 
         self.left_side_panel()
         self.main_paned.add(self.side_panel_frame, minsize=200, padx=5, pady=5)
@@ -106,7 +111,11 @@ class PianoTabGUI:
     
     def on_tool_selected(self, tool_name):
         '''Callback function when a tool is selected.'''
-        pass  # Remove tool selection logic
+        print(f'Tool selected: {tool_name}')
+    
+    def on_grid_changed(self, grid_step):
+        '''Callback function when grid step is changed.'''
+        print(f'Grid step changed to: {grid_step}')
     
     def on_menu_action(self, menu_name, item_name):
         '''Callback function when a menu item is selected.'''
