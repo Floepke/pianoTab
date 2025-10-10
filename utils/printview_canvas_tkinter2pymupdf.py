@@ -54,7 +54,7 @@ class PdfCanvas(tk.Canvas):
     '''
 
     def __init__(self, parent, pdf_mode=False, page_width=595, page_height=842):
-        super().__init__(parent, width=page_width, height=page_height, bg='white')
+        super().__init__(parent, width=page_width, height=page_height, bg='white', relief='flat', borderwidth=0)
         
         # Canvas display dimensions (same as PDF page dimensions)
         self.original_width = page_width
@@ -290,17 +290,27 @@ class PdfCanvas(tk.Canvas):
                                 fontsize=size, fontname=fontname, color=color)
     
     def _draw_polygon_pdf(self, pdf_page, points, color, fill, outline, outline_width):
-        '''Draw polygon on PDF.'''
-        fill_color = self._parse_color(color) if fill else None
-        outline_color = self._parse_color(outline) if outline else self._parse_color(color)
-        width = outline_width or 1
+        '''Draw polygon on PDF with proper fill and outline handling.'''
+        fill_color = self._parse_color(color) if fill and color is not None else None
+        
+        # Handle outline parameters
+        draw_outline = outline is not None and outline != '' and outline_width != 0
+        outline_color = self._parse_color(outline) if draw_outline else self._parse_color(color) if color else (0, 0, 0)
+        line_width = outline_width if outline_width is not None and outline_width > 0 else 1
         
         shape = pdf_page.new_shape()
         fitz_points = [fitz.Point(x, y) for x, y in points]
         shape.draw_polyline(fitz_points)
-        shape.draw_line(fitz_points[-1], fitz_points[0])  # Close
+        shape.draw_line(fitz_points[-1], fitz_points[0])  # Close polygon
         
-        shape.finish(fill=fill_color, color=outline_color or (0,0,0), width=width)
+        if fill and draw_outline:
+            shape.finish(fill=fill_color, color=outline_color, width=line_width)
+        elif fill:
+            shape.finish(fill=fill_color, color=None, width=0)
+        elif draw_outline:
+            shape.finish(fill=None, color=outline_color, width=line_width)
+        else:
+            shape.finish(fill=None, color=(0, 0, 0), width=line_width)
         shape.commit()
 
     def _store_command(self, cmd):
@@ -379,18 +389,26 @@ class PdfCanvas(tk.Canvas):
                 self._draw_solid_line_pdf(target_page, x1, y1, x2, y2, line_color, line_width)
         
         elif cmd_type == 'rectangle':
-            _, x, y, width, height, color, fill, outline_width = cmd
-            rect_color = self._parse_color(color) if color is not None else (0, 0, 0)
-            line_width = outline_width if outline_width is not None else 1
+            _, x, y, width, height, color, fill, outline, outline_width = cmd
+            fill_color = self._parse_color(color) if color is not None and fill else None
+            
+            # Handle outline parameters
+            draw_outline = outline is not None and outline != '' and outline_width != 0
+            outline_color = self._parse_color(outline) if draw_outline else self._parse_color(color) if color else (0, 0, 0)
+            line_width = outline_width if outline_width is not None and outline_width > 0 else 1
             
             shape = target_page.new_shape()
             rect = fitz.Rect(x, y, x + width, y + height)
             shape.draw_rect(rect)
             
-            if fill:
-                shape.finish(fill=rect_color, color=rect_color, width=line_width)
+            if fill and draw_outline:
+                shape.finish(fill=fill_color, color=outline_color, width=line_width)
+            elif fill:
+                shape.finish(fill=fill_color, color=None, width=0)
+            elif draw_outline:
+                shape.finish(fill=None, color=outline_color, width=line_width)
             else:
-                shape.finish(fill=None, color=rect_color, width=line_width)
+                shape.finish(fill=None, color=(0, 0, 0), width=line_width)
             shape.commit()
         
         elif cmd_type == 'oval':
@@ -426,7 +444,16 @@ class PdfCanvas(tk.Canvas):
             self._draw_text_pdf(target_page, x, y, text, size, text_color, font, anchor)
     
     def add_polygon(self, points, color=None, fill=True, outline=None, outline_width=None):
-        '''Draw polygon - always to tkinter, conditionally to PDF'''
+        '''
+        Draw polygon on both tkinter canvas and PDF.
+        
+        Args:
+            points (list): List of (x,y) coordinate tuples [(x1,y1), (x2,y2), ...]
+            color (str|tuple): Fill color as hex '#FF0000' or RGB tuple (1,0,0)
+            fill (bool): Whether to fill the polygon (default: True)
+            outline (str|tuple): Outline color, disabled if '' or None
+            outline_width (int): Outline width, disabled if 0 (default: 1)
+        '''
         # Store command for potential PDF replay
         cmd = ('polygon', points, color, fill, outline, outline_width)
         self._store_command(cmd)
@@ -434,29 +461,18 @@ class PdfCanvas(tk.Canvas):
         # Use explicit parameters with defaults
         default_color = (0, 0, 0)
         
+        # Handle fill color
+        fill_color = self._parse_color(color) if color is not None else default_color
+        
+        # Handle outline parameters
+        draw_outline = outline is not None and outline != '' and outline_width != 0
+        outline_color = self._parse_color(outline) if draw_outline else fill_color
+        line_width = outline_width if outline_width is not None and outline_width > 0 else 1
+        
         # ALWAYS draw to tkinter
-        fill_color = None
-        outline_color = None
-        
-        if fill:
-            if isinstance(fill, str):
-                fill_color = self._parse_color(fill)
-            else:
-                fill_color = self._parse_color(color) if color is not None else default_color
-        
-        if outline:
-            outline_color = self._parse_color(outline)
-        else:
-            outline_color = self._parse_color(color) if color is not None else default_color
-        
         flat_points = [coord for point in points for coord in point]
-        if fill:
-            tk_fill = self._rgb_to_hex(fill_color) if fill_color else self._rgb_to_hex(default_color)
-        else:
-            tk_fill = ''
-        
-        tk_outline = self._rgb_to_hex(outline_color) if outline_color else self._rgb_to_hex(default_color)
-        line_width = outline_width if outline_width is not None else 1
+        tk_fill = self._rgb_to_hex(fill_color) if fill else ''
+        tk_outline = self._rgb_to_hex(outline_color) if draw_outline else ''
         
         self.create_polygon(flat_points, fill=tk_fill, outline=tk_outline, 
                           width=line_width)
@@ -898,24 +914,36 @@ class PdfCanvas(tk.Canvas):
             'content_offset': (self.content_offset_x, self.content_offset_y)
         }
     
-    def add_rectangle(self, x, y, width, height, color=None, fill=True, outline_width=None):
-        '''Draw rectangle on both tkinter canvas and PDF'''
+    def add_rectangle(self, x, y, width, height, color=None, fill=True, outline=None, outline_width=None):
+        '''
+        Draw rectangle on both tkinter canvas and PDF.
+        
+        Args:
+            x, y (float): Top-left corner position
+            width, height (float): Rectangle dimensions
+            color (str|tuple): Fill color as hex '#FF0000' or RGB tuple (1,0,0)
+            fill (bool): Whether to fill the rectangle (default: True)
+            outline (str|tuple): Outline color, disabled if '' or None
+            outline_width (int): Outline width, disabled if 0 (default: 1)
+        '''
         # Store command for potential PDF replay
-        cmd = ('rectangle', x, y, width, height, color, fill, outline_width)
+        cmd = ('rectangle', x, y, width, height, color, fill, outline, outline_width)
         self._store_command(cmd)
         
         # Use explicit parameters with defaults
         rect_color = self._parse_color(color) if color is not None else (0, 0, 0)
-        line_width = outline_width if outline_width is not None else 1
+        
+        # Handle outline parameters
+        draw_outline = outline is not None and outline != '' and outline_width != 0
+        outline_color = self._parse_color(outline) if draw_outline else rect_color
+        line_width = outline_width if outline_width is not None and outline_width > 0 else 1
         
         # Draw on tkinter canvas
-        tk_color = self._rgb_to_hex(rect_color)
-        if fill:
-            self.create_rectangle(x, y, x + width, y + height, 
-                                fill=tk_color, outline=tk_color, width=line_width)
-        else:
-            self.create_rectangle(x, y, x + width, y + height, 
-                                outline=tk_color, fill='', width=line_width)
+        tk_fill = self._rgb_to_hex(rect_color) if fill else ''
+        tk_outline = self._rgb_to_hex(outline_color) if draw_outline else ''
+        
+        self.create_rectangle(x, y, x + width, y + height, 
+                            fill=tk_fill, outline=tk_outline, width=line_width)
         
         # CONDITIONALLY draw to PDF
         if self.pdf_mode and hasattr(self, 'page') and self.page:

@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 '''
-Menu Bar Widget for PianoTab GUI.
+Native Tkinter Menu Bar Widget for PianoTab GUI.
 
-Provides a simple menu bar with tkinter buttons for a clean, straightforward interface.
+Provides a native system menu bar using tkinter's built-in Menu widget.
 '''
 
 import tkinter as tk
-from tkinter import ttk
 
 
 class MenuBar:
     '''
-    A simple menu bar widget with tkinter buttons.
+    A native tkinter menu bar widget using the system menu bar.
     '''
     
     def __init__(self, parent, callback=None):
@@ -19,56 +18,33 @@ class MenuBar:
         Initialize the MenuBar widget.
         
         Args:
-            parent: Parent widget (tkinter container)
+            parent: Parent widget (tkinter window - should be root or Toplevel)
             callback: Optional callback function(menu_name, item_name)
         '''
         self.parent = parent
         self.callback = callback
         
-        # Create the main container and menu
-        self.container = None
+        # Create the native menu bar
+        self.menubar = None
         self.create_widget()
         
-        # Setup default menus
-        self.setup_menus()
+        # Setup pianoTab menu
+        self.setup_menu()
     
     def create_widget(self):
-        '''Create the menu bar widget.'''
-        # Create a frame to hold the menu bar with dark grey background
-        self.container = tk.Frame(self.parent, bd=0, bg='#2c2c2c')
+        '''Create the native menu bar widget.'''
+        # Create the main menu bar
+        self.menubar = tk.Menu(self.parent)
         
-        # Menu frame with matching dark grey background
-        self.menu_frame = tk.Frame(self.container, bd=0, bg='#2c2c2c')
-        self.menu_frame.pack(fill='x', padx=0, pady=0)
+        # Configure the parent window to use this menu bar
+        self.parent.config(menu=self.menubar)
         
-        # Configure ttk style for menu buttons
-        style = ttk.Style()
-        style.configure('MenuButton.TMenubutton',
-                       background='#1c1c1c',
-                       foreground='white',
-                       relief='flat',
-                       borderwidth=0,
-                       focuscolor='none')
-        style.map('MenuButton.TMenubutton',
-                 background=[('active', '#1c1c1c'),
-                           ('pressed', '#1c1c1c')])
-    
-    
-    def pack(self, **kwargs):
-        '''Pack the container widget.'''
-        self.container.pack(**kwargs)
-        
-    def grid(self, **kwargs):
-        '''Grid the container widget.'''
-        self.container.grid(**kwargs)
-        
-    def place(self, **kwargs):
-        '''Place the container widget.'''
-        self.container.place(**kwargs)
+        # Store menu references for later access
+        self.menus = {}
     
     def add_menu(self, menu_name, items):
         '''
-        Add a menu to the menu bar using native tkinter Menubutton.
+        Add a menu to the menu bar.
         
         Args:
             menu_name (str): Name of the menu (e.g., 'File', 'Edit')
@@ -77,35 +53,32 @@ class MenuBar:
                 - tuple: (item_name, callback_function) for custom commands
                 - '---': Separator
         '''
-        # Create native Menubutton with dark styling
-        menu_button = ttk.Menubutton(self.menu_frame, text=menu_name, 
-                                    style='MenuButton.TMenubutton')
-        menu_button.pack(side='left', padx=2, pady=0)
+        # Create a new menu
+        menu = tk.Menu(self.menubar, tearoff=0)
         
-        # Create the dropdown menu
-        dropdown = tk.Menu(menu_button, tearoff=0,
-                          bg='#4a4a4a', fg='white',  # Dark theme for dropdown
-                          activebackground='#6a6a6a', activeforeground='white')
-        
-        # Add items to the dropdown
+        # Add items to the menu
         for item in items:
             if item == '---':
-                dropdown.add_separator()
+                menu.add_separator()
             elif isinstance(item, tuple) and len(item) == 2:
                 # Custom command: (item_name, callback_function)
                 item_name, item_callback = item
-                dropdown.add_command(label=item_name, command=item_callback)
+                if item_callback is None:
+                    # Use default callback if callback is None
+                    menu.add_command(label=item_name, 
+                                   command=lambda i=item_name: self._menu_callback(menu_name, i))
+                else:
+                    menu.add_command(label=item_name, command=item_callback)
             else:
                 # Simple item using default callback
-                dropdown.add_command(label=item, 
-                                   command=lambda i=item: self._menu_callback(menu_name, i))
+                menu.add_command(label=item, 
+                               command=lambda i=item: self._menu_callback(menu_name, i))
         
-        # Associate menu with button
-        menu_button.config(menu=dropdown)
+        # Add the menu to the menu bar
+        self.menubar.add_cascade(label=menu_name, menu=menu)
         
-        # Store reference
-        setattr(self, f'{menu_name.lower()}_button', menu_button)
-        setattr(self, f'{menu_name.lower()}_menu', dropdown)
+        # Store reference for later access
+        self.menus[menu_name.lower()] = menu
     
     def _menu_callback(self, menu_name, item_name):
         '''Handle menu item selection.'''
@@ -113,7 +86,7 @@ class MenuBar:
             self.callback(menu_name, item_name)
         print(f'🎯 Menu action: {menu_name} -> {item_name}')
     
-    def setup_menus(self):
+    def setup_menu(self):
         '''Setup the default File, Edit, View menus with example custom commands.'''
         
         def exit_app():
@@ -123,10 +96,10 @@ class MenuBar:
         
         # File menu - mix of custom commands and default callback
         file_items = [
-            ('New', None),           # Custom command
-            ('Open...', None),      # Custom command
+            ('New', None),              # Uses default callback
+            ('Open...', None),          # Uses default callback
             '---',
-            ('Save', None),         # Custom command
+            ('Save', None),             # Uses default callback
             'Save As...',               # Uses default callback
             '---',
             'Export PDF...',            # Uses default callback
@@ -148,6 +121,18 @@ class MenuBar:
         ]
         self.add_menu('Edit', edit_items)
 
+        # View menu - all default callback items
+        view_items = [
+            ('Zoom In', None),
+            ('Zoom Out', None),
+            ('Zoom to Fit', None),
+            '---',
+            ('Full Screen', None),
+            '---',
+            ('Show Grid', None),
+            ('Show Rulers', None)
+        ]
+        self.add_menu('View', view_items)
     
     def add_menu_item(self, menu_name, item_name, callback=None, position=None):
         '''
@@ -159,9 +144,9 @@ class MenuBar:
             callback (function): Custom callback for this item (optional)
             position (int): Position to insert at (None = append)
         '''
-        menu_attr = f'{menu_name.lower()}_menu'
-        if hasattr(self, menu_attr):
-            menu = getattr(self, menu_attr)
+        menu_key = menu_name.lower()
+        if menu_key in self.menus:
+            menu = self.menus[menu_key]
             
             if callback:
                 # Custom callback provided
@@ -190,14 +175,24 @@ class MenuBar:
             menu_name (str): Name of the menu
             
         Returns:
-            None: Simplified version doesn't expose menu objects
+            tk.Menu: The menu object, or None if not found
         '''
-        return None
+        menu_key = menu_name.lower()
+        return self.menus.get(menu_key, None)
+    
+    def get_menubar(self):
+        '''
+        Get the main menu bar object.
+        
+        Returns:
+            tk.Menu: The main menu bar
+        '''
+        return self.menubar
 
 
 # Demo/Test function
 def demo_menu_bar():
-    '''Demonstrate the simple MenuBar widget.'''
+    '''Demonstrate the native MenuBar widget.'''
     
     def on_menu_action(menu_name, item_name):
         print(f'🎯 Menu action triggered: {menu_name} -> {item_name}')
@@ -206,19 +201,18 @@ def demo_menu_bar():
     
     # Create test window
     root = tk.Tk()
-    root.title('Simple MenuBar Demo')
+    root.title('Native MenuBar Demo')
     root.geometry('800x600')
     
-    # Create MenuBar at the top
+    # Create MenuBar (automatically attaches to window)
     menu_bar = MenuBar(root, on_menu_action)
-    menu_bar.pack(fill='x', side='top')
     
     # Add some content below the menu
     content_frame = tk.Frame(root, bg='white')
     content_frame.pack(fill='both', expand=True)
     
     info_label = tk.Label(content_frame, 
-                         text='Simple tkinter MenuBar\n\nClick menu buttons to see dropdown menus!',
+                         text='Native Tkinter MenuBar\n\nUses the system menu bar!\nMenu items appear in the title bar area.',
                          font=('Arial', 14), bg='white', fg='black')
     info_label.pack(expand=True)
     

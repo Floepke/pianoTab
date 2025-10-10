@@ -6,6 +6,9 @@ This shows how to integrate the GUI module while keeping separation of concerns.
 """
 
 import tkinter as tk
+import customtkinter as ctk
+import platform
+import os
 from gui.main_gui import PianoTabGUI
 
 class PianoTabApplication:
@@ -13,7 +16,11 @@ class PianoTabApplication:
     
     def __init__(self):
         # Create main window
-        self.root = tk.Tk()
+        self.root = ctk.CTk()
+        
+        # macOS focus fix - bring window to front and focus
+        if platform.system() == "Darwin":  # macOS
+            self.fix_macos_focus()
         
         # Initialize GUI
         self.gui = PianoTabGUI(self.root)
@@ -24,6 +31,31 @@ class PianoTabApplication:
         # Application state
         self.current_file = None
         self.is_modified = False
+        
+    def fix_macos_focus(self):
+        """Fix window focus issues on macOS."""
+        # Bring window to front
+        self.root.lift()
+        self.root.attributes('-topmost', True)
+        self.root.focus_force()
+        
+        # Schedule to remove topmost after window is shown
+        self.root.after(100, lambda: self.root.attributes('-topmost', False))
+        
+        # Alternative method using AppleScript (more reliable)
+        try:
+            import subprocess
+            # Get the current application name
+            app_name = "Python"  # or "PianoTab" if you set it
+            script = f'''
+                tell application "System Events"
+                    set frontmost of process "{app_name}" to true
+                end tell
+            '''
+            subprocess.run(["osascript", "-e", script], check=False)
+        except Exception:
+            # Fallback if AppleScript fails
+            pass
         
     def setup_event_handlers(self):
         """Connect GUI events to application logic."""
@@ -94,12 +126,6 @@ class PianoTabApplication:
     def run(self):
         """Start the application."""
         print("🎹 PianoTab Application Starting...")
-        print("🎨 GUI Module Loaded Successfully!")
-        print("\n📖 Try these interactions:")
-        print("   - Click in the editor area to add notes")
-        print("   - Use Ctrl+S, Ctrl+O, Ctrl+N shortcuts")
-        print("   - Resize the panels by dragging the dividers")
-        
         self.root.mainloop()
 
 # Entry point
