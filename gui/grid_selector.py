@@ -6,6 +6,7 @@ CustomTkinter-based grid selection widget for piano notation timing.
 '''
 
 import customtkinter as ctk
+from logger import log
 
 
 class GridSelector(ctk.CTkFrame):
@@ -38,7 +39,7 @@ class GridSelector(ctk.CTkFrame):
         # Configure frame
         self.configure(corner_radius=6)
         
-        # Define grid lengths with their piano tick values
+        # Define grid lengths with their pianotick values
         self.grid_lengths = [
             ('1 - Whole', 1024.0),
             ('2 - Half', 512.0), 
@@ -160,7 +161,7 @@ class GridSelector(ctk.CTkFrame):
             grid_step = self.get_grid_step()
             self.callback(grid_step)
             
-        print(f'🎵 Grid selected: {grid_name}')
+        log(f'🎵 Grid selected: {grid_name}')
         
     def decrease_subdivision(self):
         '''Decrease subdivision value.'''
@@ -262,20 +263,13 @@ class GridSelector(ctk.CTkFrame):
         grid_step = grid_ticks / float(self.subdivision)
         return grid_step
         
-    def get_grid(self):
+    def get(self):
         '''Get the currently selected grid length.'''
         return self.current_grid
         
     def get_subdivision(self):
         '''Get the current subdivision value.'''
         return self.subdivision
-        
-    def set_grid(self, grid_name):
-        '''Set the selected grid programmatically.'''
-        if any(grid_name == name for name, _ in self.grid_lengths):
-            self.select_grid(grid_name)
-        else:
-            print(f'Warning: Grid \'{grid_name}\' not found')
             
     def set_subdivision(self, value):
         '''Set the subdivision value programmatically.'''
@@ -285,6 +279,6 @@ class GridSelector(ctk.CTkFrame):
                 self.subdivision_var.set(str(value))
                 self.on_subdivision_change()
             else:
-                print(f'Warning: Subdivision value {value} out of range (1-99)')
+                log(f'Warning: Subdivision value {value} out of range (1-99)')
         except (ValueError, TypeError):
-            print(f'Warning: Invalid subdivision value: {value}')
+            log(f'Warning: Invalid subdivision value: {value}')

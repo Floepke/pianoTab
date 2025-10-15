@@ -1,5 +1,6 @@
 import tkinter as tk
 import fitz  # PyMuPDF
+from logger import log
 
 class PdfCanvas(tk.Canvas):
     '''
@@ -89,7 +90,7 @@ class PdfCanvas(tk.Canvas):
         self.configure(yscrollcommand=self.scrollbar.set)
 
         # Bind resize events
-        #self.bind('<Configure>', self._on_canvas_resize)
+        self.bind('<Configure>', self._on_canvas_resize)
     
     def enable_pdf_mode(self):
         '''Enable PDF generation mode for export.'''
@@ -97,7 +98,7 @@ class PdfCanvas(tk.Canvas):
             self.pdf_mode = True
             if not self.doc:
                 self.doc = fitz.open()
-            print('PDF mode enabled')
+            log('PDF mode enabled')
         return self
 
     def disable_pdf_mode(self):
@@ -107,7 +108,7 @@ class PdfCanvas(tk.Canvas):
             if self.doc:
                 self.doc.close()
                 self.doc = None
-            print('PDF mode disabled - tkinter preview only')
+            log('PDF mode disabled - tkinter preview only')
         return self
 
     def is_pdf_mode_enabled(self):
@@ -126,7 +127,7 @@ class PdfCanvas(tk.Canvas):
                 'width': page_width,
                 'height': page_height
             })
-            print(f'Saved page {len(self.all_pages_commands)} with {len(self.current_page_commands)} commands')
+            log(f'Saved page {len(self.all_pages_commands)} with {len(self.current_page_commands)} commands')
         
         # Set up new page
         self.current_page_width = width or self.default_page_width
@@ -138,7 +139,7 @@ class PdfCanvas(tk.Canvas):
         # Clear canvas for new page
         self.delete('all')
         
-        print(f'Started page {self.current_page_index + 1} ({self.current_page_width}x{self.current_page_height})')
+        log(f'Started page {self.current_page_index + 1} ({self.current_page_width}x{self.current_page_height})')
         return self
     
     def set_page_dimensions(self, page_width, page_height):
@@ -162,7 +163,7 @@ class PdfCanvas(tk.Canvas):
             self.current_page_width = page_width
             self.current_page_height = page_height
             
-        print(f'Page dimensions set to {page_width}x{page_height}')
+        log(f'Page dimensions set to {page_width}x{page_height}')
         return self
     
     def _check_page_active(self):
@@ -197,7 +198,7 @@ class PdfCanvas(tk.Canvas):
                 'width': self.current_page_width,
                 'height': self.current_page_height
             })
-            print(f'Saved final page {len(self.all_pages_commands)}')
+            log(f'Saved final page {len(self.all_pages_commands)}')
         
         if not self.all_pages_commands:
             raise RuntimeError('No pages to save! Call new_page() and draw content first.')
@@ -208,7 +209,7 @@ class PdfCanvas(tk.Canvas):
         self.doc = fitz.open()
         
         for i, page_data in enumerate(self.all_pages_commands):
-            print(f'Processing page {i + 1}/{len(self.all_pages_commands)}...')
+            log(f'Processing page {i + 1}/{len(self.all_pages_commands)}...')
             
             pdf_page = self.doc.new_page(width=page_data['width'], height=page_data['height'])
             
@@ -216,7 +217,7 @@ class PdfCanvas(tk.Canvas):
                 self._execute_pdf_command(cmd, pdf_page)
         
         self.doc.save(filename)
-        print(f'✅ PDF saved: {filename} ({len(self.all_pages_commands)} pages)')
+        log(f'✅ PDF saved: {filename} ({len(self.all_pages_commands)} pages)')
         return self
     
     def _draw_solid_line_pdf(self, pdf_page, x1, y1, x2, y2, color, width):
@@ -353,7 +354,8 @@ class PdfCanvas(tk.Canvas):
             canvas.add_line(0, 0, 100, 100, color='#0000FF', dash_pattern='5 5')  # Blue dashed
         '''
         # Store command for potential PDF replay
-        cmd = ('line', x1, y1, x2, y2, color, width, dash_pattern)
+        pdf_dash = ' '.join(str(x) for x in dash_pattern) if isinstance(dash_pattern, (list, tuple)) else dash_pattern
+        cmd = ('line', x1, y1, x2, y2, color, width, pdf_dash)
         self._store_command(cmd)
         
         # Use provided parameters or defaults
@@ -363,7 +365,7 @@ class PdfCanvas(tk.Canvas):
         # ALWAYS draw to tkinter (for preview)
         tk_color = self._rgb_to_hex(line_color)
         if dash_pattern:
-            tk_dash = tuple(int(x) for x in dash_pattern.split())
+            tk_dash = dash_pattern
             self.create_line(x1, y1, x2, y2, fill=tk_color, width=line_width, 
                            dash=tk_dash, capstyle=tk.ROUND)
         else:
@@ -766,7 +768,7 @@ class PdfCanvas(tk.Canvas):
                     color=self._color_to_fitz_rgb(color)
                 )
             except Exception as e:
-                print(f'Error inserting text: {e}')
+                log(f'Error inserting text: {e}')
                 # Fallback: use default font
                 self.page.insert_text(
                     fitz.Point(line_x, line_y),
@@ -881,7 +883,7 @@ class PdfCanvas(tk.Canvas):
 
         # Update the scrollregion
         self.configure(scrollregion=(x_min, y_min, x_max, y_max))
-        print(f"Updated scrollregion: {x_min}, {y_min}, {x_max}, {y_max}")
+        log(f"Updated scrollregion: {x_min}, {y_min}, {x_max}, {y_max}")
     
     def _on_canvas_resize(self, event):
         '''Handle canvas resize events and scale content to fit'''
@@ -946,20 +948,24 @@ class PdfCanvas(tk.Canvas):
             'content_offset': (self.content_offset_x, self.content_offset_y)
         }
     
-    def add_rectangle(self, x, y, width, height, color=None, fill=True, outline=None, outline_width=None):
+    def add_rectangle(self, x1, y1, x2, y2, color=None, fill=True, outline=None, outline_width=None):
         '''
         Draw rectangle on both tkinter canvas and PDF.
         
         Args:
-            x, y (float): Top-left corner position
-            width, height (float): Rectangle dimensions
+            x1, y1 (float): Top-left corner position
+            x2, y2 (float): Bottom-right corner position
             color (str|tuple): Fill color as hex '#FF0000' or RGB tuple (1,0,0)
             fill (bool): Whether to fill the rectangle (default: True)
             outline (str|tuple): Outline color, disabled if '' or None
             outline_width (int): Outline width, disabled if 0 (default: 1)
         '''
+        # Calculate width and height from coordinates
+        width = x2 - x1
+        height = y2 - y1
+
         # Store command for potential PDF replay
-        cmd = ('rectangle', x, y, width, height, color, fill, outline, outline_width)
+        cmd = ('rectangle', x1, y1, width, height, color, fill, outline, outline_width)
         self._store_command(cmd)
         
         # Use explicit parameters with defaults
@@ -974,7 +980,7 @@ class PdfCanvas(tk.Canvas):
         tk_fill = self._rgb_to_hex(rect_color) if fill else ''
         tk_outline = self._rgb_to_hex(outline_color) if draw_outline else ''
         
-        self.create_rectangle(x, y, x + width, y + height, 
+        self.create_rectangle(x1, y1, x1 + width, y1 + height, 
                             fill=tk_fill, outline=tk_outline, width=line_width)
         
         # CONDITIONALLY draw to PDF

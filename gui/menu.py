@@ -7,6 +7,7 @@ Provides a native system menu bar using tkinter's built-in Menu widget.
 
 import tkinter as tk
 import tkinter.font as tkfont
+from logger import log
 
 
 class MenuBar:
@@ -104,13 +105,13 @@ class MenuBar:
         '''Handle menu item selection.'''
         if self.callback:
             self.callback(menu_name, item_name)
-        print(f'🎯 Menu action: {menu_name} -> {item_name}')
+        log(f'🎯 Menu action: {menu_name} -> {item_name}')
     
     def setup_menu(self):
         '''Setup the default File, Edit, View menus with example custom commands.'''
         
         def exit_app():
-            print('👋 Exiting application...')
+            log('👋 Exiting application...')
             if hasattr(self.parent, 'quit'):
                 self.parent.quit()
         
@@ -183,9 +184,9 @@ class MenuBar:
                     menu.add_command(label=item_name, 
                                    command=lambda: self._menu_callback(menu_name, item_name))
             
-            print(f'📝 Added menu item: {menu_name} -> {item_name}')
+            log(f'📝 Added menu item: {menu_name} -> {item_name}')
         else:
-            print(f'⚠️ Menu "{menu_name}" not found')
+            log(f'⚠️ Menu "{menu_name}" not found')
     
     def get_menu(self, menu_name):
         '''
@@ -215,7 +216,7 @@ def demo_menu_bar():
     '''Demonstrate the native MenuBar widget.'''
     
     def on_menu_action(menu_name, item_name):
-        print(f'🎯 Menu action triggered: {menu_name} -> {item_name}')
+        log(f'🎯 Menu action triggered: {menu_name} -> {item_name}')
         if item_name == 'Exit':
             root.quit()
     

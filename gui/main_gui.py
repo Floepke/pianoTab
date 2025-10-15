@@ -18,6 +18,7 @@ from gui.menu import MenuBar
 from utils.canvas_tkinter2pymupdf import PdfCanvas
 from gui.tool_selector import ToolSelector
 from gui.grid_selector import GridSelector
+from logger import log
 
 # Set CustomTkinter appearance
 ctk.set_appearance_mode('dark')
@@ -123,27 +124,27 @@ class PianoTabGUI:
     
     def on_tool_selected(self, tool_name):
         '''Callback function when a tool is selected.'''
-        print(f'Tool selected: {tool_name}')
+        log(f'Tool selected: {tool_name}')
     
     def on_grid_changed(self, grid_step):
         '''Callback function when grid step is changed.'''
-        print(f'Grid step changed to: {grid_step}')
+        log(f'Grid step changed to: {grid_step}')
     
     def on_menu_action(self, menu_name, item_name):
         '''Callback function when a menu item is selected.'''
-        print(f'Menu action: {menu_name} -> {item_name}')
+        log(f'Menu action: {menu_name} -> {item_name}')
         
         # Handle common menu actions
         if item_name == 'Exit':
             self.destroy()
         elif item_name == 'New':
-            print('Creating new document...')
+            log('Creating new document...')
         elif item_name == 'Open...':
-            print('Opening file dialog...')
+            log('Opening file dialog...')
         elif item_name == 'Save':
-            print('Saving document...')
+            log('Saving document...')
         elif item_name == 'Preferences...':
-            print('Opening preferences...')
+            log('Opening preferences...')
         # Add more menu handling as needed
         
     def create_editor_area(self):

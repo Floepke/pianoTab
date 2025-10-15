@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""
-Example integration of GUI module with main PianoTab application.
 
-This shows how to integrate the GUI module while keeping separation of concerns.
+"""
+    PianoTab Main Application
+
+    pianoTab is a music notation editor focused on piano sheet music in an unconventional way.
+    in short it is a piano-roll editor suitable for printing on paper. It's condensed form of staves
+    makes it readable and compact.
 """
 
 import tkinter as tk
 import customtkinter as ctk
+from logger import log
 
 # TODO: Make this scaling settings available in app settings
 ctk.set_appearance_mode('dark')
@@ -43,7 +47,7 @@ class PianoTabApplication:
         self.score = SCORE()
 
         # Initialize editor
-        self.editor = Editor(self.gui.editor_canvas, self.score)
+        self.editor = Editor(self.gui.editor_canvas, self.score, self.gui.grid_selector)
 
         # Bind mouse release to update drawing on panedwindow sash
         self.gui.editor_preview_paned.bind('<ButtonRelease-1>', lambda e: self.editor.drawer.update())

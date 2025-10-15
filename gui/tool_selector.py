@@ -6,6 +6,7 @@ CustomTkinter-based tool selection widget with modern dark styling.
 """
 
 import customtkinter as ctk
+from logger import log
 
 
 class ToolSelector(ctk.CTkFrame):
@@ -99,7 +100,7 @@ class ToolSelector(ctk.CTkFrame):
         if self.callback:
             self.callback(tool_name)
             
-        print(f"🔧 Tool selected: {tool_name}")
+        log(f"🔧 Tool selected: {tool_name}")
         
     def update_selection(self):
         """Update visual selection state."""
@@ -124,4 +125,4 @@ class ToolSelector(ctk.CTkFrame):
         if tool_name in self.tools:
             self.select_tool(tool_name)
         else:
-            print(f"Warning: Tool '{tool_name}' not found")
+            log(f"Warning: Tool '{tool_name}' not found")

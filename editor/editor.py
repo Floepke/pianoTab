@@ -1,13 +1,16 @@
 from editor.editordrawer import EditorDrawer
 from file.SCORE import SCORE
+from gui.grid_selector import GridSelector
 from utils.canvas_tkinter2pymupdf import PdfCanvas
+from logger import log
 
 class Editor:
-    def __init__(self, canvas: PdfCanvas, score: SCORE):
+    def __init__(self, canvas: PdfCanvas, score: SCORE, grid_selector: GridSelector):
         self.canvas = canvas
         self.canvas.disable_pdf_mode()  # Disable PDF mode for editor
         self.score = score
-        self.drawer = EditorDrawer(canvas, score)
+        self.grid_selector = grid_selector
+        self.drawer = EditorDrawer(canvas, score, self.grid_selector)
 
         # Set up the scroll region (adjust as needed)
         self.canvas.configure(scrollregion=(0, 0, self.canvas.winfo_width(), self.canvas.winfo_height()))

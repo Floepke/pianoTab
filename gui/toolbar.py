@@ -9,6 +9,7 @@ import customtkinter as ctk
 import sys
 import os
 from PIL import Image, ImageDraw
+from logger import log
 
 # Add icons directory to path
 icons_dir = os.path.join(os.path.dirname(__file__), '..', 'icons')
@@ -21,7 +22,7 @@ try:
     get_available_icons = icons_data.get_available_icons
     ICONS_AVAILABLE = True
 except ImportError:
-    print("Warning: Could not import icons_data. Make sure to run icons/icon2base64.py first")
+    log("Warning: Could not import icons_data. Make sure to run icons/icon2base64.py first")
     ICONS_AVAILABLE = False
     load_icon = None
     get_available_icons = lambda: []
@@ -124,7 +125,7 @@ class Toolbar(ctk.CTkFrame):
             return ctk_image
             
         except Exception as e:
-            print(f"Error loading icon '{icon_name}': {e}")
+            log(f"Error loading icon '{icon_name}': {e}")
             return self.create_fallback_icon(icon_name, size)
     
     def create_fallback_icon(self, icon_name, size):
@@ -150,7 +151,7 @@ class Toolbar(ctk.CTkFrame):
         
     def show_tooltip(self, text):
         '''Show tooltip (simplified version - prints to console).'''
-        print(f"💡 {text}")
+        log(f"💡 {text}")
     
     def hide_tooltip(self):
         '''Hide tooltip.'''
@@ -158,7 +159,7 @@ class Toolbar(ctk.CTkFrame):
         
     def on_button_click(self, command):
         '''Handle button click.'''
-        print(f'🔧 Toolbar: {command} clicked')
+        log(f'🔧 Toolbar: {command} clicked')
         
         if self.callback:
             self.callback(command)
@@ -222,7 +223,7 @@ def demo_toolbar():
     '''Demonstrate the Toolbar widget.'''
     
     def on_toolbar_action(command):
-        print(f'Callback: Toolbar action {command}')
+        log(f'Callback: Toolbar action {command}')
         
         # Example of button state management
         if command == 'select':
