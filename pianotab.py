@@ -15,8 +15,8 @@ from logger import log
 # TODO: Make this scaling settings available in app settings
 ctk.set_appearance_mode('dark')
 ctk.set_default_color_theme('blue')
-WIDGET_SCALE = 2.5  # Adjust as needed (try 1.0, 1.25, 1.5, 2.0)
-WINDOW_SCALE = 2.5  # Adjust as needed
+WIDGET_SCALE = 2  # Adjust as needed (try 1.0, 1.25, 1.5, 2.0)
+WINDOW_SCALE = 2  # Adjust as needed
 ctk.set_widget_scaling(WIDGET_SCALE)
 ctk.set_window_scaling(WINDOW_SCALE)
 
