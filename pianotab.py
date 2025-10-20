@@ -50,7 +50,7 @@ class PianoTabApplication:
         self.editor = Editor(self.gui.editor_canvas, self.score, self.gui.grid_selector)
 
         # Bind mouse release to update drawing on panedwindow sash
-        self.gui.editor_preview_paned.bind('<ButtonRelease-1>', lambda e: self.editor.drawer.update())
+        self.gui.editor_preview_paned.bind('<Motion>', lambda e: self.editor.drawer.update())
         self.root.bind('<Escape>', lambda e: self.quit())
         
         # Application state
