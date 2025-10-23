@@ -1,36 +1,83 @@
-from dataclasses import dataclass, field
-from typing import List, TYPE_CHECKING
+from pydantic import BaseModel, Field
+from typing import List, TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from file.SCORE import SCORE
 
-@dataclass
-class Countline:
-    id: int = 0
-    time: float = 0.0
-    pitch1: int = 40
-    pitch2: int = 44
-
-    # looking to globalProperties for default values:
-    color: str = '*'
-    dashPattern: List[int] = field(default_factory=[2,2])
-
-    @property
-    def color_(self, score: 'SCORE') -> str:
-        '''Get the actual color to use, considering inheritance.'''
-        if self.color != '*':
-            return self.color
-        return score.properties.globalCountLine.color
+class CountLine(BaseModel):
+    # Core fields
+    id: int = Field(default=0)
+    time: float = Field(default=0.0)
+    pitch1: int = Field(default=40)
+    pitch2: int = Field(default=44)
     
-    @property
-    def middleWidth_(self, score: 'SCORE') -> float:
-        '''Get the actual width to use, considering inheritance.'''
-        if self.middleWidth != 0:
-            return self.middleWidth
-        return score.properties.globalCountLine.middleWidth
-
-    @property
-    def dashPattern_(self, score: 'SCORE') -> List[int]:
-        '''Get the actual dash pattern to use, considering inheritance.'''
-        if self.dashPattern != [2, 2]:
-            return self.dashPattern
-        return score.properties.globalCountLine.dashPattern
+    # Inheritable fields - None means inherit from global properties
+    color: Optional[str] = Field(default=None, description="Color, None to inherit from globalCountLine")
+    middleWidth: Optional[float] = Field(default=None, description="Width, None to inherit from globalCountLine")
+    sideWidth: Optional[float] = Field(default=None, description="Side width, None to inherit from globalCountLine")
+    dashPattern: Optional[List[int]] = Field(default=None, description="Dash pattern, None to inherit from globalCountLine")
+    
+    # Score reference (not serialized to JSON)
+    score: Optional['SCORE'] = Field(default=None, exclude=True)
+    
+    class Config:
+        extra = 'forbid'
+        use_enum_values = True
+        arbitrary_types_allowed = True
+    
+    def __init__(self, **data):
+        # Extract score reference to set after initialization
+        score = data.pop('score', None)
+        super().__init__(**data)
+        if score is not None:
+            object.__setattr__(self, 'score', score)
+    
+    def __getattribute__(self, name: str):
+        """Handle property inheritance transparently."""
+        # Allow access to private/special attributes and methods
+        if (name.startswith('_') or name in ('dict', 'json', 'copy', '__fields__', 'Config', 'score') or
+            hasattr(BaseModel, name)):
+            return super().__getattribute__(name)
+        
+        # Get the stored value
+        value = super().__getattribute__(name)
+        
+        # Check if this field should inherit (value is None)
+        if value is None and name in ['color', 'middleWidth', 'sideWidth', 'dashPattern']:
+            return self._get_inherited_value(name)
+        
+        return value
+    
+    def _get_inherited_value(self, field_name: str):
+        """Get the inherited value from global properties."""
+        score = super().__getattribute__('score')
+        if score is None:
+            return self._get_default_value(field_name)
+        
+        if field_name == 'color':
+            return score.properties.globalCountLine.color
+        elif field_name == 'middleWidth':
+            return score.properties.globalCountLine.width
+        elif field_name == 'sideWidth':
+            return score.properties.globalCountLine.sideWidth
+        elif field_name == 'dashPattern':
+            return score.properties.globalCountLine.dashPattern
+        
+        return self._get_default_value(field_name)
+    
+    def _get_default_value(self, field_name: str):
+        """Get default values when no score reference."""
+        defaults = {
+            'color': '#000000',
+            'middleWidth': 1.0,
+            'sideWidth': 0.5,
+            'dashPattern': [2, 2]
+        }
+        return defaults.get(field_name, None)
+    
+    def get_literal_value(self, field_name: str):
+        """Get the actual stored value without inheritance."""
+        return super().__getattribute__(field_name)
+    
+    def set_score_reference(self, score: 'SCORE'):
+        """Set the score reference for inheritance."""
+        object.__setattr__(self, 'score', score)

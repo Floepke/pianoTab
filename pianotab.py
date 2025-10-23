@@ -6,7 +6,6 @@ Main application entry point for Kivy version.
 This is the main launcher for the PianoTab application.
 It initializes and runs the Kivy GUI.
 """
-
 import sys
 import os
 
@@ -19,8 +18,8 @@ from kivy.config import Config
 # Set window size and position
 Config.set('graphics', 'width', '1400')
 Config.set('graphics', 'height', '800')
-Config.set('graphics', 'minimum_width', '800')
-Config.set('graphics', 'minimum_height', '600')
+Config.set('graphics', 'minimum_width', '100')
+Config.set('graphics', 'minimum_height', '100')
 Config.set('graphics', 'resizable', True)
 
 # Set multisampling for smoother graphics
@@ -35,9 +34,13 @@ Config.set('kivy', 'keyboard_mode', '')
 from kivy.app import App
 from kivy.core.window import Window
 from kivy.logger import Logger
+from kivy.metrics import Metrics
 from gui.main_gui import PianoTabGUI
 from editor.editor import Editor
 
+# set global scaling from kivy
+Metrics.density = 6  # 3x scaling
+Metrics.fontscale = .25  # 0.5x font scaling
 
 class PianoTab(App):
     """Main PianoTab application entry point and structure overview."""

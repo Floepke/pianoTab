@@ -1,12 +1,11 @@
 from typing import List
-from dataclasses import dataclass, field
+from pydantic import BaseModel, Field
 
-@dataclass
-class Basegrid:
-    numerator: int = 4
-    denominator: int = 4
-    gridTimes: List[float] = field(
+class Basegrid(BaseModel):
+    numerator: int = Field(default=4)
+    denominator: int = Field(default=4)
+    gridTimes: List[float] = Field(
         default_factory=lambda: [256.0, 512.0, 768.0]
     )
-    measureAmount: int = 8
-    timeSignatureIndicatorVisible: bool = True
+    measureAmount: int = Field(default=8)
+    timeSignatureIndicatorVisible: bool = Field(default=True)

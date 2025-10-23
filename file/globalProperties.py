@@ -1,112 +1,99 @@
-from dataclasses import dataclass, field
+from pydantic import BaseModel, Field
 from typing import List, Literal
 
-@dataclass
-class GlobalNote:
-    color: str = '#000000'
-    colorLeftMidiNote: str = '#000000'
-    colorRightMidiNote: str = '#000000'
-    stemWidth: float = 1.0
-    stemLength: float = 10.0
-    beamWidth: float = 1.0
-    blackNoteDirection: Literal['^', 'v'] = 'v'
-    noteHeadVisible: bool = True
-    stemVisible: bool = True
-    midiNoteVisible: bool = True
-    accidentalVisible: bool = True
-    noteStopVisible: bool = True
-    continuationDotVisible: bool = True
-    leftDotVisible: bool = True
+class GlobalNote(BaseModel):
+    color: str = Field(default='#000000')
+    colorLeftMidiNote: str = Field(default='#000000')
+    colorRightMidiNote: str = Field(default='#000000')
+    stemWidth: float = Field(default=1.0)
+    stemLength: float = Field(default=10.0)
+    beamWidth: float = Field(default=1.0)
+    blackNoteDirection: Literal['^', 'v'] = Field(default='v')
+    noteHeadVisible: bool = Field(default=True)
+    stemVisible: bool = Field(default=True)
+    midiNoteVisible: bool = Field(default=True)
+    accidentalVisible: bool = Field(default=True)
+    noteStopVisible: bool = Field(default=True)
+    continuationDotVisible: bool = Field(default=True)
+    leftDotVisible: bool = Field(default=True)
 
-@dataclass
-class GlobalArticulation:
-    color: str = '#000000'
-    visible: bool = True
+class GlobalArticulation(BaseModel):
+    color: str = Field(default='#000000')
+    visible: bool = Field(default=True)
 
-@dataclass
-class GlobalBeam:
-    color: str = '#000000'
-    width: float = 4.0
-    slant: float = 5.0
-    visible: int = True
+class GlobalBeam(BaseModel):
+    color: str = Field(default='#000000')
+    width: float = Field(default=4.0)
+    slant: float = Field(default=5.0)
+    visible: int = Field(default=True)
 
-@dataclass
-class GlobalGracenote:
-    color: str = '#000000'
-    visible: int = True
+class GlobalGracenote(BaseModel):
+    color: str = Field(default='#000000')
+    visible: int = Field(default=True)
 
-@dataclass
-class GlobalCountline:
-    color: str = '#000000'
-    width: float = 1.0
-    dashPattern: List[int] = field(default_factory=list)
-    visible: int = True
+class GlobalCountline(BaseModel):
+    color: str = Field(default='#000000')
+    width: float = Field(default=1.0)
+    sideWidth: float = Field(default=0.5)
+    dashPattern: List[int] = Field(default_factory=list)
+    visible: int = Field(default=True)
 
-@dataclass
-class GlobalSlur:
-    color: str = '#000000'
-    middleWidth: float = 1.0
-    startEndWidth: float = .5
-    visible: int = True
+class GlobalSlur(BaseModel):
+    color: str = Field(default='#000000')
+    middleWidth: float = Field(default=1.0)
+    startEndWidth: float = Field(default=.5)
+    visible: int = Field(default=True)
 
-@dataclass
-class GlobalText:
-    fontSize: int = 12
-    family: str = 'Courier New'
-    color: str = '#000000'
+class GlobalText(BaseModel):
+    fontSize: int = Field(default=12)
+    family: str = Field(default='Courier New')
+    color: str = Field(default='#000000')
 
-@dataclass
-class GlobalBarline:
-    color: str = '#000000'
-    width: float = 1.0
-    visible: int = True
+class GlobalBarline(BaseModel):
+    color: str = Field(default='#000000')
+    width: float = Field(default=1.0)
+    visible: int = Field(default=True)
 
-@dataclass
-class GlobalBasegrid:
-    gridlineColor: str = '#000000'
-    gridlineWidth: float = 1.0
-    gridLineDashPattern: List[int] = field(default_factory=lambda: [4, 4])
-    barlineColor: str = '#000000'
-    barlineWidth: float = 2.0
-    fontSize: int = 12
+class GlobalBasegrid(BaseModel):
+    gridlineColor: str = Field(default='#000000')
+    gridlineWidth: float = Field(default=1.0)
+    gridLineDashPattern: List[int] = Field(default_factory=lambda: [4, 4])
+    barlineColor: str = Field(default='#000000')
+    barlineWidth: float = Field(default=2.0)
+    fontSize: int = Field(default=12)
 
-@dataclass
-class GlobalStave:
-    twoLineColor: str = '#000000'
-    threeLineColor: str = '#000000'
-    clefColor: str = '#000000'
-    twoLineWidth: float = 1.0
-    threeLineWidth: float = 2.0
-    clefWidth: float = 1.0
-    visible: int = True
-    clefDashPattern: List[int] = field(default_factory=lambda: [4, 4])
+class GlobalStave(BaseModel):
+    twoLineColor: str = Field(default='#000000')
+    threeLineColor: str = Field(default='#000000')
+    clefColor: str = Field(default='#000000')
+    twoLineWidth: float = Field(default=1.0)
+    threeLineWidth: float = Field(default=2.0)
+    clefWidth: float = Field(default=1.0)
+    visible: int = Field(default=True)
+    clefDashPattern: List[int] = Field(default_factory=lambda: [4, 4])
 
-@dataclass
-class GlobalPage:
+class GlobalPage(BaseModel):
     # all measurements in mm:
-    width: float = 210.0
-    height: float = 297.0
-    marginLeft: float = 5.0
-    marginRight: float = 5.0
-    marginUp: float = 10.0
-    marginDown: float = 10.0
-    headerHeight: float = 12.5
-    footerHeight: float = 12.5
+    width: float = Field(default=210.0)
+    height: float = Field(default=297.0)
+    marginLeft: float = Field(default=5.0)
+    marginRight: float = Field(default=5.0)
+    marginUp: float = Field(default=10.0)
+    marginDown: float = Field(default=10.0)
+    headerHeight: float = Field(default=12.5)
+    footerHeight: float = Field(default=12.5)
 
-@dataclass
-class GlobalSection:
-    color: str = '#000000'
-    lineWidth: float = 1.0
-    visible: bool = True
+class GlobalSection(BaseModel):
+    color: str = Field(default='#000000')
+    lineWidth: float = Field(default=1.0)
+    visible: bool = Field(default=True)
 
-@dataclass
-class GlobalStartRepeat:
-    color: str = '#000000'
-    lineWidth: float = 1.0
-    visible: bool = True
+class GlobalStartRepeat(BaseModel):
+    color: str = Field(default='#000000')
+    lineWidth: float = Field(default=1.0)
+    visible: bool = Field(default=True)
 
-@dataclass
-class GlobalEndRepeat:
-    color: str = '#000000'
-    lineWidth: float = 1.0
-    visible: bool = True
+class GlobalEndRepeat(BaseModel):
+    color: str = Field(default='#000000')
+    lineWidth: float = Field(default=1.0)
+    visible: bool = Field(default=True)

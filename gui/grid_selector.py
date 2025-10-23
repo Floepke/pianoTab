@@ -190,6 +190,11 @@ class GridSelector(BoxLayout):
         
         self.create_widgets()
         self.update_grid_step()
+
+    def _get_grid_lengths(self):
+        """calculates the right grid lengths based on the file models pianoTick value."""
+        pianotick = ...
+        return self.grid_lengths
     
     def update_graphics(self, *args):
         """Update all graphics when size/pos changes."""

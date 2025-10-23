@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from pydantic import BaseModel, Field
 from typing import List, Literal
 from file.globalProperties import (
         GlobalNote, GlobalArticulation, GlobalBeam, 
@@ -8,22 +8,21 @@ from file.globalProperties import (
         GlobalStartRepeat, GlobalEndRepeat
     )
 
-@dataclass
-class Properties:
-    globalNote: GlobalNote = field(default_factory=lambda: GlobalNote())
-    globalArticulation: GlobalArticulation = field(default_factory=lambda: GlobalArticulation())
-    globalBeam: GlobalBeam = field(default_factory=lambda: GlobalBeam())
-    globalGraceNote: GlobalGracenote = field(default_factory=lambda: GlobalGracenote())
-    globalCountLine: GlobalCountline = field(default_factory=lambda: GlobalCountline())
-    globalSlur: GlobalSlur = field(default_factory=lambda: GlobalSlur())
-    globalText: GlobalText = field(default_factory=lambda: GlobalText())
-    globalBarLine: GlobalBarline = field(default_factory=lambda: GlobalBarline())
-    globalBasegrid: GlobalBasegrid = field(default_factory=lambda: GlobalBasegrid())
-    globalStave: GlobalStave = field(default_factory=lambda: GlobalStave())
-    globalPage: GlobalPage = field(default_factory=lambda: GlobalPage())
-    globalSection: GlobalSection = field(default_factory=lambda: GlobalSection())
-    globalStartRepeat: GlobalStartRepeat = field(default_factory=lambda: GlobalStartRepeat())
-    globalEndrepeat: GlobalEndRepeat = field(default_factory=lambda: GlobalEndRepeat())
-    editorZoomPixelsQuarter: int = 100
-    stopSignType: Literal['PianoTab', 'Klavarskribo'] = 'PianoTab'
-    drawScale: float = 0.75
+class Properties(BaseModel):
+    globalNote: GlobalNote = Field(default_factory=GlobalNote)
+    globalArticulation: GlobalArticulation = Field(default_factory=GlobalArticulation)
+    globalBeam: GlobalBeam = Field(default_factory=GlobalBeam)
+    globalGraceNote: GlobalGracenote = Field(default_factory=GlobalGracenote)
+    globalCountLine: GlobalCountline = Field(default_factory=GlobalCountline)
+    globalSlur: GlobalSlur = Field(default_factory=GlobalSlur)
+    globalText: GlobalText = Field(default_factory=GlobalText)
+    globalBarLine: GlobalBarline = Field(default_factory=GlobalBarline)
+    globalBasegrid: GlobalBasegrid = Field(default_factory=GlobalBasegrid)
+    globalStave: GlobalStave = Field(default_factory=GlobalStave)
+    globalPage: GlobalPage = Field(default_factory=GlobalPage)
+    globalSection: GlobalSection = Field(default_factory=GlobalSection)
+    globalStartRepeat: GlobalStartRepeat = Field(default_factory=GlobalStartRepeat)
+    globalEndrepeat: GlobalEndRepeat = Field(default_factory=GlobalEndRepeat)
+    editorZoomPixelsQuarter: int = Field(default=100)
+    stopSignType: Literal['PianoTab', 'Klavarskribo'] = Field(default='PianoTab')
+    drawScale: float = Field(default=0.75)
