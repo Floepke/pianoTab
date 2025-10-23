@@ -12,8 +12,7 @@ class CountLine(BaseModel):
     
     # Inheritable fields - None means inherit from global properties
     color: Optional[str] = Field(default=None, description="Color, None to inherit from globalCountLine")
-    middleWidth: Optional[float] = Field(default=None, description="Width, None to inherit from globalCountLine")
-    sideWidth: Optional[float] = Field(default=None, description="Side width, None to inherit from globalCountLine")
+    width: Optional[float] = Field(default=None, description="Width, None to inherit from globalCountLine")
     dashPattern: Optional[List[int]] = Field(default=None, description="Dash pattern, None to inherit from globalCountLine")
     
     # Score reference (not serialized to JSON)
@@ -42,7 +41,7 @@ class CountLine(BaseModel):
         value = super().__getattribute__(name)
         
         # Check if this field should inherit (value is None)
-        if value is None and name in ['color', 'middleWidth', 'sideWidth', 'dashPattern']:
+        if value is None and name in ['color', 'width', 'dashPattern']:
             return self._get_inherited_value(name)
         
         return value
@@ -55,10 +54,8 @@ class CountLine(BaseModel):
         
         if field_name == 'color':
             return score.properties.globalCountLine.color
-        elif field_name == 'middleWidth':
+        elif field_name == 'width':
             return score.properties.globalCountLine.width
-        elif field_name == 'sideWidth':
-            return score.properties.globalCountLine.sideWidth
         elif field_name == 'dashPattern':
             return score.properties.globalCountLine.dashPattern
         
@@ -68,8 +65,7 @@ class CountLine(BaseModel):
         """Get default values when no score reference."""
         defaults = {
             'color': '#000000',
-            'middleWidth': 1.0,
-            'sideWidth': 0.5,
+            'width': 1.0,
             'dashPattern': [2, 2]
         }
         return defaults.get(field_name, None)

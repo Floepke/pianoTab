@@ -189,7 +189,7 @@ class GridSelector(BoxLayout):
         self.bind(pos=self.update_graphics, size=self.update_graphics)
         
         self.create_widgets()
-        self.update_grid_step()
+        self.update_grid_step_label()
 
     def _get_grid_lengths(self):
         """calculates the right grid lengths based on the file models pianoTick value."""
@@ -310,7 +310,7 @@ class GridSelector(BoxLayout):
         """Handle grid length selection."""
         self.current_grid_name = grid_name
         self.update_selection()
-        self.update_grid_step()
+        self.update_grid_step_label()
         
         if self.callback:
             self.callback(self.current_grid_step)
@@ -323,12 +323,12 @@ class GridSelector(BoxLayout):
     def on_subdivision_change(self, instance, value):
         """Handle subdivision value change."""
         self.subdivision = int(value)
-        self.update_grid_step()
+        self.update_grid_step_label()
         
         if self.callback:
             self.callback(self.current_grid_step)
     
-    def update_grid_step(self):
+    def update_grid_step_label(self):
         """Update the grid step label with calculated value."""
         self.current_grid_step = self.get_grid_step()
         
@@ -349,7 +349,7 @@ class GridSelector(BoxLayout):
                 break
         
         # Calculate grid step (piano ticks divided by subdivision)
-        grid_step = grid_ticks / float(self.subdivision)
+        grid_step = grid_ticks / self.subdivision
         return grid_step
     
     def get_current_grid(self):

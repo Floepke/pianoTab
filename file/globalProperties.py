@@ -34,7 +34,6 @@ class GlobalGracenote(BaseModel):
 class GlobalCountline(BaseModel):
     color: str = Field(default='#000000')
     width: float = Field(default=1.0)
-    sideWidth: float = Field(default=0.5)
     dashPattern: List[int] = Field(default_factory=list)
     visible: int = Field(default=True)
 

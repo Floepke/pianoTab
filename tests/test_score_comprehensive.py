@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.join(project_root, 'file'))
 
 from file.SCORE import SCORE
 from file.note import Note
-from file.graceNote import Gracenote
+from file.graceNote import GraceNote
 from file.text import Text
 from file.countLine import CountLine
 from file.beam import Beam
@@ -45,7 +45,7 @@ def test_score_creation_and_events():
     score.properties.globalBeam.color = "#0000FF"  # Blue beams
     score.properties.globalSlur.color = "#FFFF00"  # Yellow slurs
     score.properties.globalGraceNote.color = "#FF00FF"  # Magenta grace notes
-    score.properties.globalCountLine.sideWidth = 1.5  # Set global side width for count lines
+    score.properties.globalCountLine.width = 1.5  # Set global width for count lines
     
     print(f"Created score by: {score.metaInfo.author}")
     print(f"Description: {score.metaInfo.description}")
@@ -68,10 +68,10 @@ def test_score_creation_and_events():
     print(f"  text2.color={text2.color}, text2.fontSize={text2.fontSize}")
     
     # 4. Add count lines with inheritance and explicit values
-    countline1 = score.new_count_line(time=100.0, pitch1=50, pitch2=70)  # Inherits sideWidth
-    countline2 = score.new_count_line(time=150.0, pitch1=52, pitch2=72, sideWidth=2.5)  # Explicit sideWidth
-    print(f"✓ Added count lines: countline1.sideWidth={countline1.sideWidth} (inheritance)")
-    print(f"  countline2.sideWidth={countline2.sideWidth} (explicit), color={countline1.color}")
+    countline1 = score.new_count_line(time=100.0, pitch1=50, pitch2=70)  # Inherits width from global
+    countline2 = score.new_count_line(time=150.0, pitch1=52, pitch2=72, width=2.5)  # Explicit width
+    print(f"✓ Added count lines: countline1.width={countline1.width} (inherited from global)")
+    print(f"  countline2.width={countline2.width} (explicit), color={countline1.color}")
     
     # 5. Add beams
     beam1 = score.new_beam(time=200.0, staff=1.0)  # Inherits blue color

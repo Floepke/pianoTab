@@ -12,10 +12,10 @@ if __name__ == '__main__':
 from file.metaInfo import Metainfo
 from file.header import Header
 from file.properties import Properties
-from file.baseGrid import Basegrid
+from file.baseGrid import BaseGrid
 from file.lineBreak import LineBreak
 from file.note import Note
-from file.graceNote import Gracenote
+from file.graceNote import GraceNote
 from file.countLine import CountLine
 from file.startRepeat import StartRepeat
 from file.endRepeat import EndRepeat
@@ -29,7 +29,7 @@ from file.id import IDGenerator
 
 class Event(BaseModel):
     note: List[Note] = Field(default_factory=list)
-    graceNote: List[Gracenote] = Field(default_factory=list)
+    graceNote: List[GraceNote] = Field(default_factory=list)
     countLine: List[CountLine] = Field(default_factory=list)
     startRepeat: List[StartRepeat] = Field(default_factory=list)
     endRepeat: List[EndRepeat] = Field(default_factory=list)
@@ -58,9 +58,9 @@ class SCORE(BaseModel):
     metaInfo: Metainfo = Field(default_factory=Metainfo)
     header: Header = Field(default_factory=Header)
     properties: Properties = Field(default_factory=Properties)
-    baseGrid: List[Basegrid] = Field(default_factory=list)
+    baseGrid: List[BaseGrid] = Field(default_factory=list)
     lineBreak: List[LineBreak] = Field(default_factory=list)
-    stave: List[Stave] = Field(default_factory=lambda: [Stave()])
+    stave: List[Stave] = Field(default_factory=list)
     
     class Config:
         arbitrary_types_allowed = True
@@ -76,7 +76,11 @@ class SCORE(BaseModel):
 
         # ensure there's always one baseGrid:
         if not self.baseGrid:
-            self.baseGrid.append(Basegrid())
+            self.baseGrid.append(BaseGrid())
+        
+        # ensure there's always one stave:
+        if not self.stave:
+            self.stave.append(Stave())
 
     def _next_id(self) -> int:
         """Get the next unique ID for this score."""
@@ -87,20 +91,17 @@ class SCORE(BaseModel):
         self._id.reset(start_id)
     
     # Convenience methods for managing line breaks and base grids:
-    def add_basegrid(self, gridlineColor: str = '#000000',
-                     barlineColor: str = '#000000',
-                     gridlineWidth: float = 0.5,
-                     barlineWidth: float = 1.0,
-                     basegridDashPattern: List[int] = [],
-                     visible: bool = True) -> None:
+    def add_basegrid(self, numerator: int = 4,
+                     denominator: int = 4,
+                     gridTimes: List[float] = [256.0, 512.0, 768.0],
+                     measureAmount: int = 8,
+                     timeSignatureIndicatorVisible: bool = True) -> None:
         '''Add a new baseGrid to the score.'''
-        basegrid = Basegrid(id=self._next_id(),
-                            gridlineColor=gridlineColor,
-                            barlineColor=barlineColor,
-                            gridlineWidth=gridlineWidth,
-                            barlineWidth=barlineWidth,
-                            basegridDashPattern=basegridDashPattern,
-                            visible=visible)
+        basegrid = BaseGrid(numerator=numerator,
+                            denominator=denominator,
+                            gridTimes=gridTimes,
+                            measureAmount=measureAmount,
+                            timeSignatureIndicatorVisible=timeSignatureIndicatorVisible)
         self.baseGrid.append(basegrid)
 
     def add_linebreak(self, time: float = 0.0, type: Literal['manual', 'locked'] = 'manual', 
@@ -172,10 +173,10 @@ class SCORE(BaseModel):
                        time: float = 0.0,
                        pitch: int = 40, 
                        velocity: int = 80, 
-                       color: str = None) -> Gracenote:
+                       color: str = None) -> GraceNote:
         '''Add a grace note to the specified stave.'''
 
-        grace_note = Gracenote(id=self._next_id(), 
+        grace_note = GraceNote(id=self._next_id(), 
                               time=time,
                               pitch=pitch,
                               velocity=velocity,
@@ -185,23 +186,21 @@ class SCORE(BaseModel):
         self.get_stave(stave_idx).event.graceNote.append(grace_note)
         return grace_note
 
-    def new_count_line(self, 
+    def new_count_line(self,
+                       stave_idx: int = 0,
                        time: float = 0.0,
                        pitch1: int = 40, 
                        pitch2: int = 44, 
                        color: str = None, 
-                       width: float = None, 
-                       sideWidth: float = None,
-                       dashPattern: List[int] = None,
-                       stave_idx: int = 0) -> CountLine:
+                       width: float = None,
+                       dashPattern: List[int] = None) -> CountLine:
         '''Add a count line to the specified stave.'''
         count_line = CountLine(id=self._next_id(), 
                                time=time,
                                pitch1=pitch1,
                                pitch2=pitch2,
                                color=color,
-                               middleWidth=width,
-                               sideWidth=sideWidth,
+                               width=width,
                                dashPattern=dashPattern,
                                score=self)
         self.get_stave(stave_idx).event.countLine.append(count_line)
@@ -350,8 +349,8 @@ class SCORE(BaseModel):
     
     def find_by_id(self, target_id: int) -> Optional[Event]:
         '''Find any event by ID across all staves and return the event object.'''
-        # Get event type names directly from the Event dataclass
-        event_types = list(Event.__dataclass_fields__.keys())
+        # Get event type names from the Pydantic model fields
+        event_types = list(Event.__fields__.keys())
         
         # find the event with the matching ID
         for stave in self.stave:
@@ -365,8 +364,8 @@ class SCORE(BaseModel):
 
     def delete_by_id(self, id: int) -> bool:
         '''Delete any event by ID across all staves. Returns True if deleted, False if not found.'''
-        # Get event type names directly from the Event dataclass
-        event_types = list(Event.__dataclass_fields__.keys())
+        # Get event type names from the Pydantic model fields
+        event_types = list(Event.__fields__.keys())
         
         # find and delete the event with the matching ID
         for stave in self.stave:
@@ -381,12 +380,19 @@ class SCORE(BaseModel):
 
     def renumber_id(self) -> None:
         '''Renumber all events across all staves with sequential IDs.'''
-        self._id.reset(0)
+        self._id.reset(1)
+        
+        # Renumber linebreaks (they have IDs)
+        for linebreak in self.lineBreak:
+            if hasattr(linebreak, 'id'):
+                linebreak.id = self._next_id()
+        
+        # Note: basegrids don't have IDs, so we skip them
         
         # Get event type names from the Pydantic model fields
         event_types = list(Event.__fields__.keys())
         
-        # renumber all events
+        # renumber all events in all staves
         for stave in self.stave:
             for event_type in event_types:
                 event_list = getattr(stave.event, event_type)
@@ -452,7 +458,7 @@ if __name__ == '__main__':
     score = SCORE()
     score.quarterNote = 256.0
     score.metaInfo.author = "Composer Name"
-    score.metaInfo.description = "A sample piano tab score."
+    score.metaInfo.description = "A sample pianoTab score."
 
     print("Adding staves...")
     stave1_idx = score.add_stave(name="Organ pedal")

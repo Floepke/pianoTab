@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # This is required so pickle can deserialize them
 from file.SCORE import SCORE, Event, Stave
 from file.note import Note
-from file.graceNote import Gracenote
+from file.graceNote import GraceNote
 from file.countLine import CountLine
 from file.startRepeat import StartRepeat
 from file.endRepeat import EndRepeat
@@ -37,7 +37,7 @@ from file.tempo import Tempo
 from file.metaInfo import Metainfo
 from file.header import Header
 from file.properties import Properties
-from file.baseGrid import Basegrid
+from file.baseGrid import BaseGrid
 from file.lineBreak import LineBreak
 from file.id import IDGenerator
 

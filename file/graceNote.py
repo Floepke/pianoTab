@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from file.SCORE import SCORE
 
-class Gracenote(BaseModel):
+class GraceNote(BaseModel):
     # Core fields
     id: int = Field(default=0)
     time: float = Field(default=0.0)

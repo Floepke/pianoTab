@@ -5,7 +5,7 @@
     "extension": ".pianotab",
     "description": "Comprehensive test score with all event types",
     "version": "1.0",
-    "created": "23-10-2025_12:49:10",
+    "created": "24-10-2025_01:15:39",
     "author": "Test Author",
     "license": "MIT"
   },
@@ -17,7 +17,7 @@
     "lyricist": "",
     "publisher": "",
     "copyright": "Copyright © 2025, PianoTab. All rights reserved.",
-    "timeStamp": "23-10-2025_12:49:10",
+    "timeStamp": "24-10-2025_01:15:39",
     "genre": "",
     "comment": ""
   },
@@ -54,9 +54,8 @@
     },
     "globalCountLine": {
       "color": "#000000",
-      "width": 1.0,
-      "sideWidth": 1.5,
-      "dashPattern": [],
+      "width": 1.5,
+      "dashPattern": [2, 2],
       "visible": true
     },
     "globalSlur": {
@@ -211,8 +210,7 @@
             "pitch1": 50,
             "pitch2": 70,
             "color": null,
-            "middleWidth": null,
-            "sideWidth": null,
+            "width": null,
             "dashPattern": null
           },
           {
@@ -221,8 +219,7 @@
             "pitch1": 52,
             "pitch2": 72,
             "color": null,
-            "middleWidth": null,
-            "sideWidth": 2.5,
+            "width": 2.5,
             "dashPattern": null
           }
         ],
