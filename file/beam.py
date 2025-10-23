@@ -1,10 +1,8 @@
 from dataclasses import dataclass
-from dataclasses_json import dataclass_json
 from typing import Literal, TYPE_CHECKING
 if TYPE_CHECKING:
     from file.SCORE import SCORE
 
-@dataclass_json
 @dataclass
 class Beam:
     id: int = 0

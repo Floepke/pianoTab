@@ -1,11 +1,9 @@
 from dataclasses import dataclass, field
-from dataclasses_json import dataclass_json
 from file.articulation import Articulation
 from typing import List, TYPE_CHECKING, Literal, Union
 if TYPE_CHECKING:
     from file.SCORE import SCORE
 
-@dataclass_json
 @dataclass
 class Note:
     id: int = 0

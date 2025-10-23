@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from typing import List, Literal
-from dataclasses_json import dataclass_json
 from file.globalProperties import (
         GlobalNote, GlobalArticulation, GlobalBeam, 
         GlobalGracenote, GlobalCountline, GlobalSlur, 
@@ -9,7 +8,6 @@ from file.globalProperties import (
         GlobalStartRepeat, GlobalEndRepeat
     )
 
-@dataclass_json
 @dataclass
 class Properties:
     globalNote: GlobalNote = field(default_factory=lambda: GlobalNote())

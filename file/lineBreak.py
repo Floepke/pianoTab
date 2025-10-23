@@ -1,8 +1,6 @@
 from dataclasses import dataclass
-from dataclasses_json import dataclass_json
 from typing import Literal
 
-@dataclass_json
 @dataclass
 class Linebreak:
     id: int = 0

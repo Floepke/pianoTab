@@ -1,99 +1,87 @@
 #!/usr/bin/env python3
-
 """
-    PianoTab Main Application
+PianoTab - Music Notation Editor
+Main application entry point for Kivy version.
 
-    pianoTab is a music notation editor focused on piano sheet music in an unconventional way.
-    in short it is a piano-roll editor suitable for printing on paper. It's condensed form of staves
-    makes it readable and compact.
+This is the main launcher for the PianoTab application.
+It initializes and runs the Kivy GUI.
 """
 
-import tkinter as tk
-import customtkinter as ctk
-from logger import log
-
-# TODO: Make this scaling settings available in app settings
-ctk.set_appearance_mode('dark')
-ctk.set_default_color_theme('blue')
-WIDGET_SCALE = 2  # Adjust as needed (try 1.0, 1.25, 1.5, 2.0)
-WINDOW_SCALE = 2  # Adjust as needed
-ctk.set_widget_scaling(WIDGET_SCALE)
-ctk.set_window_scaling(WINDOW_SCALE)
-
-print(f"CustomTkinter scaling set to: Widget={WIDGET_SCALE}, Window={WINDOW_SCALE}")
-
-import platform
+import sys
 import os
+
+# Add current directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from kivy.config import Config
+
+# Configure Kivy before importing other Kivy modules
+# Set window size and position
+Config.set('graphics', 'width', '1400')
+Config.set('graphics', 'height', '800')
+Config.set('graphics', 'minimum_width', '800')
+Config.set('graphics', 'minimum_height', '600')
+Config.set('graphics', 'resizable', True)
+
+# Set multisampling for smoother graphics
+Config.set('graphics', 'multisamples', '2')
+
+# Enable window maximized on startup (platform-specific)
+Config.set('graphics', 'window_state', 'maximized')
+
+# Disable virtual keyboard for desktop app
+Config.set('kivy', 'keyboard_mode', '')
+
+from kivy.app import App
+from kivy.core.window import Window
+from kivy.logger import Logger
 from gui.main_gui import PianoTabGUI
 from editor.editor import Editor
-from file.SCORE import SCORE
 
-class PianoTabApplication:
-    """Main application class that integrates GUI with business logic."""
-    
-    def __init__(self):
-        # Create main window
-        self.root = ctk.CTk()
-        
-        # macOS focus fix - bring window to front and focus
-        if platform.system() == "Darwin":  # macOS
-            self.fix_macos_focus()
-        
-        # Initialize GUI with scaling factor
-        self.gui = PianoTabGUI(self.root, widget_scale=WIDGET_SCALE)
-        self.root.update_idletasks()  # Force tkinter to update widget dimensions
 
-        # Initialize new SCORE
-        self.score = SCORE()
+class PianoTab(App):
+    """Main PianoTab application entry point and structure overview."""
 
-        # Initialize editor
-        self.editor = Editor(self.gui.editor_canvas, self.score, self.gui.grid_selector)
+    title = 'PianoTab - Music Notation Editor (Kivy)'
 
-        # Bind mouse release to update drawing on panedwindow sash
-        self.gui.editor_preview_paned.bind('<Motion>', lambda e: self.editor.drawer.update())
-        self.root.bind('<Escape>', lambda e: self.quit())
-        
-        # Application state
-        self.current_file = None
-        self.is_modified = False
-        
-    def fix_macos_focus(self):
-        """Fix window focus issues on macOS."""
-        # Bring window to front
-        self.root.lift()
-        self.root.attributes('-topmost', True)
-        self.root.focus_force()
-        
-        # Schedule to remove topmost after window is shown
-        self.root.after(100, lambda: self.root.attributes('-topmost', False))
-        
-        # Alternative method using AppleScript (more reliable)
+    def build(self):
+        # Window and theme
+        Window.clearcolor = (0.10, 0.10, 0.12, 1)
         try:
-            import subprocess
-            # Get the current application name
-            app_name = "Python"  # or "PianoTab" if you set it
-            script = f'''
-                tell application "System Events"
-                    set frontmost of process "{app_name}" to true
-                end tell
-            '''
-            subprocess.run(["osascript", "-e", script], check=False)
+            # Maximize on supported platforms
+            Window.maximize()
         except Exception:
-            # Fallback if AppleScript fails
             pass
-        
-    def run(self):
-        """Start the application."""
-        print("🎹 PianoTab Application Starting...")
-        self.root.mainloop()
 
-    def quit(self):
-        """Quit the application."""
-        print("👋 PianoTab Application Exiting...")
-        self.root.quit()
-        self.root.destroy()
+        # Build GUI structure (left side panel + split view with editor/preview)
+        self.gui = PianoTabGUI()
 
-# Entry point
-if __name__ == "__main__":
-    app = PianoTabApplication()
-    app.run()
+        # Create Editor controller and attach to the editor canvas
+        self.editor = Editor(self.gui.get_editor_widget())
+        self.editor.load_empty()
+
+        return self.gui
+
+    def on_start(self):
+        Logger.info('PianoTab: Application started')
+
+
+def main():
+    """Main entry point for PianoTab application."""
+    Logger.info('PianoTab: Starting PianoTab Music Notation Editor')
+    app = PianoTab()
+    try:
+        app.run()
+    except KeyboardInterrupt:
+        Logger.info('PianoTab: Application interrupted by user')
+    except Exception as e:
+        Logger.error(f'PianoTab: Unexpected error: {e}')
+        import traceback
+        traceback.print_exc()
+        return 1
+    Logger.info('PianoTab: Application closed')
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

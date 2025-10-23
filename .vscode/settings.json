@@ -1,9 +1,0 @@
-{
-    "python.defaultInterpreterPath": "python3",
-    "task.autoDetect": "off",
-    "typescript.tsc.autoDetect": "off",
-    "npm.autoDetect": "off",
-    "grunt.autoDetect": "off",
-    "gulp.autoDetect": "off",
-    "jake.autoDetect": "off"
-}

@@ -1,7 +1,13 @@
 from dataclasses import dataclass, field
-from dataclasses_json import dataclass_json
+import pprint
 from typing import List, Literal, Optional
-import json
+import pickle
+import sys
+from pathlib import Path
+
+if __name__ == '__main__':
+    # Add parent directory to path when running directly
+    sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from file.metaInfo import Metainfo
 from file.header import Header
@@ -19,9 +25,9 @@ from file.text import Text
 from file.slur import Slur
 from file.tempo import Tempo
 from file.id import IDGenerator
+from file.dataclass_repair import repair_missing_fields
 
 
-@dataclass_json
 @dataclass
 class Event:
     note: List[Note] = field(default_factory=list)
@@ -35,18 +41,17 @@ class Event:
     slur: List[Slur] = field(default_factory=list)
     tempo: List[Tempo] = field(default_factory=list)
 
-@dataclass_json
 @dataclass
 class Stave:
     name: str = 'Stave 1'
     scale: float = 1.0
     event: Event = field(default_factory=Event)
 
-@dataclass_json
 @dataclass
 class SCORE:
     '''The main SCORE class; contains all data for a piano tab score.'''
-    
+
+    pianoTick: float = 256.0 # Default is 256.0 ticks per quarter note. All time values in this file are based on this.
     metaInfo: Metainfo = field(default_factory=Metainfo)
     header: Header = field(default_factory=Header)
     properties: Properties = field(default_factory=Properties)
@@ -347,18 +352,42 @@ class SCORE:
                     if hasattr(event, 'id'):
                         event.id = self._next_id()
 
-    # Convenience methods for JSON operations
+    # Convenience methods for pickle operations
     def save(self, filename: str) -> None:
-        '''Save SCORE instance to JSON file.'''
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(self.to_dict(), f, ensure_ascii=True, separators=(',', ':'), indent=None)
+        '''Save SCORE instance to pickle file.'''
+        with open(filename, 'wb') as f:
+            pickle.dump(self, f)
     
     @classmethod
     def load(cls, filename: str) -> 'SCORE':
-        '''Load ScoreFile instance from JSON file.'''
-        with open(filename, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        '''Load SCORE instance from pickle file.'''
+        with open(filename, 'rb') as f:
+            score = pickle.load(f)
 
-        score = cls.from_dict(data)
+        # Fill any missing dataclass fields with defaults to keep backward compatibility
+        repair_missing_fields(score)
+        
+        # Renumber IDs to ensure consistency
         score.renumber_id()
         return score
+
+
+if __name__ == '__main__':
+    # Simple test: create a SCORE, add some events, save and load
+    print("Creating test SCORE...")
+    score = SCORE()
+    score.metaInfo.title = 'Test Song'
+    score.metaInfo.composer = 'Test Composer'
+    
+    print("Adding notes...")
+    score.new_note(stave_idx=0, time=0.0, duration=256.0, pitch=60)
+    score.new_grace_note(stave_idx=0, time=128.0, pitch=62)
+    score.new_text(stave_idx=0, time=0.0, text='Hello World')
+    
+    print("Saving to pickle...")
+    score.save('test_score.pianotab')
+    
+    print("Loading from pickle...")
+    score = SCORE.load('test_score.pianotab')
+    
+    pprint.pprint(score)

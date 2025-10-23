@@ -1,10 +1,8 @@
 from dataclasses import dataclass, field
-from dataclasses_json import dataclass_json
 from typing import List, TYPE_CHECKING
 if TYPE_CHECKING:
     from file.SCORE import SCORE
 
-@dataclass_json
 @dataclass
 class Countline:
     id: int = 0

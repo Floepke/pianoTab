@@ -1,8 +1,6 @@
 from dataclasses import dataclass
-from dataclasses_json import dataclass_json
 import time
 
-@dataclass_json
 @dataclass
 class Header:
     title: str = 'Untitled'

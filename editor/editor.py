@@ -1,28 +1,51 @@
-from editor.editordrawer import EditorDrawer
-from file.SCORE import SCORE
-from gui.grid_selector import GridSelector
-from utils.canvas_tkinter2pymupdf import PdfCanvas
-from logger import log
+"""
+Editor module for PianoTab.
+
+Provides the Editor class that manages the editing model and draws to a Canvas.
+This is a minimal placeholder to integrate with the application structure.
+"""
+from __future__ import annotations
+from typing import Optional, Dict, Any
+
+from utils.canvas import Canvas
+
 
 class Editor:
-    def __init__(self, canvas: PdfCanvas, score: SCORE, grid_selector: GridSelector):
-        self.canvas = canvas
-        self.canvas.disable_pdf_mode()  # Disable PDF mode for editor
-        self.score = score
-        self.grid_selector = grid_selector
-        self.drawer = EditorDrawer(canvas, score, self.grid_selector)
+    """
+    High-level editor controller. Owns the score model and renders to a Canvas.
+    """
+    def __init__(self, canvas: Canvas):
+        self.canvas: Canvas = canvas
+        self.model: Optional[Dict[str, Any]] = None
+        # Example: configure canvas behavior for editor
+        self.canvas.set_scale_to_width(True)
 
-        # Set up the scroll region (adjust as needed)
-        self.canvas.configure(scrollregion=(0, 0, self.canvas.winfo_width(), self.canvas.winfo_height()))
+    def load_empty(self):
+        """Load an empty score (placeholder)."""
+        self.model = {'title': 'Untitled'}
+        self.canvas.clear()
+        # Draw some very light staff lines as placeholder
+        y = 20.0
+        for _ in range(5):
+            self.canvas.add_line(10.0, y, 190.0, y, color="#BDBDBD", width_mm=0.15)
+            y += 1.8
 
-        # Bind mouse wheel for vertical scrolling
-        self.canvas.bind('<MouseWheel>', self._on_mouse_wheel)  # Windows/macOS
-        self.canvas.bind('<Button-4>', self._on_mouse_wheel)    # Linux scroll up
-        self.canvas.bind('<Button-5>', self._on_mouse_wheel)    # Linux scroll down
+    def load_from_file(self, path: str):
+        """Load score from a file (stub)."""
+        # TODO: parse your PianoTab file format and populate model
+        self.model = {'title': 'Loaded', 'path': path}
+        self.redraw()
 
-    def _on_mouse_wheel(self, event):
-        '''Handle mouse wheel scrolling.'''
-        if event.num == 4 or event.delta > 0:  # Scroll up
-            self.canvas.yview_scroll(-1, 'units')
-        elif event.num == 5 or event.delta < 0:  # Scroll down
-            self.canvas.yview_scroll(1, 'units')
+    def set_model(self, model: Dict[str, Any]):
+        """Set the score model directly and redraw."""
+        self.model = model
+        self.redraw()
+
+    def redraw(self):
+        """Redraw the canvas based on model (stub)."""
+        self.canvas.clear()
+        if not self.model:
+            return
+        # Placeholder render: title underline
+        self.canvas.add_line(10, 15, 120, 15, color="#424242", width_mm=0.3)
+        # More rendering would go here

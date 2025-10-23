@@ -1,8 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List, Literal
-from dataclasses_json import dataclass_json
 
-@dataclass_json
 @dataclass
 class GlobalNote:
     color: str = '#000000'
@@ -20,13 +18,11 @@ class GlobalNote:
     continuationDotVisible: bool = True
     leftDotVisible: bool = True
 
-@dataclass_json
 @dataclass
 class GlobalArticulation:
     color: str = '#000000'
     visible: bool = True
 
-@dataclass_json
 @dataclass
 class GlobalBeam:
     color: str = '#000000'
@@ -34,13 +30,11 @@ class GlobalBeam:
     slant: float = 5.0
     visible: int = True
 
-@dataclass_json
 @dataclass
 class GlobalGracenote:
     color: str = '#000000'
     visible: int = True
 
-@dataclass_json
 @dataclass
 class GlobalCountline:
     color: str = '#000000'
@@ -48,7 +42,6 @@ class GlobalCountline:
     dashPattern: List[int] = field(default_factory=list)
     visible: int = True
 
-@dataclass_json
 @dataclass
 class GlobalSlur:
     color: str = '#000000'
@@ -56,21 +49,18 @@ class GlobalSlur:
     startEndWidth: float = .5
     visible: int = True
 
-@dataclass_json
 @dataclass
 class GlobalText:
     fontSize: int = 12
     family: str = 'Courier New'
     color: str = '#000000'
 
-@dataclass_json
 @dataclass
 class GlobalBarline:
     color: str = '#000000'
     width: float = 1.0
     visible: int = True
 
-@dataclass_json
 @dataclass
 class GlobalBasegrid:
     gridlineColor: str = '#000000'
@@ -80,7 +70,6 @@ class GlobalBasegrid:
     barlineWidth: float = 2.0
     fontSize: int = 12
 
-@dataclass_json
 @dataclass
 class GlobalStave:
     twoLineColor: str = '#000000'
@@ -92,7 +81,6 @@ class GlobalStave:
     visible: int = True
     clefDashPattern: List[int] = field(default_factory=lambda: [4, 4])
 
-@dataclass_json
 @dataclass
 class GlobalPage:
     # all measurements in mm:
@@ -105,21 +93,18 @@ class GlobalPage:
     headerHeight: float = 12.5
     footerHeight: float = 12.5
 
-@dataclass_json
 @dataclass
 class GlobalSection:
     color: str = '#000000'
     lineWidth: float = 1.0
     visible: bool = True
 
-@dataclass_json
 @dataclass
 class GlobalStartRepeat:
     color: str = '#000000'
     lineWidth: float = 1.0
     visible: bool = True
 
-@dataclass_json
 @dataclass
 class GlobalEndRepeat:
     color: str = '#000000'

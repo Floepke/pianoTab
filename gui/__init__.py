@@ -1,11 +1,24 @@
 """
-GUI Package for PianoTab - Organized GUI components and widgets.
-
-This package contains all GUI-related modules for the PianoTab application,
-providing a clean separation between interface and business logic.
+GUI package for PianoTab Kivy application.
 """
 
-from .tool_selector import ToolSelector
-from .main_gui import PianoTabGUI
+from gui.split_view import SplitView, Sash
+from gui.grid_selector import GridSelector, SpinBox, GridButton
+from gui.main_gui import (
+    PianoTabGUI,
+    EditorWidget,
+    PrintPreviewWidget,
+    SidePanelWidget
+)
 
-__all__ = ['ToolSelector', 'PianoTabGUI']
+__all__ = [
+    'SplitView',
+    'Sash',
+    'GridSelector',
+    'SpinBox',
+    'GridButton',
+    'PianoTabGUI',
+    'EditorWidget',
+    'PrintPreviewWidget',
+    'SidePanelWidget'
+]

@@ -1,211 +1,283 @@
-#!/usr/bin/env python3
-'''
-PianoTab GUI Module - Clean interface with resizable panels.
+"""
+PianoTab Kivy GUI - Main GUI structure.
 
-This module provides the main GUI structure for PianoTab with:
-- Left side panel (ToolSelector)
-- Right paned window with:
-  - Left side: Editor area (PdfCanvas without scrollbars)
-  - Right side: Print preview (PdfCanvas without scrollbars)
-'''
+Recreates the tkinter GUI with:
+- Left side panel
+- Right split view with:
+  - Left: Editor area
+  - Right: Print preview
+  - Wide draggable sash between them
+"""
 
-import tkinter as tk
-import customtkinter as ctk
-import sys, os, platform
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import sys
+import os
 
-from gui.menu import MenuBar
-from utils.canvas_tkinter2pymupdf import PdfCanvas
-from gui.tool_selector import ToolSelector
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.widget import Widget
+from kivy.graphics import Color, Rectangle, Line
+from kivy.graphics.scissor_instructions import ScissorPush, ScissorPop
+from kivy.uix.label import Label
+from kivy.uix.button import Button
+from kivy.uix.scrollview import ScrollView
+from kivy.core.window import Window
+from kivy.clock import Clock
+from gui.split_view import SplitView
 from gui.grid_selector import GridSelector
-from logger import log
+from gui.tool_selector import ToolSelector
+from utils.canvas import Canvas
 
-# Set CustomTkinter appearance
-ctk.set_appearance_mode('dark')
-ctk.set_default_color_theme('blue')
 
-# Note: Scaling is now controlled in the main application file
-
-class PianoTabGUI:
-    '''Main GUI class for PianoTab application using CustomTkinter with resizable panels.'''
+class EditorWidget(Widget):
+    """
+    Simple editor widget placeholder.
+    This will be replaced with your actual piano tab editor.
+    Uses clipping to hide content that goes out of bounds.
+    """
     
-    def __init__(self, master=None, widget_scale=1.0):
-        '''Initialize the GUI structure.'''
-        if master is None:
-            self.root = ctk.CTk()
-            self.is_root_owner = True
-        else:
-            self.root = master
-            self.is_root_owner = False
-            
-        # Store scaling factor for use with regular tkinter components
-        self.widget_scale = widget_scale
-            
-        # Initialize references to main areas
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        
+        # Draw background with clipping
+        with self.canvas.before:
+            # Add scissor test to clip content
+            self.scissor = ScissorPush(x=int(self.x), y=int(self.y), 
+                                      width=int(self.width), height=int(self.height))
+            self.bg_color = Color(0.15, 0.15, 0.2, 1)  # Dark blue-gray
+            self.bg_rect = Rectangle(pos=self.pos, size=self.size)
+        
+        # Draw some sample content
+        with self.canvas:
+            # Grid lines
+            Color(0.25, 0.25, 0.3, 1)
+            self.grid_lines = []
+        
+        # Close scissor test after main canvas
+        with self.canvas.after:
+            self.scissor_pop = ScissorPop()
+        
+        self.bind(pos=self.update_graphics, size=self.update_graphics)
+        
+        # Add label
+        self.label = Label(
+            text='Editor Area\n(Piano Tab Editor)',
+            color=(0.7, 0.7, 0.7, 1),
+            font_size='20sp',
+            halign='center'
+        )
+        self.add_widget(self.label)
+        self.label.center = self.center
+    
+    def update_graphics(self, *args):
+        """Update graphics when size changes."""
+        # Update scissor clipping region
+        self.scissor.x = int(self.x)
+        self.scissor.y = int(self.y)
+        self.scissor.width = int(self.width)
+        self.scissor.height = int(self.height)
+        
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
+        self.label.center = self.center
+        
+        # Draw grid
+        self.canvas.remove_group('grid')
+        with self.canvas:
+            Color(0.25, 0.25, 0.3, 1)
+            # Vertical lines
+            for x in range(int(self.x), int(self.x + self.width), 50):
+                Line(points=[x, self.y, x, self.y + self.height], width=1, group='grid')
+            # Horizontal lines
+            for y in range(int(self.y), int(self.y + self.height), 50):
+                Line(points=[self.x, y, self.x + self.width, y], width=1, group='grid')
+
+
+class PrintPreviewWidget(Widget):
+    """
+    Simple print preview widget placeholder.
+    This will be replaced with your actual print preview.
+    Uses clipping to hide content that goes out of bounds.
+    """
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        
+        # Draw background with clipping
+        with self.canvas.before:
+            # Add scissor test to clip content
+            self.scissor = ScissorPush(x=int(self.x), y=int(self.y), 
+                                      width=int(self.width), height=int(self.height))
+            self.bg_color = Color(0.25, 0.25, 0.25, 1)  # Medium gray
+            self.bg_rect = Rectangle(pos=self.pos, size=self.size)
+        
+        # Draw paper representation
+        with self.canvas:
+            Color(1, 1, 1, 1)  # White paper
+            self.paper_rect = Rectangle(pos=self.pos, size=(100, 100))
+        
+        # Close scissor test after main canvas
+        with self.canvas.after:
+            self.scissor_pop = ScissorPop()
+        
+        self.bind(pos=self.update_graphics, size=self.update_graphics)
+        
+        # Add label
+        self.label = Label(
+            text='Print Preview Area\n(PDF Output)',
+            color=(0.9, 0.9, 0.9, 1),
+            font_size='20sp',
+            halign='center'
+        )
+        self.add_widget(self.label)
+        self.label.center = self.center
+    
+    def update_graphics(self, *args):
+        """Update graphics when size changes."""
+        # Update scissor clipping region
+        self.scissor.x = int(self.x)
+        self.scissor.y = int(self.y)
+        self.scissor.width = int(self.width)
+        self.scissor.height = int(self.height)
+        
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
+        self.label.center = self.center
+        
+        # Draw paper in center (A4 ratio: 1:1.414)
+        paper_width = min(self.width * 0.8, self.height * 0.8 / 1.414)
+        paper_height = paper_width * 1.414
+        paper_x = self.x + (self.width - paper_width) / 2
+        paper_y = self.y + (self.height - paper_height) / 2
+        
+        self.paper_rect.pos = (paper_x, paper_y)
+        self.paper_rect.size = (paper_width, paper_height)
+
+
+class SidePanelWidget(ScrollView):
+    """
+    Left side panel widget - a simple scrollable vertical layout.
+    Contains grid selector and tool selector.
+    """
+    
+    def __init__(self, **kwargs):
+        super().__init__(
+            size_hint=(1, 1),
+            do_scroll_x=False,
+            do_scroll_y=True,
+            bar_width=8,
+            bar_color=(0.4, 0.4, 0.4, 0.8),
+            bar_inactive_color=(0.3, 0.3, 0.3, 0.5),
+            scroll_type=['bars', 'content'],
+            **kwargs
+        )
+        
+        # Simple vertical layout
+        self.layout = BoxLayout(
+            orientation='vertical',
+            padding=10,
+            spacing=12,
+            size_hint_y=None
+        )
+        self.layout.bind(minimum_height=self.layout.setter('height'))
+        self.add_widget(self.layout)
+        
+        # Add Grid Selector first (appears at top)
+        self.grid_selector = GridSelector(callback=self.on_grid_changed)
+        self.layout.add_widget(self.grid_selector)
+        
+        # Add Tool Selector below
+        self.tool_selector = ToolSelector(callback=self.on_tool_selected)
+        self.layout.add_widget(self.tool_selector)
+    
+    def on_tool_selected(self, tool_name):
+        """Handle tool selection."""
+        print(f'Tool selected: {tool_name}')
+    
+    def on_grid_changed(self, grid_step):
+        """Handle grid step change from GridSelector."""
+        print(f'Grid step changed to: {grid_step} piano ticks')
+        # TODO: Update editor cursor snapping behavior
+
+
+class PianoTabGUI(BoxLayout):
+    """
+    Main GUI class for PianoTab application in Kivy.
+    Recreates the tkinter structure with left panel and split view.
+    """
+    
+    def __init__(self, **kwargs):
+        super().__init__(orientation='horizontal', **kwargs)
+        
+        # Initialize references
         self.side_panel = None
         self.editor_area = None
         self.print_preview = None
-            
-        self.setup_window()
+        
         self.setup_layout()
-        
-    def setup_window(self):
-        '''Configure the main window.'''
-        self.root.title('PianoTab - Music Notation Editor')
-        self.root.geometry('1400x800')
-        self.root.minsize(800, 600)
-        
-        # set maximized
-        if platform.system() == "Darwin":  # macOS
-            self.root.attributes('-fullscreen', True)
-        elif platform.system() == 'Windows':  # Windows
-            self.root.state('zoomed')
-        else:  # Linux and others
-            self.root.attributes('-zoomed', True)
-
+    
     def setup_layout(self):
-        '''Create the main layout structure with resizable panels.'''
-        # Create native menu bar with scaling (automatically attaches to window)
-        MenuBar(self.root, self.on_menu_action, scale_factor=self.widget_scale)
+        """Create the main layout structure with resizable panels."""
         
-        # Main container frame
-        self.main_container = ctk.CTkFrame(self.root, corner_radius=0)
-        self.main_container.pack(fill='both', expand=True, padx=5, pady=5)
-        
-        # Use tkinter PanedWindow inside CustomTkinter frame for resizable panels
-        # Wide sash to include padding space as draggable area
-        self.main_paned = tk.PanedWindow(self.main_container, orient=tk.HORIZONTAL, 
-                                        sashwidth=0, sashrelief='flat',
-                                        bg=self.main_container.cget('fg_color')[1],
-                                        sashpad=0, borderwidth=0, sashcursor='arrow')
-        self.main_paned.pack(fill='both', expand=True, padx=0, pady=0)
+        # Main horizontal split: left panel | editor-preview split
+        self.main_split = SplitView(
+            orientation='horizontal',
+            sash_width=40,
+            split_ratio=0.15,
+            sash_color=[0.15, 0.15, 0.18, 1],
+            min_left_size=400,   # ← Side panel minimum width
+            min_right_size=0   # ← Editor/preview minimum width
+        )
         
         # Left side panel
-        self.side_panel_frame = ctk.CTkFrame(self.main_paned, corner_radius=8)
+        self.side_panel = SidePanelWidget()
+        self.main_split.set_left(self.side_panel)
         
-        # Add the GridSelector
-        self.grid_selector = GridSelector(self.side_panel_frame, self.on_grid_changed)
-        self.grid_selector.pack(fill='x', padx=5, pady=(0, 5))
+        # Right side: Editor-Preview split view
+        self.editor_preview_split = SplitView(
+            orientation='horizontal',
+            sash_width=40,  # Wide sash as in tkinter version
+            split_ratio=0.6,  # Editor takes 60% initially
+            sash_color=[0.2, 0.2, 0.2, 1]
+        )
         
-        # Add the ToolSelector
-        self.tool_selector = ToolSelector(self.side_panel_frame, self.on_tool_selected)
-        self.tool_selector.pack(fill='x', padx=5, pady=5)
-
-        self.left_side_panel()
-        self.main_paned.add(self.side_panel_frame, minsize=200 if platform.system() == "Darwin" else 500, 
-                            width=200 if platform.system() == "Darwin" else 500, padx=5, pady=5)
+        # Editor area (left side of right panel) - use our mm-based Canvas
+        self.editor_area = Canvas(width_mm=210.0, height_mm=297.0,
+                                    background_color=(0.15, 0.15, 0.2, 1),
+                                    border_color=(0.3, 0.3, 0.35, 1),
+                                    border_width_px=1.0)
+        self.editor_preview_split.set_left(self.editor_area)
         
-        # Right side - horizontal paned window (editor | print preview)
-        self.editor_preview_paned = tk.PanedWindow(self.main_paned, orient=tk.HORIZONTAL,
-                                                  sashwidth=20 if platform.system() == "Darwin" else 40, 
-                                                  sashrelief='flat',
-                                                  bg=self.main_container.cget('fg_color')[1],
-                                                  sashpad=0, borderwidth=0, sashcursor='arrow')
+        # Print preview area (right side of right panel) - also Canvas
+        self.print_preview = Canvas(width_mm=210.0, height_mm=297.0,
+                                      background_color=(0.25, 0.25, 0.25, 1),
+                                      border_color=(0.4, 0.4, 0.45, 1),
+                                      border_width_px=1.0)
+        self.editor_preview_split.set_right(self.print_preview)
         
-        # Editor area (left side of right panel) - no padding to maximize sash area
-        self.editor_frame = ctk.CTkFrame(self.editor_preview_paned, corner_radius=0)
-        self.create_editor_area()
-        self.editor_preview_paned.add(self.editor_frame, minsize=0, width=800, padx=0, pady=0)
+        # Add editor-preview split to main split
+        self.main_split.set_right(self.editor_preview_split)
         
-        # Print preview area (right side of right panel) - no padding to maximize sash area
-        self.preview_frame = ctk.CTkFrame(self.editor_preview_paned, corner_radius=0)
-        self.create_print_preview()
-        self.editor_preview_paned.add(self.preview_frame, minsize=0, padx=0, pady=0)
-        
-        self.main_paned.add(self.editor_preview_paned, minsize=700, padx=0, pady=0)
-
-        # set editor pane size
-
-        
-    def left_side_panel(self):
-        '''Create the left side panel (empty).'''
-        # Store reference for external access
-        self.side_panel = self.side_panel_frame
+        # Add main split to root layout
+        self.add_widget(self.main_split)
     
-    def on_tool_selected(self, tool_name):
-        '''Callback function when a tool is selected.'''
-        log(f'Tool selected: {tool_name}')
-    
-    def on_grid_changed(self, grid_step):
-        '''Callback function when grid step is changed.'''
-        log(f'Grid step changed to: {grid_step}')
-    
-    def on_menu_action(self, menu_name, item_name):
-        '''Callback function when a menu item is selected.'''
-        log(f'Menu action: {menu_name} -> {item_name}')
-        
-        # Handle common menu actions
-        if item_name == 'Exit':
-            self.destroy()
-        elif item_name == 'New':
-            log('Creating new document...')
-        elif item_name == 'Open...':
-            log('Opening file dialog...')
-        elif item_name == 'Save':
-            log('Saving document...')
-        elif item_name == 'Preferences...':
-            log('Opening preferences...')
-        # Add more menu handling as needed
-        
-    def create_editor_area(self):
-        '''Create the main editor area (PdfCanvas without scrollbars) with vertical toolbar.'''
-        
-        # Create main editor container with horizontal layout
-        editor_container = ctk.CTkFrame(self.editor_frame)
-        editor_container.pack(fill='both', expand=True, padx=0, pady=0)
-        
-        # Create canvas frame (left side) - AFTER toolbar to fill remaining space
-        canvas_frame = ctk.CTkFrame(editor_container)
-        canvas_frame.pack(side='left', fill='both', expand=True, padx=0, pady=0)
-        
-        # Create editor canvas without scrollbars
-        self.editor_canvas = PdfCanvas(canvas_frame, page_width=595, page_height=842, pdf_mode=False) # a4 size in points
-        
-        # Pack canvas without scrollbars
-        self.editor_canvas.pack(fill='both', expand=True, padx=0, pady=0)
-        
-        # Store reference for external access
-        self.editor_area = self.editor_canvas
-        
-    def create_print_preview(self):
-        '''Create the print preview area (PdfCanvas without scrollbars).'''
-        
-        # Create preview canvas container (tkinter frame for PdfCanvas compatibility) - zero padding
-        canvas_frame = ctk.CTkFrame(self.preview_frame)
-        canvas_frame.pack(fill='both', expand=True, padx=0, pady=0)
-        
-        # Create preview canvas without scrollbars
-        self.preview_canvas = PdfCanvas(canvas_frame, page_width=595, page_height=842) # a4 size in points
-        
-        # Pack canvas without scrollbars
-        self.preview_canvas.pack(fill='both', expand=True, padx=0, pady=0)
-        
-        # Store reference for external access
-        self.print_preview = self.preview_canvas
-        
-    def get_editor_canvas(self):
-        '''Get reference to the editor canvas for external use.'''
+    def get_editor_widget(self):
+        """Get reference to the editor widget."""
         return self.editor_area
-        
-    def get_preview_canvas(self):
-        '''Get reference to the preview canvas for external use.'''
+    
+    def get_preview_widget(self):
+        """Get reference to the preview widget."""
         return self.print_preview
-        
+    
     def get_side_panel(self):
-        '''Get reference to the side panel for external use.'''
+        """Get reference to the side panel."""
         return self.side_panel
-        
-    def run(self):
-        '''Run the GUI (only if this module owns the root window).'''
-        if self.is_root_owner:
-            self.root.mainloop()
-            
-    def destroy(self):
-        '''Clean up the GUI.'''
-        if self.is_root_owner:
-            self.root.destroy()
 
-# For standalone testing
-if __name__ == '__main__':
-    app = PianoTabGUI()
-    app.run()
+
+__all__ = [
+    'PianoTabGUI',
+    'SidePanelWidget',
+    'EditorWidget',
+    'PrintPreviewWidget',
+]

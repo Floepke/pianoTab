@@ -1,128 +1,185 @@
-#!/usr/bin/env python3
 """
-Tool Selector Widget for PianoTab GUI.
+Tool Selector Widget for PianoTab GUI (Kivy version).
 
-CustomTkinter-based tool selection widget with modern dark styling.
+Replicates the CustomTkinter ToolSelector: a titled label and a scrollable
+list of tool buttons with a single-selection highlight and callback.
 """
 
-import customtkinter as ctk
-from logger import log
+from kivy.uix.widget import Widget
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.scrollview import ScrollView
+from kivy.uix.button import Button
+from kivy.uix.label import Label
+from kivy.graphics import Color, Rectangle, RoundedRectangle
+from kivy.properties import StringProperty, ObjectProperty, ListProperty
+from kivy.clock import Clock
 
 
-class ToolSelector(ctk.CTkFrame):
+class ToolButton(Button):
+    """A styled button that supports a selected state."""
+    is_selected = False
+
+    def __init__(self, text, on_select, **kwargs):
+        super().__init__(
+            text=text,
+            size_hint_y=None,
+            height=36,
+            font_size='16sp',
+            bold=False,
+            background_normal='',
+            background_color=(0.28, 0.32, 0.38, 1),
+            color=(0.92, 0.92, 0.95, 1),
+            **kwargs
+        )
+        # Left-align text
+        self.halign = 'left'
+        self.valign = 'middle'
+        self.bind(size=self._update_text_size)
+        self._on_select = on_select
+        self.bind(on_release=self._handle_press)
+        self._update_style()
+
+    def _update_text_size(self, *args):
+        # Allow halign to take effect
+        self.text_size = (self.width - 12, None)
+
+    def _handle_press(self, *args):
+        if self._on_select:
+            self._on_select(self.text)
+
+    def set_selected(self, selected: bool):
+        self.is_selected = selected
+        self._update_style()
+
+    def _update_style(self):
+        if self.is_selected:
+            # Highlighted look
+            self.background_color = (0.40, 0.45, 0.55, 1)
+            self.color = (0.1, 0.1, 0.12, 1)
+            self.bold = True
+        else:
+            # Normal look
+            self.background_color = (0.28, 0.32, 0.38, 1)
+            self.color = (0.92, 0.92, 0.95, 1)
+            self.bold = False
+
+
+class ToolSelector(BoxLayout):
     """
-    A CustomTkinter tool selector widget.
-    
-    Features:
-    - CTkFrame with 5px padding
-    - Label showing currently selected tool
-    - CTkScrollableFrame with tool selection
-    - Predefined tool list for piano notation
+    Kivy Tool Selector with label + list of predefined tools.
+
+    Properties:
+    - current_tool: name of the selected tool
+    - callback: optional callable(tool_name) invoked on selection
     """
-    
-    def __init__(self, parent, callback=None):
-        """
-        Initialize the ToolSelector widget.
-        
-        Args:
-            parent: Parent widget (CustomTkinter container)
-            callback: Optional callback function(tool_name)
-        """
-        super().__init__(parent)
+
+    current_tool = StringProperty('Note')
+    callback = ObjectProperty(None, allownone=True)
+    tools = ListProperty([
+        'Note', 'Grace-note', 'Beam', 'Line-break',
+        'Count-line', 'Text', 'Slur', 'Tempo'
+    ])
+
+    def __init__(self, callback=None, **kwargs):
+        # Set up as vertical BoxLayout with sizing
+        kwargs['orientation'] = 'vertical'
+        kwargs['padding'] = 8
+        kwargs['spacing'] = 8
+        kwargs['size_hint_y'] = None
+        super().__init__(**kwargs)
         
         self.callback = callback
-        self.current_tool = "Note"
-        
-        # Configure frame with 5px padding
-        self.configure(corner_radius=6)
-        
-        # Define the 8 specific tools
-        self.tools = [
-            "Note",
-            "Grace-note", 
-            "Beam",
-            "Line-break",
-            "Count-line",
-            "Text",
-            "Slur",
-            "Tempo"
-        ]
-        
-        self.create_widgets()
-        
-    def create_widgets(self):
-        """Create the widget components."""
-        # Add internal padding
-        self.grid_columnconfigure(0, weight=1)
-        
-        # Selected tool label
-        self.tool_label = ctk.CTkLabel(
-            self,
-            text=f"Tool: {self.current_tool}",
-            font=ctk.CTkFont(size=14, weight="bold")
+
+        # Background
+        with self.canvas.before:
+            Color(0.18, 0.18, 0.22, 1)
+            self.bg = Rectangle(pos=self.pos, size=self.size)
+
+        # Height follows content
+        self.bind(minimum_height=self.setter('height'))
+        self.bind(pos=self._update_graphics, size=self._update_graphics)
+
+        self._create_widgets()
+
+    def _update_graphics(self, *args):
+        self.bg.pos = self.pos
+        self.bg.size = self.size
+
+    def _create_widgets(self):
+        # Header label showing selected tool
+        self.tool_label = Label(
+            text=f'Tool: {self.current_tool}',
+            size_hint_y=None,
+            height=32,
+            font_size='16sp',
+            bold=True,
+            color=(0.95, 0.95, 0.95, 1),
+            halign='left',
+            valign='middle',
+            padding=(8, 0)
         )
-        self.tool_label.grid(row=0, column=0, padx=10, pady=5, sticky="w")
-        
-        # Scrollable frame for tools
-        self.scrollable_frame = ctk.CTkScrollableFrame(
-            self,
-            height=200,
-            corner_radius=6
-        )
-        self.scrollable_frame.grid(row=1, column=0, padx=5, pady=(0, 5), sticky="ew")
-        
-        # Create tool buttons
-        self.tool_buttons = {}
-        for i, tool in enumerate(self.tools):
-            button = ctk.CTkButton(
-                self.scrollable_frame,
-                text=tool,
-                height=32,
-                command=lambda t=tool: self.select_tool(t),
-                fg_color="transparent",
-                hover_color=("gray75", "gray25"),
-                anchor="w"
-            )
-            button.grid(row=i, column=0, padx=5, pady=2, sticky="ew")
-            self.tool_buttons[tool] = button
-            
-        self.scrollable_frame.grid_columnconfigure(0, weight=1)
-        
-        # Highlight initial selection
-        self.update_selection()
-        
-    def select_tool(self, tool_name):
-        """Handle tool selection."""
+        self.tool_label.bind(size=self.tool_label.setter('text_size'))
+        self.add_widget(self.tool_label)
+
+        # Non-scroll list container background
+        self.list_container = BoxLayout(orientation='vertical', size_hint_y=None)
+        with self.list_container.canvas.before:
+            Color(0.20, 0.22, 0.25, 1)
+            self.scroll_bg = RoundedRectangle(pos=self.list_container.pos, size=self.list_container.size, radius=[6])
+        self.list_container.bind(pos=self._update_scroll_bg, size=self._update_scroll_bg)
+
+        # Vertical BoxLayout for buttons (expands height to show all)
+        self.button_column = BoxLayout(orientation='vertical', size_hint_y=None, padding=(4, 6), spacing=6)
+        self.button_column.bind(minimum_height=self._sync_minimum_height)
+
+        self.list_container.add_widget(self.button_column)
+        self.add_widget(self.list_container)
+
+        # Create buttons
+        self._buttons = {}
+        for name in self.tools:
+            btn = ToolButton(text=name, on_select=self.select_tool)
+            self._buttons[name] = btn
+            self.button_column.add_widget(btn)
+
+        # Initial selection
+        self._refresh_selection()
+
+    def _update_scroll_bg(self, *args):
+        self.scroll_bg.pos = self.list_container.pos
+        self.scroll_bg.size = self.list_container.size
+
+    def _sync_minimum_height(self, instance, value):
+        # Height should accommodate all children
+        total = 0
+        for child in self.button_column.children:
+            total += child.height + self.button_column.spacing
+        # Add padding top/bottom
+        self.button_column.height = total + 8
+        # Container follows content height
+        self.list_container.height = self.button_column.height + 8
+
+    def select_tool(self, tool_name: str):
+        if tool_name not in self.tools:
+            return
         self.current_tool = tool_name
-        self.tool_label.configure(text=f"Tool: {tool_name}")
-        self.update_selection()
-        
+        self.tool_label.text = f'Tool: {tool_name}'
+        self._refresh_selection()
         if self.callback:
-            self.callback(tool_name)
-            
-        log(f"🔧 Tool selected: {tool_name}")
-        
-    def update_selection(self):
-        """Update visual selection state."""
-        for tool, button in self.tool_buttons.items():
-            if tool == self.current_tool:
-                button.configure(
-                    fg_color=("gray75", "gray25"),
-                    text_color=("gray10", "gray90")
-                )
-            else:
-                button.configure(
-                    fg_color="transparent",
-                    text_color=("gray10", "#DCE4EE")
-                )
-                
+            try:
+                self.callback(tool_name)
+            except Exception:
+                # Silent guard; UI callback errors shouldn't break selection
+                pass
+
+    def _refresh_selection(self):
+        for name, btn in self._buttons.items():
+            btn.set_selected(name == self.current_tool)
+
+    # Convenience API
     def get_tool(self):
-        """Get the currently selected tool."""
         return self.current_tool
-        
-    def set_tool(self, tool_name):
-        """Set the selected tool programmatically."""
+
+    def set_tool(self, tool_name: str):
         if tool_name in self.tools:
             self.select_tool(tool_name)
-        else:
-            log(f"Warning: Tool '{tool_name}' not found")
