@@ -1,9 +1,15 @@
 from pydantic import BaseModel, Field
 from typing import TYPE_CHECKING, Optional
+from file.inherit_field import InheritMixin
 if TYPE_CHECKING:
     from file.SCORE import SCORE
 
-class Slur(BaseModel):
+class Slur(InheritMixin, BaseModel):
+    _INHERIT_CONFIG = {
+        'color': ('_color', 'properties.globalSlur.color', '#000000'),
+        'startEndWidth': ('_startEndWidth', 'properties.globalSlur.startEndWidth', 1.0),
+        'middleWidth': ('_middleWidth', 'properties.globalSlur.middleWidth', 2.0),
+    }
     '''
         A slur between two notes, represented as a cubic Bezier curve.
 
@@ -20,6 +26,7 @@ class Slur(BaseModel):
     
     # Control points
     x1_semitonesFromC4: int = Field(default=0)
+    # y1_time seems missing but we use the time field both as y1_time and time
     x2_semitonesFromC4: int = Field(default=0)
     y2_time: float = Field(default=0.0)
     x3_semitonesFromC4: int = Field(default=0)
@@ -27,78 +34,37 @@ class Slur(BaseModel):
     x4_semitonesFromC4: int = Field(default=0)
     y4_time: float = Field(default=0.0)
     
-    # Inheritable fields - None means inherit from global properties
-    color: Optional[str] = Field(default=None, description="Color, None to inherit from globalSlur")
-    startEndWidth: Optional[float] = Field(default=None, description="Start/end width, None to inherit from globalSlur")
-    middleWidth: Optional[float] = Field(default=None, description="Middle width, None to inherit from globalSlur")
+    # Private storage for inheritable fields
+    _color: Optional[str] = Field(default=None, alias='color', description="Color, None to inherit from globalSlur")
+    _startEndWidth: Optional[float] = Field(default=None, alias='startEndWidth', description="Start/end width, None to inherit from globalSlur")
+    _middleWidth: Optional[float] = Field(default=None, alias='middleWidth', description="Middle width, None to inherit from globalSlur")
     
     # Score reference (not serialized to JSON)
     score: Optional['SCORE'] = Field(default=None, exclude=True)
     
     class Config:
-        extra = 'forbid'
+        extra = 'ignore'
         use_enum_values = True
         arbitrary_types_allowed = True
+        populate_by_name = True
     
     def __init__(self, **data):
         # Extract score reference to set after initialization
         score = data.pop('score', None)
         super().__init__(**data)
         if score is not None:
-            object.__setattr__(self, 'score', score)
+            self.set_score_reference(score)
     
     @property
     def y1_time(self) -> float:
         '''Get the y1_time value (same as time).'''
         return self.time
     
-    def __getattribute__(self, name: str):
-        """Handle property inheritance transparently."""
-        # Allow access to private/special attributes and methods
-        if (name.startswith('_') or name in ('dict', 'json', 'copy', '__fields__', 'Config', 'score', 'y1_time') or
-            hasattr(BaseModel, name)):
-            return super().__getattribute__(name)
-        
-        # Get the stored value
-        value = super().__getattribute__(name)
-        
-        # Check if this field should inherit (value is None)
-        if value is None and name in ['color', 'startEndWidth', 'middleWidth']:
-            return self._get_inherited_value(name)
-        
-        return value
-    
-    def _get_inherited_value(self, field_name: str):
-        """Get the inherited value from global properties."""
-        score = super().__getattribute__('score')
-        if score is None:
-            return self._get_default_value(field_name)
-        
-        if field_name == 'color':
-            return score.properties.globalSlur.color
-        elif field_name == 'startEndWidth':
-            return score.properties.globalSlur.startEndWidth
-        elif field_name == 'middleWidth':
-            return score.properties.globalSlur.middleWidth
-        
-        return self._get_default_value(field_name)
-    
-    def _get_default_value(self, field_name: str):
-        """Get default values when no score reference."""
-        defaults = {
-            'color': '#000000',
-            'startEndWidth': 1.0,
-            'middleWidth': 2.0
-        }
-        return defaults.get(field_name, None)
-    
+
     def get_literal_value(self, field_name: str):
         """Get the actual stored value without inheritance."""
-        return super().__getattribute__(field_name)
-    
-    def set_score_reference(self, score: 'SCORE'):
-        """Set the score reference for inheritance."""
-        object.__setattr__(self, 'score', score)
+        private_name = f'_{field_name}' if not field_name.startswith('_') else field_name
+        return getattr(self, private_name, None)
     
     def set_y1_time(self, value: float):
         """Set both y1_time and time to the same value."""

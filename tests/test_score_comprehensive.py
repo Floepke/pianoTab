@@ -94,14 +94,68 @@ def test_score_creation_and_events():
     section1 = score.new_section(time=250.0, text="Verse 1")
     print(f"✓ Added section: section1.color={section1.color}")
     
-    # 10. Add line breaks with key ranges
-    score.add_linebreak(time=128.0, type='manual', lowestKey=40, highestKey=80)
-    score.add_linebreak(time=512.0, type='manual', lowestKey=45, highestKey=75)
-    linebreak1 = score.lineBreak[1]  # First manual linebreak (index 0 is the default locked one)
-    linebreak2 = score.lineBreak[2]  # Second manual linebreak
-    print(f"✓ Added linebreaks: lb1 range=[{linebreak1.lowestKey}, {linebreak1.highestKey}], lb2 range=[{linebreak2.lowestKey}, {linebreak2.highestKey}]")
+    # 10. Add line breaks with staveRange objects
+    from file.staveRange import StaveRange
+    
+    # Default linebreak - auto-determined ranges (0, 0)
+    lb1 = score.new_linebreak(time=128.0, type='manual')
+    
+    # Linebreak with explicit range for the single stave
+    lb2 = score.new_linebreak(time=512.0, type='manual', 
+                               stave_ranges=[StaveRange(lowestKey=40, highestKey=80)])
+    
+    print(f"✓ Added linebreaks:")
+    print(f"  lb1 at {lb1.time}: staveRange[0]=[{lb1.staveRange[0].lowestKey}, {lb1.staveRange[0].highestKey}] (auto-determined)")
+    print(f"  lb2 at {lb2.time}: staveRange[0]=[{lb2.staveRange[0].lowestKey}, {lb2.staveRange[0].highestKey}] (explicit range)")
     
     return score
+
+def test_stave_range_sync():
+    """Test that staveRange objects sync correctly when adding staves."""
+    
+    print("\n🔄 Testing staveRange synchronization...")
+    
+    from file.staveRange import StaveRange
+    
+    score = SCORE()
+    
+    # Initially: 1 stave, so each lineBreak should have 1 staveRange
+    print(f"✓ Initial state: {len(score.stave)} stave(s)")
+    print(f"  Locked lineBreak has {len(score.lineBreak[0].staveRange)} staveRange(s)")
+    assert len(score.lineBreak[0].staveRange) == 1, "Should have 1 staveRange initially"
+    
+    # Add some linebreaks with 1 stave
+    lb1 = score.new_linebreak(time=128.0, type='manual')
+    lb2 = score.new_linebreak(time=256.0, type='manual', 
+                              stave_ranges=[StaveRange(lowestKey=30, highestKey=70)])
+    
+    print(f"✓ Added 2 linebreaks with 1 stave each")
+    
+    # Now add a second stave - all lineBreaks should automatically get a 2nd staveRange
+    stave_idx = score.new_stave(name="Second Stave", scale=0.8)
+    
+    print(f"✓ Added stave '{score.get_stave(stave_idx).name}' - now {len(score.stave)} staves total")
+    print(f"  Checking all lineBreaks now have {len(score.stave)} staveRange objects...")
+    
+    for i, lb in enumerate(score.lineBreak):
+        num_ranges = len(lb.staveRange)
+        print(f"    LineBreak {i} (time={lb.time}): {num_ranges} staveRange(s) ✓")
+        assert num_ranges == len(score.stave), f"LineBreak {i} should have {len(score.stave)} staveRanges, got {num_ranges}"
+        
+        # Check that new ranges have default values
+        if i == 0:  # locked linebreak
+            assert lb.staveRange[1].lowestKey == 0 and lb.staveRange[1].highestKey == 0, "New staveRange should default to [0,0]"
+    
+    # Add a third stave
+    score.new_stave(name="Third Stave", scale=1.2)
+    
+    print(f"✓ Added 'Third Stave' - now {len(score.stave)} staves total")
+    print(f"  All lineBreaks now have {len(score.lineBreak[0].staveRange)} staveRange objects ✓")
+    
+    for lb in score.lineBreak:
+        assert len(lb.staveRange) == 3, f"All lineBreaks should now have 3 staveRanges"
+    
+    print("✓ StaveRange synchronization working correctly!")
 
 def test_stave_scales():
     """Test stave scale functionality."""
@@ -111,9 +165,9 @@ def test_stave_scales():
     score = SCORE()
     
     # Test adding staves with different scales
-    stave_idx1 = score.add_stave(name="Default Scale", scale=1.0)
-    stave_idx2 = score.add_stave(name="Half Scale", scale=0.5)
-    stave_idx3 = score.add_stave(name="Double Scale", scale=2.0)
+    stave_idx1 = score.new_stave(name="Default Scale", scale=1.0)
+    stave_idx2 = score.new_stave(name="Half Scale", scale=0.5)
+    stave_idx3 = score.new_stave(name="Double Scale", scale=2.0)
     
     stave1 = score.get_stave(stave_idx1)
     stave2 = score.get_stave(stave_idx2)
@@ -182,11 +236,14 @@ def test_json_serialization(score):
         print(f"  - End repeats: {len(stave['event']['endRepeat'])}")
         print(f"  - Tempos: {len(stave['event']['tempo'])}")
         
-        # Examine LineBreaks
+        # Examine LineBreaks with staveRange structure
         linebreaks = json_data.get('lineBreak', [])
         print(f"  - Line breaks: {len(linebreaks)}")
         for i, lb in enumerate(linebreaks):
-            print(f"    LineBreak {i}: time={lb.get('time')}, type={lb.get('type')}, range=[{lb.get('lowestKey', 0)}, {lb.get('highestKey', 0)}]")
+            stave_ranges = lb.get('staveRange', [])
+            print(f"    LineBreak {i}: time={lb.get('time')}, type={lb.get('type')}")
+            for j, sr in enumerate(stave_ranges):
+                print(f"      Stave {j}: range=[{sr.get('lowestKey', 0)}, {sr.get('highestKey', 0)}]")
         
         # Examine specific inheritance patterns in JSON
         notes = stave['event']['note']
@@ -302,9 +359,9 @@ def test_stave_scales():
     score = SCORE()
     
     # Test adding staves with different scales
-    stave_idx1 = score.add_stave(name="Default Scale", scale=1.0)
-    stave_idx2 = score.add_stave(name="Half Scale", scale=0.5)
-    stave_idx3 = score.add_stave(name="Double Scale", scale=2.0)
+    stave_idx1 = score.new_stave(name="Default Scale", scale=1.0)
+    stave_idx2 = score.new_stave(name="Half Scale", scale=0.5)
+    stave_idx3 = score.new_stave(name="Double Scale", scale=2.0)
     
     stave1 = score.get_stave(stave_idx1)
     stave2 = score.get_stave(stave_idx2)
@@ -352,10 +409,13 @@ def main():
         # Test 4: Inheritance edge cases
         test_inheritance_edge_cases(loaded_score)
         
-        # Test 5: Stave scale functionality
+        # Test 5: StaveRange synchronization
+        test_stave_range_sync()
+        
+        # Test 6: Stave scale functionality
         test_stave_scales()
         
-        # Test 6: Save a permanent test file for examination
+        # Test 7: Save a permanent test file for examination
         print(f"\n💾 Saving permanent test file for examination...")
         test_file_path = "test.pianotab"
         score.save(test_file_path)

@@ -56,7 +56,7 @@ class GlobalBarline(BaseModel):
 class GlobalBasegrid(BaseModel):
     gridlineColor: str = Field(default='#000000')
     gridlineWidth: float = Field(default=1.0)
-    gridLineDashPattern: List[int] = Field(default_factory=lambda: [4, 4])
+    gridlineDashPattern: List[int] = Field(default_factory=lambda: [4, 4])
     barlineColor: str = Field(default='#000000')
     barlineWidth: float = Field(default=2.0)
     fontSize: int = Field(default=12)

@@ -14,6 +14,7 @@ from file.header import Header
 from file.properties import Properties
 from file.baseGrid import BaseGrid
 from file.lineBreak import LineBreak
+from file.staveRange import StaveRange
 from file.note import Note
 from file.graceNote import GraceNote
 from file.countLine import CountLine
@@ -67,20 +68,25 @@ class SCORE(BaseModel):
 
     def __init__(self, **data):
         super().__init__(**data)
-        # Initialize ID generator starting from 0:
-        object.__setattr__(self, '_id', IDGenerator(start_id=0))
+        # Initialize ID generator starting from 1:
+        object.__setattr__(self, '_id', IDGenerator(start_id=1))
+
+        # ensure there's always one stave:
+        if not self.stave:
+            self.stave.append(Stave())
 
         # Ensure there's always a 'locked' lineBreak at time 0:
         if not self.lineBreak or not any(lb.time == 0.0 and lb.type == 'locked' for lb in self.lineBreak):
-            self.lineBreak.insert(0, LineBreak(time=0.0, type='locked', id=self._next_id()))
+            # Create staveRange objects for each stave (default 0,0 = auto-determined)
+            stave_ranges = [StaveRange(lowestKey=0, highestKey=0) for _ in self.stave]
+            self.lineBreak.insert(0, LineBreak(time=0.0, type='locked', id=self._next_id(), staveRange=stave_ranges))
 
         # ensure there's always one baseGrid:
         if not self.baseGrid:
             self.baseGrid.append(BaseGrid())
         
-        # ensure there's always one stave:
-        if not self.stave:
-            self.stave.append(Stave())
+        # Sync staveRange counts in all lineBreaks to match number of staves
+        self._sync_stave_ranges()
 
     def _next_id(self) -> int:
         """Get the next unique ID for this score."""
@@ -90,8 +96,27 @@ class SCORE(BaseModel):
         """Reset the ID generator to start from a specific ID."""
         self._id.reset(start_id)
     
+    def _sync_stave_ranges(self):
+        """Ensure all lineBreaks have the correct number of staveRange objects.
+        
+        This method ensures that each lineBreak has exactly one StaveRange per stave.
+        If there are too few, it adds default StaveRange(0, 0) objects.
+        If there are too many, it removes excess ones.
+        """
+        num_staves = len(self.stave)
+        for linebreak in self.lineBreak:
+            current_count = len(linebreak.staveRange)
+            
+            if current_count < num_staves:
+                # Add missing staveRange objects with default values (0, 0)
+                for _ in range(num_staves - current_count):
+                    linebreak.staveRange.append(StaveRange(lowestKey=0, highestKey=0))
+            elif current_count > num_staves:
+                # Remove excess staveRange objects
+                linebreak.staveRange = linebreak.staveRange[:num_staves]
+    
     # Convenience methods for managing line breaks and base grids:
-    def add_basegrid(self, numerator: int = 4,
+    def new_basegrid(self, numerator: int = 4,
                      denominator: int = 4,
                      gridTimes: List[float] = [256.0, 512.0, 768.0],
                      measureAmount: int = 8,
@@ -104,33 +129,47 @@ class SCORE(BaseModel):
                             timeSignatureIndicatorVisible=timeSignatureIndicatorVisible)
         self.baseGrid.append(basegrid)
 
-    def add_linebreak(self, time: float = 0.0, type: Literal['manual', 'locked'] = 'manual', 
-                      lowestKey: int = 0, highestKey: int = 0) -> None:
+    def new_linebreak(self, time: float = 0.0, type: Literal['manual', 'locked'] = 'manual', 
+                      stave_ranges: List[StaveRange] = None) -> LineBreak:
         '''Add a new line break to the score.
         
         Args:
             time: Time position for the line break
             type: Type of line break ('manual' or 'locked')
-            lowestKey: Lowest key in range for this line (0 = determined by music content)
-            highestKey: Highest key in range for this line (0 = determined by music content)
+            stave_ranges: List of StaveRange objects (one per stave). If None, creates default [0,0] ranges.
+        
+        Returns:
+            The created LineBreak object
         '''
-        linebreak = LineBreak(id=self._next_id(), time=time, type=type, 
-                             lowestKey=lowestKey, highestKey=highestKey)
+        # If no stave_ranges provided, create defaults (0, 0 = auto-determined)
+        if stave_ranges is None:
+            stave_ranges = [StaveRange(lowestKey=0, highestKey=0) for _ in self.stave]
+        
+        # Ensure we have the right number of staveRanges
+        if len(stave_ranges) != len(self.stave):
+            raise ValueError(f"stave_ranges must have {len(self.stave)} elements (one per stave), got {len(stave_ranges)}")
+        
+        linebreak = LineBreak(id=self._next_id(), time=time, type=type, staveRange=stave_ranges)
         self.lineBreak.append(linebreak)
-        # Ensure there's always a 'locked' lineBreak at time 0:
-        if not any(lb.time == 0.0 and lb.type == 'locked' for lb in self.lineBreak):
-            self.lineBreak.insert(0, LineBreak(time=0.0, type='locked', id=self._next_id()))
+        return linebreak
     
     # Convenience methods for managing staves
-    def add_stave(self, name: str = None, scale: float = 1.0) -> int:
+    def new_stave(self, name: str = None, scale: float = 1.0) -> int:
         '''Add a new stave and return its index.
         
         Args:
             name: Name for the stave (defaults to "Stave N")
             scale: Draw scale for this stave (defaults to 1.0)
+            
+        Returns:
+            The index of the newly created stave
         '''
         stave_name = name or f'Stave {len(self.stave) + 1}'
         self.stave.append(Stave(name=stave_name, scale=scale))
+        
+        # Update all lineBreaks to have the correct number of staveRange objects
+        self._sync_stave_ranges()
+        
         return len(self.stave) - 1
     
     def get_stave(self, index: int = 0) -> Stave:
@@ -408,7 +447,7 @@ class SCORE(BaseModel):
         
         with open(filename, 'w', encoding='utf-8') as f:
             # Exclude private attributes from serialization
-            json.dump(self.dict(exclude={'_id'}), f, indent=2, ensure_ascii=False)
+            json.dump(self.dict(exclude={'_id'}), f, indent=4, ensure_ascii=False)
     
     @classmethod
     def load(cls, filename: str) -> 'SCORE':
@@ -419,7 +458,7 @@ class SCORE(BaseModel):
         score = cls.parse_obj(data)
         
         # Recreate ID generator after loading
-        object.__setattr__(score, '_id', IDGenerator(start_id=0))
+        object.__setattr__(score, '_id', IDGenerator(start_id=1))
         
         # Set score references for all events after loading
         score._set_score_references()
@@ -461,4 +500,4 @@ if __name__ == '__main__':
     score.metaInfo.description = "A sample pianoTab score."
 
     print("Adding staves...")
-    stave1_idx = score.add_stave(name="Organ pedal")
+    stave1_idx = score.new_stave(name="Organ pedal")
