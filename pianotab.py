@@ -8,6 +8,7 @@ It initializes and runs the Kivy GUI.
 """
 import sys
 import os
+from pathlib import Path
 
 # Add current directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -62,13 +63,18 @@ class PianoTab(App):
 
         # Initialize the SCORE model (document)
         self.score = SCORE()
+        
+        # Enable auto-save to current.pianotab for runtime inspection
+        self.score.enable_auto_save('current.pianotab')
+        Logger.info('PianoTab: Auto-save enabled → current.pianotab')
 
-        # some inline testing with note creation
+        # some inline testing with note creation & current.pianotab auto-save
         self.score.new_note(pitch=60, duration=256.0, time=0.0, stave_idx=0)
         self.score.new_note(pitch=62, duration=256.0, time=0.0, stave_idx=0)
+        self.score.new_note(pitch=64, duration=256.0, time=0.0, stave_idx=0)
 
-        # saving the score to json using .pianotab extension
-        self.score.save('test_output.pianotab')
+        # Trigger auto-save after initial notes
+        self.score._auto_save()
 
         # Create Editor controller and pass the score
         self.editor = Editor(self.gui.get_editor_widget(), self.score)

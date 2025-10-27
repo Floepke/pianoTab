@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 from typing import List, Literal, Optional
 import json
+import time
 
 from file.metaInfo import MetaInfo
 from file.header import Header
@@ -20,6 +21,7 @@ from file.text import Text
 from file.slur import Slur
 from file.tempo import Tempo
 from file.id import IDGenerator
+from file.event_factory import setup_event_factories
 
 
 @dataclass_json
@@ -47,7 +49,8 @@ class Stave:
 @dataclass
 class SCORE:
     '''The main SCORE class; contains all data for a piano tab score.'''
-    
+
+    quarterNoteLength: float = 256.0
     metaInfo: MetaInfo = field(default_factory=MetaInfo)
     header: Header = field(default_factory=Header)
     properties: Properties = field(default_factory=Properties)
@@ -58,6 +61,12 @@ class SCORE:
     def __post_init__(self):
         # Initialize ID generator starting from 0:
         self._id = IDGenerator(start_id=0)
+        
+        # Auto-save configuration (for runtime inspection)
+        self._auto_save_enabled = False
+        self._auto_save_path = 'current.pianotab'
+        self._last_save_time = 0  # Track last save timestamp
+        self._save_debounce = 1.0  # Don't save more than once per second
 
         # Ensure there's always a 'locked' lineBreak at time 0:
         if not self.lineBreak or not any(lb.time == 0.0 and lb.type == 'locked' for lb in self.lineBreak):
@@ -75,6 +84,32 @@ class SCORE:
         """Reset the ID generator to start from a specific ID."""
         self._id.reset(start_id)
     
+    def enable_auto_save(self, path: str = 'current.pianotab'):
+        """Enable auto-save: writes to path whenever score changes."""
+        self._auto_save_enabled = True
+        self._auto_save_path = path
+        self._auto_save()  # Write initial state
+    
+    def disable_auto_save(self):
+        """Disable auto-save."""
+        self._auto_save_enabled = False
+    
+    def _auto_save(self):
+        """Internal: auto-save if enabled, with debouncing to prevent excessive writes."""
+        if not self._auto_save_enabled:
+            return
+        
+        current_time = time.time()
+        if current_time - self._last_save_time < self._save_debounce:
+            return  # Too soon, skip this save
+        
+        try:
+            self.save(self._auto_save_path)
+            self._last_save_time = current_time
+        except Exception as e:
+            # Silent fail to avoid disrupting app flow
+            pass
+    
     # Convenience methods for managing line breaks and base grids:
     def new_basegrid(self, 
                      numerator: int = 4,
@@ -83,6 +118,23 @@ class SCORE:
                      measureAmount: int = 8,
                      timeSignatureIndicatorVisible: int = 1) -> None:
         '''Add a new baseGrid to the score.'''
+        if gridTimes is None:
+            gridTimes = [256.0, 512.0, 768.0]
+        basegrid = BaseGrid(numerator=numerator,
+                            denominator=denominator,
+                            gridTimes=gridTimes,
+                            measureAmount=measureAmount,
+                            timeSignatureIndicatorVisible=timeSignatureIndicatorVisible)
+        self.baseGrid.append(basegrid)
+        self._auto_save()
+        return basegrid
+
+    def new_linebreak(self, time: float = 0.0, type: Literal['manual', 'locked'] = 'manual') -> None:
+        '''Add a new line break to the score.'''
+        linebreak = LineBreak(id=self._next_id(), time=time, type=type)
+        self.lineBreak.append(linebreak)
+        self._auto_save()
+        return linebreak
         if gridTimes is None:
             gridTimes = [256.0, 512.0, 768.0]
         basegrid = BaseGrid(numerator=numerator,
@@ -114,216 +166,11 @@ class SCORE:
         if 0 <= index < len(self.stave):
             return self.stave[index]
         raise IndexError(f'Stave index {index} out of range')
-
-    # Convenience methods for adding events to staves
-    def new_note(self,
-                 stave_idx: int = 0,
-                 time: float = 0.0,
-                 duration: float = 256.0,
-                 pitch: int = 40,
-                 velocity: int = 80,
-                 articulation: List = [],
-                 hand: str = '>',
-                 color: str = None,
-                 colorMidiLeftNote: str = None,
-                 colorMidiRightNote: str = None,
-                 blackNoteDirection: str = None) -> Note:
-        '''Add a note to the specified stave. Use None for inherited properties.'''
-        
-        note = Note(id=self._next_id(), 
-                    time=time, 
-                    duration=duration, 
-                    pitch=pitch, 
-                    velocity=velocity,
-                    articulation=articulation, 
-                    hand=hand, 
-                    _color=color,
-                    _colorMidiLeftNote=colorMidiLeftNote,
-                    _colorMidiRightNote=colorMidiRightNote,
-                    _blackNoteDirection=blackNoteDirection)
-        
-        # Attach score reference for property resolution
-        note.score = self
-        
-        self.get_stave(stave_idx).event.note.append(note)
-        return note
-
-    def new_grace_note(self, 
-                       stave_idx: int = 0, 
-                       time: float = 0.0,
-                       pitch: int = 40, 
-                       velocity: int = 80, 
-                       color: str = None) -> GraceNote:
-        '''Add a grace note to the specified stave.'''
-
-        grace_note = GraceNote(id=self._next_id(), 
-                              time=time,
-                              pitch=pitch,
-                              velocity=velocity,
-                              _color=color)
-        grace_note.score = self
-        
-        self.get_stave(stave_idx).event.graceNote.append(grace_note)
-        return grace_note
-
-    def new_count_line(self, 
-                       time: float = 0.0,
-                       pitch1: int = 40, 
-                       pitch2: int = 44, 
-                       color: str = None, 
-                       dashPattern: List[float] = None,
-                       stave_idx: int = 0) -> CountLine:
-        '''Add a count line to the specified stave.'''
-        count_line = CountLine(id=self._next_id(), 
-                               time=time,
-                               pitch1=pitch1,
-                               pitch2=pitch2,
-                               _color=color,
-                               _dashPattern=dashPattern)
-        count_line.score = self
-        self.get_stave(stave_idx).event.countLine.append(count_line)
-        return count_line
-
-    def new_text(self,
-                 stave_idx: int = 0,
-                 time: float = 0.0,
-                 side: Literal['<', '>'] = '>',
-                 distFromSide: float = 10.0,
-                 text: str = 'Text',
-                 fontSize: int = None,
-                 color: str = None) -> Text:
-        '''Add text to the specified stave.'''
-        
-        text_obj = Text(id=self._next_id(),
-                       time=time,
-                       side=side,
-                       distFromSide=distFromSide,
-                       text=text,
-                       _fontSize=fontSize,
-                       _color=color)
-        text_obj.score = self
-
-        self.get_stave(stave_idx).event.text.append(text_obj)
-        return text_obj
-
-    def new_beam(self,
-                 stave_idx: int = 0,
-                 time: float = 0.0,
-                 staff: float = 0.0,
-                 hand: str = '<',
-                 color: str = None,
-                 width: float = None,
-                 slant: float = None) -> Beam:
-        '''Add a beam to the specified stave.'''
-        
-        beam = Beam(id=self._next_id(),
-                   time=time,
-                   staff=staff,
-                   hand=hand,
-                   _color=color,
-                   _width=width,
-                   _slant=slant)
-        beam.score = self
-        
-        self.get_stave(stave_idx).event.beam.append(beam)
-        return beam
-
-    def new_slur(self,
-                 stave_idx: int = 0,
-                 time: float = 0.0,
-                 x1_semitonesFromC4: int = 0,
-                 x2_semitonesFromC4: int = 0,
-                 y2_time: float = 0.0,
-                 x3_semitonesFromC4: int = 0,
-                 y3_time: float = 0.0,
-                 x4_semitonesFromC4: int = 0,
-                 y4_time: float = 0.0,
-                 color: str = None,
-                 startEndWidth: float = None,
-                 middleWidth: float = None) -> Slur:
-        '''Add a slur to the specified stave.'''
-        
-        slur = Slur(id=self._next_id(),
-                   time=time,
-                   x1_semitonesFromC4=x1_semitonesFromC4,
-                   x2_semitonesFromC4=x2_semitonesFromC4,
-                   y2_time=y2_time,
-                   x3_semitonesFromC4=x3_semitonesFromC4,
-                   y3_time=y3_time,
-                   x4_semitonesFromC4=x4_semitonesFromC4,
-                   y4_time=y4_time,
-                   _color=color,
-                   _startEndWidth=startEndWidth,
-                   _middleWidth=middleWidth)
-        slur.score = self
-        
-        # No need to set time separately - it's now a regular field
-        
-        self.get_stave(stave_idx).event.slur.append(slur)
-        return slur
-
-    def new_tempo(self,
-                  stave_idx: int = 0,
-                  time: float = 0.0,
-                  bpm: int = 120) -> None:
-        '''Add a tempo marking to the specified stave.'''
-        
-        tempo = Tempo(id=self._next_id(),
-                     time=time,
-                     bpm=bpm)
-        
-        self.get_stave(stave_idx).event.tempo.append(tempo)
-        return tempo
-
-    def new_start_repeat(self,
-                         stave_idx: int = 0,
-                         time: float = 0.0,
-                         color: str = None,
-                         lineWidth: float = None) -> StartRepeat:
-        '''Add a start repeat to the specified stave.'''
-        
-        start_repeat = StartRepeat(id=self._next_id(),
-                                  time=time,
-                                  _color=color,
-                                  _lineWidth=lineWidth)
-        start_repeat.score = self
-        
-        self.get_stave(stave_idx).event.startRepeat.append(start_repeat)
-        return start_repeat
-
-    def new_end_repeat(self,
-                       stave_idx: int = 0,
-                       time: float = 0.0,
-                       color: str = None,
-                       lineWidth: float = None) -> EndRepeat:
-        '''Add an end repeat to the specified stave.'''
-        
-        end_repeat = EndRepeat(id=self._next_id(),
-                              time=time,
-                              _color=color,
-                              _lineWidth=lineWidth)
-        end_repeat.score = self
-        
-        self.get_stave(stave_idx).event.endRepeat.append(end_repeat)
-        return end_repeat
-
-    def new_section(self,
-                    stave_idx: int = 0,
-                    time: float = 0.0,
-                    text: str = 'Section',
-                    color: str = None,
-                    lineWidth: float = None) -> Section:
-        '''Add a section to the specified stave.'''
-        
-        section = Section(id=self._next_id(),
-                         time=time,
-                         text=text,
-                         _color=color,
-                         _lineWidth=lineWidth)
-        section.score = self
-        
-        self.get_stave(stave_idx).event.section.append(section)
-        return section
+    
+    # Auto-generated event factory methods are added by setup_event_factories()
+    # Available methods: new_note, new_grace_note, new_beam, new_text, new_slur,
+    # new_count_line, new_section, new_start_repeat, new_end_repeat, new_tempo
+    # All accept stave_idx=0 and **kwargs matching the Event class fields
     
     def find_by_id(self, target_id: int) -> Optional[Event]:
         '''Find any event by ID across all staves and return the event object.'''
@@ -375,7 +222,9 @@ class SCORE:
     def save(self, filename: str) -> None:
         '''Save SCORE instance to JSON file.'''
         with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(self.to_dict(), f, ensure_ascii=True, separators=(',', ':'), indent=None)
+            # Use compact JSON (no indentation) for current.pianotab to reduce file size and parsing time
+            indent = None if filename == self._auto_save_path else 4
+            json.dump(self.to_dict(), f, ensure_ascii=True, separators=(',', ':'), indent=indent)
     
     @classmethod
     def load(cls, filename: str) -> 'SCORE':
@@ -434,3 +283,7 @@ class SCORE:
             
             for section in stave.event.section:
                 section.score = self
+
+
+# Auto-generate all event factory methods (new_note, new_grace_note, etc.)
+setup_event_factories(SCORE)

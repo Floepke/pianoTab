@@ -1,10 +1,11 @@
 {
+    "quarterNoteLength": 256,
     "metaInfo": {
         "appName": "PianoTab",
         "extension": ".pianotab",
         "description": "PianoTab score file",
         "version": "1.0",
-        "created": "27-10-2025_16:27:20",
+        "created": "27-10-2025_20:09:26",
         "author": "PianoTab Team",
         "license": "MIT"
     },
@@ -16,7 +17,7 @@
         "lyricist": "",
         "publisher": "",
         "copyright": "Copyright © 2025, PianoTab. All rights reserved.",
-        "timeStamp": "27-10-2025_16:27:20",
+        "timeStamp": "27-10-2025_20:09:26",
         "genre": "",
         "comment": ""
     },
@@ -152,110 +153,16 @@
             "name": "Stave 1",
             "scale": 1,
             "event": {
-                "note": [
-                    {
-                        "id": 1,
-                        "time": 0,
-                        "dur": 256,
-                        "pitch": 60,
-                        "vel": 100,
-                        "art": [],
-                        "hand": ">",
-                        "color": null,
-                        "colL": null,
-                        "colR": null,
-                        "blkDir": null
-                    }
-                ],
-                "graceNote": [
-                    {
-                        "id": 2,
-                        "time": 128,
-                        "pitch": 64,
-                        "vel": 80,
-                        "color": null
-                    }
-                ],
-                "countLine": [
-                    {
-                        "id": 6,
-                        "time": 1024,
-                        "pitch1": 60,
-                        "pitch2": 67,
-                        "color": null,
-                        "dash": null
-                    }
-                ],
-                "startRepeat": [
-                    {
-                        "id": 8,
-                        "time": 1280,
-                        "color": null,
-                        "lnWid": null
-                    }
-                ],
-                "endRepeat": [
-                    {
-                        "id": 9,
-                        "time": 1408,
-                        "color": null,
-                        "lnWid": null
-                    }
-                ],
-                "section": [
-                    {
-                        "id": 7,
-                        "time": 1152,
-                        "text": "Section A",
-                        "color": null,
-                        "lnWid": null
-                    }
-                ],
-                "beam": [
-                    {
-                        "id": 3,
-                        "time": 256,
-                        "staff": 0,
-                        "hand": "<",
-                        "color": null,
-                        "width": null,
-                        "slant": null
-                    }
-                ],
-                "text": [
-                    {
-                        "id": 4,
-                        "time": 384,
-                        "side": ">",
-                        "distFromSide": 10,
-                        "text": "Test Text",
-                        "fonSz": null,
-                        "color": null
-                    }
-                ],
-                "slur": [
-                    {
-                        "id": 5,
-                        "time": 512,
-                        "x1": 0,
-                        "x2": 5,
-                        "y2": 640,
-                        "x3": 10,
-                        "y3": 768,
-                        "x4": 12,
-                        "y4": 896,
-                        "color": null,
-                        "seWid": null,
-                        "midWid": null
-                    }
-                ],
-                "tempo": [
-                    {
-                        "id": 10,
-                        "time": 1536,
-                        "bpm": 120
-                    }
-                ]
+                "note": [],
+                "graceNote": [],
+                "countLine": [],
+                "startRepeat": [],
+                "endRepeat": [],
+                "section": [],
+                "beam": [],
+                "text": [],
+                "slur": [],
+                "tempo": []
             }
         }
     ]
