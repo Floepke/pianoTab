@@ -54,6 +54,7 @@ class Slur:
         if self._color is not None:
             return self._color
         if self.score is None:
+            print("Warning: Slur has no score reference for property inheritance.")
             return '#000000'  # Fallback if no score reference
         return self.score.properties.globalSlur.color
     
@@ -69,6 +70,7 @@ class Slur:
         if self._startEndWidth is not None:
             return self._startEndWidth
         if self.score is None:
+            print("Warning: Slur has no score reference for property inheritance.")
             return 0.5  # Fallback if no score reference
         return self.score.properties.globalSlur.startEndWidth
     
@@ -84,6 +86,7 @@ class Slur:
         if self._middleWidth is not None:
             return self._middleWidth
         if self.score is None:
+            print("Warning: Slur has no score reference for property inheritance.")
             return 1.0  # Fallback if no score reference
         return self.score.properties.globalSlur.middleWidth
     

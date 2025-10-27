@@ -28,6 +28,7 @@ class Text:
         if self._fontSize is not None:
             return self._fontSize
         if self.score is None:
+            print("Warning: Text has no score reference for property inheritance.")
             return 12  # Fallback if no score reference
         return self.score.properties.globalText.fontSize
     
@@ -43,6 +44,7 @@ class Text:
         if self._color is not None:
             return self._color
         if self.score is None:
+            print("Warning: Text has no score reference for property inheritance.")
             return '#000000'  # Fallback if no score reference
         return self.score.properties.globalText.color
     

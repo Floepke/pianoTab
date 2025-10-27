@@ -3,7 +3,7 @@ from dataclasses_json import dataclass_json
 from typing import List, Literal
 from file.globalProperties import (
         GlobalNote, GlobalArticulation, GlobalBeam, 
-        GlobalGracenote, GlobalCountline, GlobalSlur, 
+        GlobalGraceNote, GlobalCountLine, GlobalSlur, 
         GlobalText, GlobalBarline, GlobalBasegrid, 
         GlobalStave, GlobalPage, GlobalSection,
         GlobalStartRepeat, GlobalEndRepeat
@@ -15,8 +15,8 @@ class Properties:
     globalNote: GlobalNote = field(default_factory=GlobalNote)
     globalArticulation: GlobalArticulation = field(default_factory=GlobalArticulation)
     globalBeam: GlobalBeam = field(default_factory=GlobalBeam)
-    globalGraceNote: GlobalGracenote = field(default_factory=GlobalGracenote)
-    globalCountLine: GlobalCountline = field(default_factory=GlobalCountline)
+    globalGraceNote: GlobalGraceNote = field(default_factory=GlobalGraceNote)
+    globalCountLine: GlobalCountLine = field(default_factory=GlobalCountLine)
     globalSlur: GlobalSlur = field(default_factory=GlobalSlur)
     globalText: GlobalText = field(default_factory=GlobalText)
     globalBarLine: GlobalBarline = field(default_factory=GlobalBarline)

@@ -36,13 +36,13 @@ class GlobalBeam:
 
 @dataclass_json
 @dataclass
-class GlobalGracenote:
+class GlobalGraceNote:
     color: str = '#000000'
     visible: int = True
 
 @dataclass_json
 @dataclass
-class GlobalCountline:
+class GlobalCountLine:
     color: str = '#000000'
     width: float = 1.0
     dashPattern: List[int] = field(default_factory=list)

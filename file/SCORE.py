@@ -3,7 +3,7 @@ from dataclasses_json import dataclass_json
 from typing import List, Literal, Optional
 import json
 
-from file.metaInfo import Metainfo
+from file.metaInfo import MetaInfo
 from file.header import Header
 from file.properties import Properties
 from file.baseGrid import BaseGrid
@@ -48,7 +48,7 @@ class Stave:
 class SCORE:
     '''The main SCORE class; contains all data for a piano tab score.'''
     
-    metaInfo: Metainfo = field(default_factory=Metainfo)
+    metaInfo: MetaInfo = field(default_factory=MetaInfo)
     header: Header = field(default_factory=Header)
     properties: Properties = field(default_factory=Properties)
     baseGrid: List[BaseGrid] = field(default_factory=list)

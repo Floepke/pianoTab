@@ -25,6 +25,7 @@ class StartRepeat:
         if self._color is not None:
             return self._color
         if self.score is None:
+            print("Warning: StartRepeat has no score reference for property inheritance.")
             return '#000000'  # Fallback if no score reference
         return self.score.properties.globalStartRepeat.color
     
@@ -40,6 +41,7 @@ class StartRepeat:
         if self._lineWidth is not None:
             return self._lineWidth
         if self.score is None:
+            print("Warning: StartRepeat has no score reference for property inheritance.")
             return 1.0  # Fallback if no score reference
         return self.score.properties.globalStartRepeat.lineWidth
     

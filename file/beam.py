@@ -28,6 +28,7 @@ class Beam:
         if self._color is not None:
             return self._color
         if self.score is None:
+            print("Warning: Beam has no score reference for property inheritance.")
             return '#000000'  # Fallback if no score reference
         return self.score.properties.globalBeam.color
     
@@ -43,6 +44,7 @@ class Beam:
         if self._width is not None:
             return self._width
         if self.score is None:
+            print("Warning: Beam has no score reference for property inheritance.")
             return 4.0  # Fallback if no score reference
         return self.score.properties.globalBeam.width
     
@@ -58,6 +60,7 @@ class Beam:
         if self._slant is not None:
             return self._slant
         if self.score is None:
+            print("Warning: Beam has no score reference for property inheritance.")
             return 5.0  # Fallback if no score reference
         return self.score.properties.globalBeam.slant
     

@@ -4,7 +4,7 @@ import time
 
 @dataclass_json
 @dataclass
-class Metainfo:
+class MetaInfo:
     appName: str = 'PianoTab'
     extension: str = '.pianotab'
     description: str = 'PianoTab score file'

@@ -34,7 +34,7 @@ from file.beam import Beam
 from file.text import Text
 from file.slur import Slur
 from file.tempo import Tempo
-from file.metaInfo import Metainfo
+from file.metaInfo import MetaInfo
 from file.header import Header
 from file.properties import Properties
 from file.baseGrid import BaseGrid

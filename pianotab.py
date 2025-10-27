@@ -61,7 +61,14 @@ class PianoTab(App):
         self.gui = PianoTabGUI()
 
         # Initialize the SCORE model (document)
-        self.score = SCORE()  # Auto-attaches references via @model_validator
+        self.score = SCORE()
+
+        # some inline testing with note creation
+        self.score.new_note(pitch=60, duration=256.0, time=0.0, stave_idx=0)
+        self.score.new_note(pitch=62, duration=256.0, time=0.0, stave_idx=0)
+
+        # saving the score to json using .pianotab extension
+        self.score.save('test_output.pianotab')
 
         # Create Editor controller and pass the score
         self.editor = Editor(self.gui.get_editor_widget(), self.score)

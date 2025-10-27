@@ -42,6 +42,7 @@ class Note:
         if self._color is not None:
             return self._color
         if self.score is None:
+            print("Warning: Note has no score reference for property inheritance.")
             return '#000000'  # Fallback if no score reference
         return self.score.properties.globalNote.color
     
