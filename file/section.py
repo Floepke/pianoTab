@@ -15,14 +15,12 @@ class Section:
     color: str = '*'
     lineWidth: float = 0
 
-    @property
     def color_(self, score: 'SCORE') -> str:
         '''Get the actual color to use, considering inheritance.'''
         if self.color != '*':
             return self.color
         return score.properties.globalSection.color
 
-    @property
     def lineWidth_(self, score: 'SCORE') -> float:
         '''Get the actual line width to use, considering inheritance.'''
         if self.lineWidth != 0:

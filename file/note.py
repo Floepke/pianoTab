@@ -21,14 +21,12 @@ class Note:
     colorMidiNote: Union[Literal['*'], str] = '*'
     blackNoteDirection: Literal['*', '^', 'v'] = '*'  # '*' means inherit, '^' for up and 'v' for down
 
-    @property
     def get_color(self, score: 'SCORE') -> str:
         '''Get the actual color to use, considering inheritance.'''
         if self.color != '*':
             return self.color
         return score.properties.globalNote.color
     
-    @property
     def get_colorMidiNote(self, score: 'SCORE') -> str:
         '''Get the actual MIDI color to use, considering inheritance.'''
         if self.colorMidiNote != '*':
@@ -39,7 +37,6 @@ class Note:
             elif self.hand == '>':
                 return score.properties.globalNote.colorRightMidiNote
             
-    @property
     def get_blackNoteDirection(self, score: 'SCORE') -> str:
         '''Get the actual black note direction to use, considering inheritance.'''
         if self.blackNoteDirection != '*':

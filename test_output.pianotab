@@ -1,12 +1,11 @@
 {
-    "quarterNote": 256,
     "metaInfo": {
         "appName": "PianoTab",
         "extension": ".pianotab",
         "description": "PianoTab score file",
         "version": "1.0",
-        "created": "23-10-2025_09:10:55",
-        "author": "JSON Demo",
+        "created": "27-10-2025_11:38:26",
+        "author": "PianoTab Team",
         "license": "MIT"
     },
     "header": {
@@ -17,13 +16,13 @@
         "lyricist": "",
         "publisher": "",
         "copyright": "Copyright © 2025, PianoTab. All rights reserved.",
-        "timeStamp": "23-10-2025_09:10:55",
+        "timeStamp": "27-10-2025_11:38:26",
         "genre": "",
         "comment": ""
     },
     "properties": {
         "globalNote": {
-            "color": "#FF0000",
+            "color": "#000000",
             "colorLeftMidiNote": "#000000",
             "colorRightMidiNote": "#000000",
             "stemWidth": 1,
@@ -67,7 +66,7 @@
         "globalText": {
             "fontSize": 12,
             "family": "Courier New",
-            "color": "#00FF00"
+            "color": "#000000"
         },
         "globalBarLine": {
             "color": "#000000",
@@ -77,7 +76,7 @@
         "globalBasegrid": {
             "gridlineColor": "#000000",
             "gridlineWidth": 1,
-            "gridLineDashPattern": [
+            "gridlineDashPattern": [
                 4,
                 4
             ],
@@ -144,7 +143,8 @@
         {
             "id": 0,
             "time": 0,
-            "type": "locked"
+            "type": "locked",
+            "staveRange": []
         }
     ],
     "stave": [
@@ -161,21 +161,9 @@
                         "velocity": 80,
                         "articulation": [],
                         "hand": ">",
-                        "color": null,
-                        "colorMidiNote": null,
-                        "blackNoteDirection": null
-                    },
-                    {
-                        "id": 2,
-                        "time": 256,
-                        "duration": 256,
-                        "pitch": 64,
-                        "velocity": 80,
-                        "articulation": [],
-                        "hand": ">",
-                        "color": "#0000FF",
-                        "colorMidiNote": null,
-                        "blackNoteDirection": null
+                        "color": "*",
+                        "colorMidiNote": "*",
+                        "blackNoteDirection": "*"
                     }
                 ],
                 "graceNote": [],
@@ -184,26 +172,7 @@
                 "endRepeat": [],
                 "section": [],
                 "beam": [],
-                "text": [
-                    {
-                        "id": 3,
-                        "time": 100,
-                        "side": ">",
-                        "distFromSide": 10,
-                        "text": "Inherits Green",
-                        "fontSize": null,
-                        "color": null
-                    },
-                    {
-                        "id": 4,
-                        "time": 200,
-                        "side": ">",
-                        "distFromSide": 10,
-                        "text": "Explicit Orange",
-                        "fontSize": null,
-                        "color": "#FFA500"
-                    }
-                ],
+                "text": [],
                 "slur": [],
                 "tempo": []
             }

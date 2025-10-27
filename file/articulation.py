@@ -15,7 +15,6 @@ class Articulation:
     # looking to globalProperties for default values:
     color: Union[Literal['*'], str] = '*'  # '*' means inherit, otherwise a color string like '#RRGGBB'
 
-    @property
     def get_color(self, score: 'SCORE') -> str:
         '''Get the actual color to use, considering inheritance.'''
         if self.color != '*':

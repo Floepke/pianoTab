@@ -1,9 +1,12 @@
 from typing import List
-from pydantic import BaseModel, Field
+from dataclasses import dataclass, field
+from dataclasses_json import dataclass_json
 
-class BaseGrid(BaseModel):
-    numerator: int = Field(default=4)
-    denominator: int = Field(default=4)
-    gridTimes: List[float] = Field(default_factory=lambda: [256.0, 512.0, 768.0])
-    measureAmount: int = Field(default=8)
-    timeSignatureIndicatorVisible: bool = Field(default=True)
+@dataclass_json
+@dataclass
+class BaseGrid:
+    numerator: int = 4
+    denominator: int = 4
+    gridTimes: List[float] = field(default_factory=lambda: [256.0, 512.0, 768.0])
+    measureAmount: int = 8
+    timeSignatureIndicatorVisible: bool = True

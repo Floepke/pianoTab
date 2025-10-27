@@ -76,35 +76,37 @@ class SCORE:
         self._id.reset(start_id)
     
     # Convenience methods for managing line breaks and base grids:
-    def add_basegrid(self, gridlineColor: str = '#000000',
-                     barlineColor: str = '#000000',
-                     gridlineWidth: float = 0.5,
-                     barlineWidth: float = 1.0,
-                     basegridDashPattern: List[int] = [],
-                     visible: bool = True) -> None:
+    def new_basegrid(self, 
+                     numerator: int = 4,
+                     denominator: int = 4,
+                     gridTimes: List[float] = None,
+                     measureAmount: int = 8,
+                     timeSignatureIndicatorVisible: bool = True) -> None:
         '''Add a new baseGrid to the score.'''
-        basegrid = BaseGrid(id=self._next_id(),
-                            gridlineColor=gridlineColor,
-                            barlineColor=barlineColor,
-                            gridlineWidth=gridlineWidth,
-                            barlineWidth=barlineWidth,
-                            basegridDashPattern=basegridDashPattern,
-                            visible=visible)
+        if gridTimes is None:
+            gridTimes = [256.0, 512.0, 768.0]
+        basegrid = BaseGrid(numerator=numerator,
+                            denominator=denominator,
+                            gridTimes=gridTimes,
+                            measureAmount=measureAmount,
+                            timeSignatureIndicatorVisible=timeSignatureIndicatorVisible)
         self.baseGrid.append(basegrid)
+        return basegrid
 
-    def add_linebreak(self, time: float = 0.0, type: Literal['manual', 'locked'] = 'manual') -> None:
+    def new_linebreak(self, time: float = 0.0, type: Literal['manual', 'locked'] = 'manual') -> None:
         '''Add a new line break to the score.'''
         linebreak = LineBreak(id=self._next_id(), time=time, type=type)
         self.lineBreak.append(linebreak)
         # Ensure there's always a 'locked' lineBreak at time 0:
         if not any(lb.time == 0.0 and lb.type == 'locked' for lb in self.lineBreak):
             self.lineBreak.insert(0, LineBreak(time=0.0, type='locked', id=self._next_id()))
+        return linebreak
     
     # Convenience methods for managing staves
-    def add_stave(self, name: str = None) -> int:
+    def new_stave(self, name: str = None, scale: float = 1.0) -> int:
         '''Add a new stave and return its index.'''
         stave_name = name or f'Stave {len(self.stave) + 1}'
-        self.stave.append(Stave(name=stave_name))
+        self.stave.append(Stave(name=stave_name, scale=scale))
         return len(self.stave) - 1
     
     def get_stave(self, index: int = 0) -> Stave:
@@ -138,7 +140,8 @@ class SCORE:
                     colorMidiNote=colorMidiNote, 
                     blackNoteDirection=blackNoteDirection)
         
-        return self.get_stave(stave_idx).event.note.append(note)
+        self.get_stave(stave_idx).event.note.append(note)
+        return note
 
     def new_grace_note(self, 
                        stave_idx: int = 0, 
@@ -154,14 +157,14 @@ class SCORE:
                               velocity=velocity,
                               color=color)
         
-        return self.get_stave(stave_idx).event.graceNote.append(grace_note)
+        self.get_stave(stave_idx).event.graceNote.append(grace_note)
+        return grace_note
 
     def new_count_line(self, 
                        time: float = 0.0,
                        pitch1: int = 40, 
                        pitch2: int = 44, 
                        color: str = '*', 
-                       width: float = 1.0, 
                        dashPattern: List[int] = [],
                        stave_idx: int = 0) -> None:
         '''Add a count line to the specified stave.'''
@@ -170,9 +173,9 @@ class SCORE:
                                pitch1=pitch1,
                                pitch2=pitch2,
                                color=color,
-                               width=width,
                                dashPattern=dashPattern)
-        return self.get_stave(stave_idx).event.countLine.append(count_line)
+        self.get_stave(stave_idx).event.countLine.append(count_line)
+        return count_line
 
     def new_text(self,
                  stave_idx: int = 0,
@@ -192,7 +195,8 @@ class SCORE:
                        fontSize=fontSize,
                        color=color)
 
-        return self.get_stave(stave_idx).event.text.append(text)
+        self.get_stave(stave_idx).event.text.append(text)
+        return text
 
     def new_beam(self,
                  stave_idx: int = 0,
@@ -212,7 +216,8 @@ class SCORE:
                    width=width,
                    slant=slant)
         
-        return self.get_stave(stave_idx).event.beam.append(beam)
+        self.get_stave(stave_idx).event.beam.append(beam)
+        return beam
 
     def new_slur(self,
                  stave_idx: int = 0,
@@ -244,7 +249,8 @@ class SCORE:
         
         # No need to set time separately - it's now a regular field
         
-        return self.get_stave(stave_idx).event.slur.append(slur)
+        self.get_stave(stave_idx).event.slur.append(slur)
+        return slur
 
     def new_tempo(self,
                   stave_idx: int = 0,
@@ -256,7 +262,8 @@ class SCORE:
                      time=time,
                      bpm=bpm)
         
-        return self.get_stave(stave_idx).event.tempo.append(tempo)
+        self.get_stave(stave_idx).event.tempo.append(tempo)
+        return tempo
 
     def new_start_repeat(self,
                          stave_idx: int = 0,
@@ -270,7 +277,8 @@ class SCORE:
                                   color=color,
                                   lineWidth=lineWidth)
         
-        return self.get_stave(stave_idx).event.startRepeat.append(start_repeat)
+        self.get_stave(stave_idx).event.startRepeat.append(start_repeat)
+        return start_repeat
 
     def new_end_repeat(self,
                        stave_idx: int = 0,
@@ -284,7 +292,8 @@ class SCORE:
                               color=color,
                               lineWidth=lineWidth)
         
-        return self.get_stave(stave_idx).event.endRepeat.append(end_repeat)
+        self.get_stave(stave_idx).event.endRepeat.append(end_repeat)
+        return end_repeat
 
     def new_section(self,
                     stave_idx: int = 0,
@@ -300,7 +309,8 @@ class SCORE:
                          color=color,
                          lineWidth=lineWidth)
         
-        return self.get_stave(stave_idx).event.section.append(section)
+        self.get_stave(stave_idx).event.section.append(section)
+        return section
     
     def find_by_id(self, target_id: int) -> Optional[Event]:
         '''Find any event by ID across all staves and return the event object.'''

@@ -17,14 +17,12 @@ class Text:
     fontSize: int = 0
     color: str = '*' # '*' means inherit, otherwise a color string like '#RRGGBB'
 
-    @property
     def fontSize_(self, score: 'SCORE') -> int:
         '''Get the actual font size to use, considering inheritance.'''
         if self.fontSize != 0:
             return self.fontSize
         return score.properties.globalText.fontSize
 
-    @property
     def color_(self, score: 'SCORE') -> str:
         '''Get the actual color to use, considering inheritance.'''
         if self.color != '*':

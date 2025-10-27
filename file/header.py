@@ -1,14 +1,17 @@
-from pydantic import BaseModel, Field
+from dataclasses import dataclass, field
+from dataclasses_json import dataclass_json
 import time
 
-class Header(BaseModel):
-    title: str = Field(default='Untitled')
-    subtitle: str = Field(default='')
-    composer: str = Field(default='')
-    arranger: str = Field(default='')
-    lyricist: str = Field(default='')
-    publisher: str = Field(default='')
-    copyright: str = Field(default_factory=lambda: f'Copyright © {time.strftime("%Y")}, PianoTab. All rights reserved.')
-    timeStamp: str = Field(default_factory=lambda: time.strftime("%d-%m-%Y_%H:%M:%S"))
-    genre: str = Field(default='')
-    comment: str = Field(default='')
+@dataclass_json
+@dataclass
+class Header:
+    title: str = 'Untitled'
+    subtitle: str = ''
+    composer: str = ''
+    arranger: str = ''
+    lyricist: str = ''
+    publisher: str = ''
+    copyright: str = field(default_factory=lambda: f'Copyright © {time.strftime("%Y")}, PianoTab. All rights reserved.')
+    timeStamp: str = field(default_factory=lambda: time.strftime("%d-%m-%Y_%H:%M:%S"))
+    genre: str = ''
+    comment: str = ''

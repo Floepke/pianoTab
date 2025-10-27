@@ -15,7 +15,6 @@ class GraceNote:
     # looking to globalProperties for default values:
     color: str = '*'
 
-    @property
     def color_(self, score: 'SCORE') -> str:
         '''Get the actual color to use, considering inheritance.'''
         if self.color != '*':

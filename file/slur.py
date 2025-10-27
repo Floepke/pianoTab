@@ -53,21 +53,18 @@ class Slur:
         '''Set both y1_time and time to the same value.'''
         self.time = value
 
-    @property
     def color_(self, score: 'SCORE') -> str:
         '''Get the actual color to use, considering inheritance.'''
         if self.color != '*':
             return self.color
         return score.properties.globalSlur.color
     
-    @property
     def startEndWidth_(self, score: 'SCORE') -> float:
         '''Get the actual startEndWidth to use, considering inheritance.'''
         if self.startEndWidth != 0:
             return self.startEndWidth
         return score.properties.globalSlur.startEndWidth
 
-    @property
     def middleWidth_(self, score: 'SCORE') -> float:
         '''Get the actual middleWidth to use, considering inheritance.'''
         if self.middleWidth != 0:

@@ -1,7 +1,10 @@
-from pydantic import BaseModel, Field
+from dataclasses import dataclass, field
+from dataclasses_json import dataclass_json
 
-class Tempo(BaseModel):
+@dataclass_json
+@dataclass
+class Tempo:
     '''A tempo marking in the score only for the midi playback.'''
-    id: int = Field(default=0)
-    time: float = Field(default=0.0)
-    bpm: int = Field(default=120)  # where a beat is a quarter note
+    id: int = 0
+    time: float = 0.0
+    bpm: int = 120  # where a beat is a quarter note
