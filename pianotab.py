@@ -37,6 +37,7 @@ from kivy.logger import Logger
 from kivy.metrics import Metrics
 from gui.main_gui import PianoTabGUI
 from editor.editor import Editor
+from file.SCORE import SCORE
 
 # set global scaling from kivy
 Metrics.density = 6  # 3x scaling
@@ -59,9 +60,11 @@ class PianoTab(App):
         # Build GUI structure (left side panel + split view with editor/preview)
         self.gui = PianoTabGUI()
 
-        # Create Editor controller and attach to the editor canvas
-        self.editor = Editor(self.gui.get_editor_widget())
-        self.editor.load_empty()
+        # Initialize the SCORE model (document)
+        self.score = SCORE()  # Auto-attaches references via @model_validator
+
+        # Create Editor controller and pass the score
+        self.editor = Editor(self.gui.get_editor_widget(), self.score)
 
         return self.gui
 

@@ -309,8 +309,7 @@ class PianoTabGUI(BoxLayout):
 
     def on_exit(self):
         """Handle File > Exit."""
-        from kivy.app import App
-        App.get_running_app().stop()
+        ...
 
     def on_about(self):
         """Handle About menu."""

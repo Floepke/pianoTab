@@ -1,51 +1,74 @@
-"""
-Editor module for PianoTab.
-
-Provides the Editor class that manages the editing model and draws to a Canvas.
-This is a minimal placeholder to integrate with the application structure.
-"""
 from __future__ import annotations
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
+from kivy.clock import Clock
 
+from file.SCORE import SCORE
 from utils.canvas import Canvas
-
 
 class Editor:
     """
-    High-level editor controller. Owns the score model and renders to a Canvas.
+    Controller: mediates between View (Canvas/widgets) and Model (SCORE).
+    Owns no drawing; instructs Canvas to render the SCORE.
     """
-    def __init__(self, canvas: Canvas):
-        self.canvas: Canvas = canvas
-        self.model: Optional[Dict[str, Any]] = None
-        # Example: configure canvas behavior for editor
-        self.canvas.set_scale_to_width(True)
+    def __init__(self, editor_canvas: Canvas, score: SCORE):
+        self.editor_canvas: Canvas = editor_canvas
+        self.score: SCORE = score
+        # Create a trigger that coalesces multiple render requests into one
+        self._render_trigger = Clock.create_trigger(self._render_next_frame, 0)
 
-    def load_empty(self):
-        """Load an empty score (placeholder)."""
-        self.model = {'title': 'Untitled'}
-        self.canvas.clear()
-        # Draw some very light staff lines as placeholder
-        y = 20.0
-        for _ in range(5):
-            self.canvas.add_line(10.0, y, 190.0, y, color="#BDBDBD", width_mm=0.15)
-            y += 1.8
+    # View -> Controller (pointer/tool)
+    def on_pointer(self, x: float, y: float, action: str, tool: str, **kw):
+        # Example: place note on click
+        if action == 'down' and tool == 'note':
+            time, pitch = self._hit_to_time_pitch(x, y)
+            self.add_note(time, pitch)
 
-    def load_from_file(self, path: str):
-        """Load score from a file (stub)."""
-        # TODO: parse your PianoTab file format and populate model
-        self.model = {'title': 'Loaded', 'path': path}
-        self.redraw()
+    # Controller -> Model
+    def add_note(self, time: float, pitch: int):
+        self.score.new_note(time=time, pitch=pitch)
+        self.render_async()
 
-    def set_model(self, model: Dict[str, Any]):
-        """Set the score model directly and redraw."""
-        self.model = model
-        self.redraw()
+    def set_property(self, path: str, value: Any):
+        # e.g. "properties.globalNote.color"
+        obj = self.score
+        parts = path.split('.')
+        for p in parts[:-1]:
+            obj = getattr(obj, p)
+        setattr(obj, parts[-1], value)
+        self.render_async()
 
-    def redraw(self):
-        """Redraw the canvas based on model (stub)."""
-        self.canvas.clear()
-        if not self.model:
-            return
-        # Placeholder render: title underline
-        self.canvas.add_line(10, 15, 120, 15, color="#424242", width_mm=0.3)
-        # More rendering would go here
+    # File ops (called from menu callbacks)
+    def load_score(self, score: SCORE):
+        """Replace current score with a loaded one (e.g., from JSON)."""
+        self.score = score
+        self.render_async()
+
+    def new_score(self):
+        """Replace current score with a fresh empty score."""
+        self.score = SCORE()  # Auto-attaches references via @model_validator
+        self.render_async()
+
+    # Controller -> View
+    def render(self):
+        self.editor_canvas.draw_score(self.score)
+
+    def render_async(self):
+        """Schedule render on next frame; coalesces multiple calls."""
+        self._render_trigger()
+
+    def _render_next_frame(self, dt):
+        """Internal callback for Clock trigger."""
+        self.render()
+
+    # Helpers
+    def _hit_to_time_pitch(self, x: float, y: float) -> Tuple[float, int]:
+        # Map view coords to model units; placeholder
+        time = self._x_to_time(x)
+        pitch = self._y_to_pitch(y)
+        return time, pitch
+
+    def _x_to_time(self, x: float) -> float:
+        return float(x)  # replace with grid mapping
+
+    def _y_to_pitch(self, y: float) -> int:
+        return max(1, min(88, int(y)))  # replace with stave mapping
