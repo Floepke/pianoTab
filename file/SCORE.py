@@ -135,24 +135,6 @@ class SCORE:
         self.lineBreak.append(linebreak)
         self._auto_save()
         return linebreak
-        if gridTimes is None:
-            gridTimes = [256.0, 512.0, 768.0]
-        basegrid = BaseGrid(numerator=numerator,
-                            denominator=denominator,
-                            gridTimes=gridTimes,
-                            measureAmount=measureAmount,
-                            timeSignatureIndicatorVisible=timeSignatureIndicatorVisible)
-        self.baseGrid.append(basegrid)
-        return basegrid
-
-    def new_linebreak(self, time: float = 0.0, type: Literal['manual', 'locked'] = 'manual') -> None:
-        '''Add a new line break to the score.'''
-        linebreak = LineBreak(id=self._next_id(), time=time, type=type)
-        self.lineBreak.append(linebreak)
-        # Ensure there's always a 'locked' lineBreak at time 0:
-        if not any(lb.time == 0.0 and lb.type == 'locked' for lb in self.lineBreak):
-            self.lineBreak.insert(0, LineBreak(time=0.0, type='locked', id=self._next_id()))
-        return linebreak
     
     # Convenience methods for managing staves
     def new_stave(self, name: str = None, scale: float = 1.0) -> int:
