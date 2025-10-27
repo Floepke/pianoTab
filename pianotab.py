@@ -68,6 +68,8 @@ class PianoTab(App):
     def on_start(self):
         Logger.info('PianoTab: Application started')
 
+    def on_stop(self):
+        Logger.info('PianoTab: Application stopping')
 
 def main():
     """Main entry point for PianoTab application."""

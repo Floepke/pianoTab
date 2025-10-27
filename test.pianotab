@@ -5,7 +5,7 @@
         "extension": ".pianotab",
         "description": "Comprehensive test score with all event types",
         "version": "1.0",
-        "created": "24-10-2025_13:30:09",
+        "created": "24-10-2025_14:18:39",
         "author": "Test Author",
         "license": "MIT"
     },
@@ -17,7 +17,7 @@
         "lyricist": "",
         "publisher": "",
         "copyright": "Copyright © 2025, PianoTab. All rights reserved.",
-        "timeStamp": "24-10-2025_13:30:09",
+        "timeStamp": "24-10-2025_14:18:39",
         "genre": "",
         "comment": ""
     },

@@ -27,6 +27,7 @@ from kivy.clock import Clock
 from gui.split_view import SplitView
 from gui.grid_selector import GridSelector
 from gui.tool_selector import ToolSelector
+from gui.menu_bar import MenuBar
 from utils.canvas import Canvas
 
 
@@ -204,13 +205,14 @@ class SidePanelWidget(ScrollView):
 class PianoTabGUI(BoxLayout):
     """
     Main GUI class for PianoTab application in Kivy.
-    Recreates the tkinter structure with left panel and split view.
+    Recreates the tkinter structure with menu bar, left panel and split view.
     """
     
     def __init__(self, **kwargs):
-        super().__init__(orientation='horizontal', **kwargs)
+        super().__init__(orientation='vertical', **kwargs)
         
         # Initialize references
+        self.menu_bar = None
         self.side_panel = None
         self.editor_area = None
         self.print_preview = None
@@ -218,7 +220,36 @@ class PianoTabGUI(BoxLayout):
         self.setup_layout()
     
     def setup_layout(self):
-        """Create the main layout structure with resizable panels."""
+        """Create the main layout structure with menu bar and resizable panels."""
+        
+        # Add menu bar at the top with dict-based configuration
+        menu_config = {
+            'File': {
+                'New': None,
+                'Open...': None,
+                'Open Recent...': {
+                    'recent1': None,
+                    'recent2': None
+                },
+                'Save': None,
+                'Save as...': None,
+                '---': None,  # Separator
+                'Exit': self.on_exit
+            },
+            'Edit': {
+                'Undo': None,
+                'Redo': None,
+                '---': None,  # Separator
+                'Cut': None,
+                'Copy': None,
+                'Paste': None
+            },
+            'Help': {
+                'About': self.on_about
+            }
+        }
+        self.menu_bar = MenuBar(menu_config)
+        self.add_widget(self.menu_bar)
         
         # Main horizontal split: left panel | editor-preview split
         self.main_split = SplitView(
@@ -273,6 +304,17 @@ class PianoTabGUI(BoxLayout):
     def get_side_panel(self):
         """Get reference to the side panel."""
         return self.side_panel
+
+    ''' on_X event handlers '''
+
+    def on_exit(self):
+        """Handle File > Exit."""
+        from kivy.app import App
+        App.get_running_app().stop()
+
+    def on_about(self):
+        """Handle About menu."""
+        ...
 
 
 __all__ = [

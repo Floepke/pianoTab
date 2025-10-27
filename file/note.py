@@ -8,10 +8,10 @@ if TYPE_CHECKING:
 class Note(InheritMixin, BaseModel):
     # Core note fields
     id: int = Field(default=0)
-    time: float = Field(default=0.0)
-    duration: float = Field(default=256.0)
-    pitch: int = Field(default=40)
-    velocity: int = Field(default=80)
+    time: float = Field(default=0.0, ge=0.0)
+    duration: float = Field(default=256.0, ge=0.0)
+    pitch: int = Field(default=40, ge=1, le=88)
+    velocity: int = Field(default=80, ge=0, le=127)
     articulation: List[Articulation] = Field(default_factory=list)
     hand: Literal['<', '>'] = Field(default='>')
     
