@@ -45,7 +45,7 @@ Metrics.fontscale = .25  # 0.5x font scaling
 class PianoTab(App):
     """Main PianoTab application entry point and structure overview."""
 
-    title = 'PianoTab - Music Notation Editor (Kivy)'
+    title = 'PianoTab - Music Notation Editor'
 
     def build(self):
         # Window and theme
