@@ -1,8 +1,8 @@
-from dataclasses import dataclass
-from dataclasses_json import dataclass_json
-from typing import Literal, TYPE_CHECKING
+from dataclasses import dataclass, field
+from dataclasses_json import dataclass_json, config
+from typing import Literal, TYPE_CHECKING, Optional
 if TYPE_CHECKING: 
-    from file import SCORE
+    from file.SCORE import SCORE
 
 @dataclass_json
 @dataclass
@@ -13,18 +13,40 @@ class Text:
     distFromSide: float = 10.0  # distance from side in mm
     text: str = 'Text'
     
-    # looking to globalProperties for default values:
-    fontSize: int = 0
-    color: str = '*' # '*' means inherit, otherwise a color string like '#RRGGBB'
-
-    def fontSize_(self, score: 'SCORE') -> int:
-        '''Get the actual font size to use, considering inheritance.'''
-        if self.fontSize != 0:
-            return self.fontSize
-        return score.properties.globalText.fontSize
-
-    def color_(self, score: 'SCORE') -> str:
-        '''Get the actual color to use, considering inheritance.'''
-        if self.color != '*':
-            return self.color
-        return score.properties.globalText.color
+    # Storage fields for inherited properties (serialize to JSON with clean names)
+    _fontSize: Optional[int] = field(default=None, metadata=config(field_name='fontSize'))
+    _color: Optional[str] = field(default=None, metadata=config(field_name='color'))
+    
+    def __post_init__(self):
+        """Initialize score reference as a non-dataclass attribute."""
+        self.score: Optional['SCORE'] = None
+    
+    # Property: fontSize
+    @property
+    def fontSize(self) -> int:
+        """Get fontSize - inherits from globalText.fontSize if None."""
+        if self._fontSize is not None:
+            return self._fontSize
+        if self.score is None:
+            return 12  # Fallback if no score reference
+        return self.score.properties.globalText.fontSize
+    
+    @fontSize.setter
+    def fontSize(self, value: Optional[int]):
+        """Set fontSize - use None to reset to inheritance."""
+        self._fontSize = value
+    
+    # Property: color
+    @property
+    def color(self) -> str:
+        """Get color - inherits from globalText.color if None."""
+        if self._color is not None:
+            return self._color
+        if self.score is None:
+            return '#000000'  # Fallback if no score reference
+        return self.score.properties.globalText.color
+    
+    @color.setter
+    def color(self, value: Optional[str]):
+        """Set color - use None to reset to inheritance."""
+        self._color = value

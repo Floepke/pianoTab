@@ -1,6 +1,6 @@
-from dataclasses import dataclass
-from dataclasses_json import dataclass_json
-from typing import TYPE_CHECKING, Union, Literal
+from dataclasses import dataclass, field
+from dataclasses_json import dataclass_json, config
+from typing import TYPE_CHECKING, Union, Literal, Optional
 if TYPE_CHECKING:
     from file.SCORE import SCORE
 
@@ -12,11 +12,24 @@ class Articulation:
     xOffset: float = 0.0
     yOffset: float = 0.0
 
-    # looking to globalProperties for default values:
-    color: Union[Literal['*'], str] = '*'  # '*' means inherit, otherwise a color string like '#RRGGBB'
-
-    def get_color(self, score: 'SCORE') -> str:
-        '''Get the actual color to use, considering inheritance.'''
-        if self.color != '*':
-            return self.color
-        return score.properties.globalArticulation.color
+    # Storage field for inherited property (serializes to JSON with clean name)
+    _color: Optional[str] = field(default=None, metadata=config(field_name='color'))
+    
+    def __post_init__(self):
+        """Initialize score reference as a non-dataclass attribute."""
+        self.score: Optional['SCORE'] = None
+    
+    # Property: color
+    @property
+    def color(self) -> str:
+        """Get color - inherits from globalArticulation.color if None."""
+        if self._color is not None:
+            return self._color
+        if self.score is None:
+            return '#000000'  # Fallback if no score reference
+        return self.score.properties.globalArticulation.color
+    
+    @color.setter
+    def color(self, value: Optional[str]):
+        """Set color - use None to reset to inheritance."""
+        self._color = value

@@ -1,6 +1,6 @@
-from dataclasses import dataclass
-from dataclasses_json import dataclass_json
-from typing import Literal, TYPE_CHECKING
+from dataclasses import dataclass, field
+from dataclasses_json import dataclass_json, config
+from typing import Literal, TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from file.SCORE import SCORE
 
@@ -12,25 +12,56 @@ class Beam:
     staff: float = 0.0
     hand: Literal['<', '>'] = '<'
     
-    # looking to globalProperties for default values:
-    color: str = '*'
-    width: float = 0
-    slant: float = 0
-
-    def color_(self, score: 'SCORE') -> str:
-        '''Get the actual color to use, considering inheritance.'''
-        if self.color != '*':
-            return self.color
-        return score.properties.globalBeam.color
-
-    def width_(self, score: 'SCORE') -> float:
-        '''Get the actual width to use, considering inheritance.'''
-        if self.width != 0:
-            return self.width
-        return score.properties.globalBeam.width
-
-    def slant_(self, score: 'SCORE') -> float:
-        '''Get the actual slant to use, considering inheritance.'''
-        if self.slant != 0:
-            return self.slant
-        return score.properties.globalBeam.slant
+    # Storage fields for inherited properties (serialize to JSON with clean names)
+    _color: Optional[str] = field(default=None, metadata=config(field_name='color'))
+    _width: Optional[float] = field(default=None, metadata=config(field_name='width'))
+    _slant: Optional[float] = field(default=None, metadata=config(field_name='slant'))
+    
+    def __post_init__(self):
+        """Initialize score reference as a non-dataclass attribute."""
+        self.score: Optional['SCORE'] = None
+    
+    # Property: color
+    @property
+    def color(self) -> str:
+        """Get color - inherits from globalBeam.color if None."""
+        if self._color is not None:
+            return self._color
+        if self.score is None:
+            return '#000000'  # Fallback if no score reference
+        return self.score.properties.globalBeam.color
+    
+    @color.setter
+    def color(self, value: Optional[str]):
+        """Set color - use None to reset to inheritance."""
+        self._color = value
+    
+    # Property: width
+    @property
+    def width(self) -> float:
+        """Get width - inherits from globalBeam.width if None."""
+        if self._width is not None:
+            return self._width
+        if self.score is None:
+            return 4.0  # Fallback if no score reference
+        return self.score.properties.globalBeam.width
+    
+    @width.setter
+    def width(self, value: Optional[float]):
+        """Set width - use None to reset to inheritance."""
+        self._width = value
+    
+    # Property: slant
+    @property
+    def slant(self) -> float:
+        """Get slant - inherits from globalBeam.slant if None."""
+        if self._slant is not None:
+            return self._slant
+        if self.score is None:
+            return 5.0  # Fallback if no score reference
+        return self.score.properties.globalBeam.slant
+    
+    @slant.setter
+    def slant(self, value: Optional[float]):
+        """Set slant - use None to reset to inheritance."""
+        self._slant = value

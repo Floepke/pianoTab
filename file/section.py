@@ -1,6 +1,6 @@
-from dataclasses import dataclass
-from dataclasses_json import dataclass_json
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, field
+from dataclasses_json import dataclass_json, config
+from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from file.SCORE import SCORE
 
@@ -11,18 +11,40 @@ class Section:
     time: float = 0.0
     text: str = 'Section'
     
-    # looking to globalProperties for default values:
-    color: str = '*'
-    lineWidth: float = 0
-
-    def color_(self, score: 'SCORE') -> str:
-        '''Get the actual color to use, considering inheritance.'''
-        if self.color != '*':
-            return self.color
-        return score.properties.globalSection.color
-
-    def lineWidth_(self, score: 'SCORE') -> float:
-        '''Get the actual line width to use, considering inheritance.'''
-        if self.lineWidth != 0:
-            return self.lineWidth
-        return score.properties.globalSection.lineWidth
+    # Storage fields for inherited properties (serialize to JSON with clean names)
+    _color: Optional[str] = field(default=None, metadata=config(field_name='color'))
+    _lineWidth: Optional[float] = field(default=None, metadata=config(field_name='lineWidth'))
+    
+    def __post_init__(self):
+        """Initialize score reference as a non-dataclass attribute."""
+        self.score: Optional['SCORE'] = None
+    
+    # Property: color
+    @property
+    def color(self) -> str:
+        """Get color - inherits from globalSection.color if None."""
+        if self._color is not None:
+            return self._color
+        if self.score is None:
+            return '#000000'  # Fallback if no score reference
+        return self.score.properties.globalSection.color
+    
+    @color.setter
+    def color(self, value: Optional[str]):
+        """Set color - use None to reset to inheritance."""
+        self._color = value
+    
+    # Property: lineWidth
+    @property
+    def lineWidth(self) -> float:
+        """Get lineWidth - inherits from globalSection.lineWidth if None."""
+        if self._lineWidth is not None:
+            return self._lineWidth
+        if self.score is None:
+            return 1.0  # Fallback if no score reference
+        return self.score.properties.globalSection.lineWidth
+    
+    @lineWidth.setter
+    def lineWidth(self, value: Optional[float]):
+        """Set lineWidth - use None to reset to inheritance."""
+        self._lineWidth = value

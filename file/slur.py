@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
-from dataclasses_json import dataclass_json
-from typing import TYPE_CHECKING
+from dataclasses_json import dataclass_json, config
+from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from file.SCORE import SCORE
 
@@ -28,20 +28,14 @@ class Slur:
     x4_semitonesFromC4: int = 0
     y4_time: float = 0.0
 
-    # looking to globalProperties for default values:
-    color: str = '*'
-    startEndWidth: float = 0
-    middleWidth: float = 0
+    # Storage fields for inherited properties (serialize to JSON with clean names)
+    _color: Optional[str] = field(default=None, metadata=config(field_name='color'))
+    _startEndWidth: Optional[float] = field(default=None, metadata=config(field_name='startEndWidth'))
+    _middleWidth: Optional[float] = field(default=None, metadata=config(field_name='middleWidth'))
 
     def __post_init__(self):
-        """Ensure time and y1_time stay synchronized after initialization."""
-        # If time was set during init, sync y1_time
-        self._sync_y1_time_to_time()
-    
-    def _sync_y1_time_to_time(self):
-        """Internal method to sync y1_time with time."""
-        # This is called when time changes
-        pass  # y1_time is handled by the property
+        """Initialize score reference as a non-dataclass attribute."""
+        self.score: Optional['SCORE'] = None
     
     @property
     def y1_time(self) -> float:
@@ -52,21 +46,48 @@ class Slur:
     def y1_time(self, value: float):
         '''Set both y1_time and time to the same value.'''
         self.time = value
-
-    def color_(self, score: 'SCORE') -> str:
-        '''Get the actual color to use, considering inheritance.'''
-        if self.color != '*':
-            return self.color
-        return score.properties.globalSlur.color
     
-    def startEndWidth_(self, score: 'SCORE') -> float:
-        '''Get the actual startEndWidth to use, considering inheritance.'''
-        if self.startEndWidth != 0:
-            return self.startEndWidth
-        return score.properties.globalSlur.startEndWidth
-
-    def middleWidth_(self, score: 'SCORE') -> float:
-        '''Get the actual middleWidth to use, considering inheritance.'''
-        if self.middleWidth != 0:
-            return self.middleWidth
-        return score.properties.globalSlur.middleWidth
+    # Property: color
+    @property
+    def color(self) -> str:
+        """Get color - inherits from globalSlur.color if None."""
+        if self._color is not None:
+            return self._color
+        if self.score is None:
+            return '#000000'  # Fallback if no score reference
+        return self.score.properties.globalSlur.color
+    
+    @color.setter
+    def color(self, value: Optional[str]):
+        """Set color - use None to reset to inheritance."""
+        self._color = value
+    
+    # Property: startEndWidth
+    @property
+    def startEndWidth(self) -> float:
+        """Get startEndWidth - inherits from globalSlur.startEndWidth if None."""
+        if self._startEndWidth is not None:
+            return self._startEndWidth
+        if self.score is None:
+            return 0.5  # Fallback if no score reference
+        return self.score.properties.globalSlur.startEndWidth
+    
+    @startEndWidth.setter
+    def startEndWidth(self, value: Optional[float]):
+        """Set startEndWidth - use None to reset to inheritance."""
+        self._startEndWidth = value
+    
+    # Property: middleWidth
+    @property
+    def middleWidth(self) -> float:
+        """Get middleWidth - inherits from globalSlur.middleWidth if None."""
+        if self._middleWidth is not None:
+            return self._middleWidth
+        if self.score is None:
+            return 1.0  # Fallback if no score reference
+        return self.score.properties.globalSlur.middleWidth
+    
+    @middleWidth.setter
+    def middleWidth(self, value: Optional[float]):
+        """Set middleWidth - use None to reset to inheritance."""
+        self._middleWidth = value

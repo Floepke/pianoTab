@@ -124,10 +124,10 @@ class SCORE:
                  velocity: int = 80,
                  articulation: List = [],
                  hand: str = '>',
-                 color: str = '*',
-                 colorMidiNote: str = '*',
-                 blackNoteDirection: str = '*') -> None:
-        '''Add a note to the specified stave.'''
+                 color: str = None,
+                 colorMidiNote: str = None,
+                 blackNoteDirection: str = None) -> Note:
+        '''Add a note to the specified stave. Use None for inherited properties.'''
         
         note = Note(id=self._next_id(), 
                     time=time, 
@@ -136,9 +136,12 @@ class SCORE:
                     velocity=velocity,
                     articulation=articulation, 
                     hand=hand, 
-                    color=color,
-                    colorMidiNote=colorMidiNote, 
-                    blackNoteDirection=blackNoteDirection)
+                    _color=color,
+                    _colorMidiNote=colorMidiNote, 
+                    _blackNoteDirection=blackNoteDirection)
+        
+        # Attach score reference for property resolution
+        note.score = self
         
         self.get_stave(stave_idx).event.note.append(note)
         return note
@@ -148,14 +151,15 @@ class SCORE:
                        time: float = 0.0,
                        pitch: int = 40, 
                        velocity: int = 80, 
-                       color: str = '*') -> None:
+                       color: str = None) -> GraceNote:
         '''Add a grace note to the specified stave.'''
 
         grace_note = GraceNote(id=self._next_id(), 
                               time=time,
                               pitch=pitch,
                               velocity=velocity,
-                              color=color)
+                              _color=color)
+        grace_note.score = self
         
         self.get_stave(stave_idx).event.graceNote.append(grace_note)
         return grace_note
@@ -164,16 +168,17 @@ class SCORE:
                        time: float = 0.0,
                        pitch1: int = 40, 
                        pitch2: int = 44, 
-                       color: str = '*', 
-                       dashPattern: List[int] = [],
-                       stave_idx: int = 0) -> None:
+                       color: str = None, 
+                       dashPattern: List[int] = None,
+                       stave_idx: int = 0) -> CountLine:
         '''Add a count line to the specified stave.'''
         count_line = CountLine(id=self._next_id(), 
                                time=time,
                                pitch1=pitch1,
                                pitch2=pitch2,
-                               color=color,
-                               dashPattern=dashPattern)
+                               _color=color,
+                               _dashPattern=dashPattern)
+        count_line.score = self
         self.get_stave(stave_idx).event.countLine.append(count_line)
         return count_line
 
@@ -183,38 +188,40 @@ class SCORE:
                  side: Literal['<', '>'] = '>',
                  distFromSide: float = 10.0,
                  text: str = 'Text',
-                 fontSize: int = 0,
-                 color: str = '*') -> None:
+                 fontSize: int = None,
+                 color: str = None) -> Text:
         '''Add text to the specified stave.'''
         
-        text = Text(id=self._next_id(),
+        text_obj = Text(id=self._next_id(),
                        time=time,
                        side=side,
                        distFromSide=distFromSide,
                        text=text,
-                       fontSize=fontSize,
-                       color=color)
+                       _fontSize=fontSize,
+                       _color=color)
+        text_obj.score = self
 
-        self.get_stave(stave_idx).event.text.append(text)
-        return text
+        self.get_stave(stave_idx).event.text.append(text_obj)
+        return text_obj
 
     def new_beam(self,
                  stave_idx: int = 0,
                  time: float = 0.0,
                  staff: float = 0.0,
                  hand: str = '<',
-                 color: str = '*',
-                 width: float = 1.0,
-                 slant: float = 5.0) -> None:
+                 color: str = None,
+                 width: float = None,
+                 slant: float = None) -> Beam:
         '''Add a beam to the specified stave.'''
         
         beam = Beam(id=self._next_id(),
                    time=time,
                    staff=staff,
                    hand=hand,
-                   color=color,
-                   width=width,
-                   slant=slant)
+                   _color=color,
+                   _width=width,
+                   _slant=slant)
+        beam.score = self
         
         self.get_stave(stave_idx).event.beam.append(beam)
         return beam
@@ -229,9 +236,9 @@ class SCORE:
                  y3_time: float = 0.0,
                  x4_semitonesFromC4: int = 0,
                  y4_time: float = 0.0,
-                 color: str = '*',
-                 startEndWidth: float = 0,
-                 middleWidth: float = 0) -> None:
+                 color: str = None,
+                 startEndWidth: float = None,
+                 middleWidth: float = None) -> Slur:
         '''Add a slur to the specified stave.'''
         
         slur = Slur(id=self._next_id(),
@@ -243,9 +250,10 @@ class SCORE:
                    y3_time=y3_time,
                    x4_semitonesFromC4=x4_semitonesFromC4,
                    y4_time=y4_time,
-                   color=color,
-                   startEndWidth=startEndWidth,
-                   middleWidth=middleWidth)
+                   _color=color,
+                   _startEndWidth=startEndWidth,
+                   _middleWidth=middleWidth)
+        slur.score = self
         
         # No need to set time separately - it's now a regular field
         
@@ -268,14 +276,15 @@ class SCORE:
     def new_start_repeat(self,
                          stave_idx: int = 0,
                          time: float = 0.0,
-                         color: str = '*',
-                         lineWidth: float = 0) -> None:
+                         color: str = None,
+                         lineWidth: float = None) -> StartRepeat:
         '''Add a start repeat to the specified stave.'''
         
         start_repeat = StartRepeat(id=self._next_id(),
                                   time=time,
-                                  color=color,
-                                  lineWidth=lineWidth)
+                                  _color=color,
+                                  _lineWidth=lineWidth)
+        start_repeat.score = self
         
         self.get_stave(stave_idx).event.startRepeat.append(start_repeat)
         return start_repeat
@@ -283,14 +292,15 @@ class SCORE:
     def new_end_repeat(self,
                        stave_idx: int = 0,
                        time: float = 0.0,
-                       color: str = '*',
-                       lineWidth: float = 0) -> None:
+                       color: str = None,
+                       lineWidth: float = None) -> EndRepeat:
         '''Add an end repeat to the specified stave.'''
         
         end_repeat = EndRepeat(id=self._next_id(),
                               time=time,
-                              color=color,
-                              lineWidth=lineWidth)
+                              _color=color,
+                              _lineWidth=lineWidth)
+        end_repeat.score = self
         
         self.get_stave(stave_idx).event.endRepeat.append(end_repeat)
         return end_repeat
@@ -299,15 +309,16 @@ class SCORE:
                     stave_idx: int = 0,
                     time: float = 0.0,
                     text: str = 'Section',
-                    color: str = '*',
-                    lineWidth: float = 0) -> None:
+                    color: str = None,
+                    lineWidth: float = None) -> Section:
         '''Add a section to the specified stave.'''
         
         section = Section(id=self._next_id(),
                          time=time,
                          text=text,
-                         color=color,
-                         lineWidth=lineWidth)
+                         _color=color,
+                         _lineWidth=lineWidth)
+        section.score = self
         
         self.get_stave(stave_idx).event.section.append(section)
         return section
@@ -372,4 +383,40 @@ class SCORE:
 
         score = cls.from_dict(data)
         score.renumber_id()
+        score._reattach_score_references()
         return score
+    
+    def _reattach_score_references(self):
+        '''Reattach score references to all events after loading from JSON.'''
+        for stave in self.stave:
+            # Reattach to all notes
+            for note in stave.event.note:
+                note.score = self
+                # Also reattach to articulations within notes
+                for articulation in note.articulation:
+                    articulation.score = self
+            
+            # Reattach to all other event types
+            for grace_note in stave.event.graceNote:
+                grace_note.score = self
+            
+            for beam in stave.event.beam:
+                beam.score = self
+            
+            for text in stave.event.text:
+                text.score = self
+            
+            for slur in stave.event.slur:
+                slur.score = self
+            
+            for count_line in stave.event.countLine:
+                count_line.score = self
+            
+            for start_repeat in stave.event.startRepeat:
+                start_repeat.score = self
+            
+            for end_repeat in stave.event.endRepeat:
+                end_repeat.score = self
+            
+            for section in stave.event.section:
+                section.score = self
