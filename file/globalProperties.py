@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from dataclasses_json import dataclass_json
+from dataclasses_json import dataclass_json, config
 from typing import List, Literal
 
 @dataclass_json
@@ -12,19 +12,19 @@ class GlobalNote:
     stemLength: float = 10.0
     beamWidth: float = 1.0
     blackNoteDirection: Literal['^', 'v'] = 'v'
-    noteHeadVisible: bool = True
-    stemVisible: bool = True
-    midiNoteVisible: bool = True
-    accidentalVisible: bool = True
-    noteStopVisible: bool = True
-    continuationDotVisible: bool = True
-    leftDotVisible: bool = True
+    noteHeadVisible: int = field(default=1, metadata=config(field_name='noteHeadVisible?'))
+    stemVisible: int = field(default=1, metadata=config(field_name='stemVisible?'))
+    midiNoteVisible: int = field(default=1, metadata=config(field_name='midiNoteVisible?'))
+    accidentalVisible: int = field(default=1, metadata=config(field_name='accidentalVisible?'))
+    noteStopVisible: int = field(default=1, metadata=config(field_name='noteStopVisible?'))
+    continuationDotVisible: int = field(default=1, metadata=config(field_name='continuationDotVisible?'))
+    leftDotVisible: int = field(default=1, metadata=config(field_name='leftDotVisible?'))
 
 @dataclass_json
 @dataclass
 class GlobalArticulation:
     color: str = '#000000'
-    visible: bool = True
+    visible: int = field(default=1, metadata=config(field_name='visible?'))
 
 @dataclass_json
 @dataclass
@@ -32,13 +32,13 @@ class GlobalBeam:
     color: str = '#000000'
     width: float = 4.0
     slant: float = 5.0
-    visible: int = True
+    visible: int = field(default=1, metadata=config(field_name='visible?'))
 
 @dataclass_json
 @dataclass
 class GlobalGraceNote:
     color: str = '#000000'
-    visible: int = True
+    visible: int = field(default=1, metadata=config(field_name='visible?'))
 
 @dataclass_json
 @dataclass
@@ -46,7 +46,7 @@ class GlobalCountLine:
     color: str = '#000000'
     width: float = 1.0
     dashPattern: List[int] = field(default_factory=list)
-    visible: int = True
+    visible: int = field(default=1, metadata=config(field_name='visible?'))
 
 @dataclass_json
 @dataclass
@@ -54,7 +54,7 @@ class GlobalSlur:
     color: str = '#000000'
     middleWidth: float = 1.0
     startEndWidth: float = .5
-    visible: int = True
+    visible: int = field(default=1, metadata=config(field_name='visible?'))
 
 @dataclass_json
 @dataclass
@@ -68,14 +68,14 @@ class GlobalText:
 class GlobalBarline:
     color: str = '#000000'
     width: float = 1.0
-    visible: int = True
+    visible: int = field(default=1, metadata=config(field_name='visible?'))
 
 @dataclass_json
 @dataclass
 class GlobalBasegrid:
     gridlineColor: str = '#000000'
     gridlineWidth: float = 1.0
-    gridlineDashPattern: List[int] = field(default_factory=lambda: [4, 4])
+    gridlineDashPattern: List[float] = field(default_factory=lambda: [4, 4])
     barlineColor: str = '#000000'
     barlineWidth: float = 2.0
     fontSize: int = 12
@@ -89,8 +89,8 @@ class GlobalStave:
     twoLineWidth: float = 1.0
     threeLineWidth: float = 2.0
     clefWidth: float = 1.0
-    visible: int = True
-    clefDashPattern: List[int] = field(default_factory=lambda: [4, 4])
+    visible: int = field(default=1, metadata=config(field_name='visible?'))
+    clefDashPattern: List[float] = field(default_factory=lambda: [4, 4])
 
 @dataclass_json
 @dataclass
@@ -110,18 +110,18 @@ class GlobalPage:
 class GlobalSection:
     color: str = '#000000'
     lineWidth: float = 1.0
-    visible: bool = True
+    visible: int = field(default=1, metadata=config(field_name='visible?'))
 
 @dataclass_json
 @dataclass
 class GlobalStartRepeat:
     color: str = '#000000'
     lineWidth: float = 1.0
-    visible: bool = True
+    visible: int = field(default=1, metadata=config(field_name='visible?'))
 
 @dataclass_json
 @dataclass
 class GlobalEndRepeat:
     color: str = '#000000'
     lineWidth: float = 1.0
-    visible: bool = True
+    visible: int = field(default=1, metadata=config(field_name='visible?'))

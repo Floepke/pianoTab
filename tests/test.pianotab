@@ -4,7 +4,7 @@
         "extension": ".pianotab",
         "description": "PianoTab score file",
         "version": "1.0",
-        "created": "27-10-2025_13:26:41",
+        "created": "27-10-2025_16:27:20",
         "author": "PianoTab Team",
         "license": "MIT"
     },
@@ -16,7 +16,7 @@
         "lyricist": "",
         "publisher": "",
         "copyright": "Copyright © 2025, PianoTab. All rights reserved.",
-        "timeStamp": "27-10-2025_13:26:41",
+        "timeStamp": "27-10-2025_16:27:20",
         "genre": "",
         "comment": ""
     },
@@ -29,39 +29,39 @@
             "stemLength": 10,
             "beamWidth": 1,
             "blackNoteDirection": "v",
-            "noteHeadVisible": true,
-            "stemVisible": true,
-            "midiNoteVisible": true,
-            "accidentalVisible": true,
-            "noteStopVisible": true,
-            "continuationDotVisible": true,
-            "leftDotVisible": true
+            "noteHeadVisible?": 1,
+            "stemVisible?": 1,
+            "midiNoteVisible?": 1,
+            "accidentalVisible?": 1,
+            "noteStopVisible?": 1,
+            "continuationDotVisible?": 1,
+            "leftDotVisible?": 1
         },
         "globalArticulation": {
             "color": "#000000",
-            "visible": true
+            "visible?": 1
         },
         "globalBeam": {
             "color": "#000000",
             "width": 4,
             "slant": 5,
-            "visible": true
+            "visible?": 1
         },
         "globalGraceNote": {
             "color": "#000000",
-            "visible": true
+            "visible?": 1
         },
         "globalCountLine": {
             "color": "#000000",
             "width": 1,
             "dashPattern": [],
-            "visible": true
+            "visible?": 1
         },
         "globalSlur": {
             "color": "#000000",
             "middleWidth": 1,
             "startEndWidth": 0.5,
-            "visible": true
+            "visible?": 1
         },
         "globalText": {
             "fontSize": 12,
@@ -71,7 +71,7 @@
         "globalBarLine": {
             "color": "#000000",
             "width": 1,
-            "visible": true
+            "visible?": 1
         },
         "globalBasegrid": {
             "gridlineColor": "#000000",
@@ -91,7 +91,7 @@
             "twoLineWidth": 1,
             "threeLineWidth": 2,
             "clefWidth": 1,
-            "visible": true,
+            "visible?": 1,
             "clefDashPattern": [
                 4,
                 4
@@ -110,17 +110,17 @@
         "globalSection": {
             "color": "#000000",
             "lineWidth": 1,
-            "visible": true
+            "visible?": 1
         },
         "globalStartRepeat": {
             "color": "#000000",
             "lineWidth": 1,
-            "visible": true
+            "visible?": 1
         },
         "globalEndrepeat": {
             "color": "#000000",
             "lineWidth": 1,
-            "visible": true
+            "visible?": 1
         },
         "editorZoomPixelsQuarter": 100,
         "stopSignType": "PianoTab",
@@ -128,15 +128,15 @@
     },
     "baseGrid": [
         {
-            "numerator": 4,
-            "denominator": 4,
+            "num": 4,
+            "den": 4,
             "gridTimes": [
                 256,
                 512,
                 768
             ],
-            "measureAmount": 8,
-            "timeSignatureIndicatorVisible": true
+            "measAmt": 8,
+            "timeSigIndVisible?": 1
         }
     ],
     "lineBreak": [
@@ -156,37 +156,106 @@
                     {
                         "id": 1,
                         "time": 0,
-                        "duration": 256,
+                        "dur": 256,
                         "pitch": 60,
-                        "velocity": 80,
-                        "articulation": [],
+                        "vel": 100,
+                        "art": [],
                         "hand": ">",
                         "color": null,
-                        "colorMidiNote": null,
-                        "blackNoteDirection": null
-                    },
-                    {
-                        "id": 2,
-                        "time": 0,
-                        "duration": 256,
-                        "pitch": 62,
-                        "velocity": 80,
-                        "articulation": [],
-                        "hand": ">",
-                        "color": null,
-                        "colorMidiNote": null,
-                        "blackNoteDirection": null
+                        "colL": null,
+                        "colR": null,
+                        "blkDir": null
                     }
                 ],
-                "graceNote": [],
-                "countLine": [],
-                "startRepeat": [],
-                "endRepeat": [],
-                "section": [],
-                "beam": [],
-                "text": [],
-                "slur": [],
-                "tempo": []
+                "graceNote": [
+                    {
+                        "id": 2,
+                        "time": 128,
+                        "pitch": 64,
+                        "vel": 80,
+                        "color": null
+                    }
+                ],
+                "countLine": [
+                    {
+                        "id": 6,
+                        "time": 1024,
+                        "pitch1": 60,
+                        "pitch2": 67,
+                        "color": null,
+                        "dash": null
+                    }
+                ],
+                "startRepeat": [
+                    {
+                        "id": 8,
+                        "time": 1280,
+                        "color": null,
+                        "lnWid": null
+                    }
+                ],
+                "endRepeat": [
+                    {
+                        "id": 9,
+                        "time": 1408,
+                        "color": null,
+                        "lnWid": null
+                    }
+                ],
+                "section": [
+                    {
+                        "id": 7,
+                        "time": 1152,
+                        "text": "Section A",
+                        "color": null,
+                        "lnWid": null
+                    }
+                ],
+                "beam": [
+                    {
+                        "id": 3,
+                        "time": 256,
+                        "staff": 0,
+                        "hand": "<",
+                        "color": null,
+                        "width": null,
+                        "slant": null
+                    }
+                ],
+                "text": [
+                    {
+                        "id": 4,
+                        "time": 384,
+                        "side": ">",
+                        "distFromSide": 10,
+                        "text": "Test Text",
+                        "fonSz": null,
+                        "color": null
+                    }
+                ],
+                "slur": [
+                    {
+                        "id": 5,
+                        "time": 512,
+                        "x1": 0,
+                        "x2": 5,
+                        "y2": 640,
+                        "x3": 10,
+                        "y3": 768,
+                        "x4": 12,
+                        "y4": 896,
+                        "color": null,
+                        "seWid": null,
+                        "midWid": null
+                    }
+                ],
+                "tempo": [
+                    {
+                        "id": 10,
+                        "time": 1536,
+                        "bpm": 120
+                    }
+                ]
             }
         }
     ]

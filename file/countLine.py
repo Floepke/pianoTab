@@ -14,7 +14,7 @@ class CountLine:
 
     # Storage fields for inherited properties (serialize to JSON with clean names)
     _color: Optional[str] = field(default=None, metadata=config(field_name='color'))
-    _dashPattern: Optional[List[int]] = field(default=None, metadata=config(field_name='dashPattern'))
+    _dashPattern: Optional[List[float]] = field(default=None, metadata=config(field_name='dash'))
     
     def __post_init__(self):
         """Initialize score reference as a non-dataclass attribute."""

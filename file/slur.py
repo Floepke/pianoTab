@@ -20,18 +20,18 @@ class Slur:
     time: float = 0.0  # Real field that appears in JSON
     
     # control points:
-    x1_semitonesFromC4: int = 0
-    x2_semitonesFromC4: int = 0
-    y2_time: float = 0.0
-    x3_semitonesFromC4: int = 0
-    y3_time: float = 0.0
-    x4_semitonesFromC4: int = 0
-    y4_time: float = 0.0
+    x1_semitonesFromC4: int = field(default=0, metadata=config(field_name='x1'))
+    x2_semitonesFromC4: int = field(default=0, metadata=config(field_name='x2'))
+    y2_time: float = field(default=0.0, metadata=config(field_name='y2'))
+    x3_semitonesFromC4: int = field(default=0, metadata=config(field_name='x3'))
+    y3_time: float = field(default=0.0, metadata=config(field_name='y3'))
+    x4_semitonesFromC4: int = field(default=0, metadata=config(field_name='x4'))
+    y4_time: float = field(default=0.0, metadata=config(field_name='y4'))
 
     # Storage fields for inherited properties (serialize to JSON with clean names)
     _color: Optional[str] = field(default=None, metadata=config(field_name='color'))
-    _startEndWidth: Optional[float] = field(default=None, metadata=config(field_name='startEndWidth'))
-    _middleWidth: Optional[float] = field(default=None, metadata=config(field_name='middleWidth'))
+    _startEndWidth: Optional[float] = field(default=None, metadata=config(field_name='seWid'))
+    _middleWidth: Optional[float] = field(default=None, metadata=config(field_name='midWid'))
 
     def __post_init__(self):
         """Initialize score reference as a non-dataclass attribute."""

@@ -10,7 +10,7 @@ class GraceNote:
     id: int = 0
     time: float = 0.0
     pitch: int = 60
-    velocity: int = 80
+    velocity: int = field(default=80, metadata=config(field_name='vel'))
     
     # Storage field for inherited property (serializes to JSON with clean name)
     _color: Optional[str] = field(default=None, metadata=config(field_name='color'))

@@ -81,7 +81,7 @@ class SCORE:
                      denominator: int = 4,
                      gridTimes: List[float] = None,
                      measureAmount: int = 8,
-                     timeSignatureIndicatorVisible: bool = True) -> None:
+                     timeSignatureIndicatorVisible: int = 1) -> None:
         '''Add a new baseGrid to the score.'''
         if gridTimes is None:
             gridTimes = [256.0, 512.0, 768.0]
@@ -125,7 +125,8 @@ class SCORE:
                  articulation: List = [],
                  hand: str = '>',
                  color: str = None,
-                 colorMidiNote: str = None,
+                 colorMidiLeftNote: str = None,
+                 colorMidiRightNote: str = None,
                  blackNoteDirection: str = None) -> Note:
         '''Add a note to the specified stave. Use None for inherited properties.'''
         
@@ -137,7 +138,8 @@ class SCORE:
                     articulation=articulation, 
                     hand=hand, 
                     _color=color,
-                    _colorMidiNote=colorMidiNote, 
+                    _colorMidiLeftNote=colorMidiLeftNote,
+                    _colorMidiRightNote=colorMidiRightNote,
                     _blackNoteDirection=blackNoteDirection)
         
         # Attach score reference for property resolution
@@ -169,7 +171,7 @@ class SCORE:
                        pitch1: int = 40, 
                        pitch2: int = 44, 
                        color: str = None, 
-                       dashPattern: List[int] = None,
+                       dashPattern: List[float] = None,
                        stave_idx: int = 0) -> CountLine:
         '''Add a count line to the specified stave.'''
         count_line = CountLine(id=self._next_id(), 
@@ -377,11 +379,23 @@ class SCORE:
     
     @classmethod
     def load(cls, filename: str) -> 'SCORE':
-        '''Load ScoreFile instance from JSON file.'''
+        '''Load ScoreFile instance from JSON file with validation and default filling.'''
+        from file.validation import validate_and_fix_score
+        
         with open(filename, 'r', encoding='utf-8') as f:
             data = json.load(f)
+        
+        # Validate and fix missing fields
+        fixed_data, warnings = validate_and_fix_score(data)
+        
+        # Print warnings about missing/fixed fields
+        if warnings:
+            print(f"\n=== Validation warnings for '{filename}' ===")
+            for warning in warnings:
+                print(f"  ⚠ {warning}")
+            print(f"=== {len(warnings)} warning(s) total ===\n")
 
-        score = cls.from_dict(data)
+        score = cls.from_dict(fixed_data)
         score.renumber_id()
         score._reattach_score_references()
         return score

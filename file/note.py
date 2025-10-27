@@ -20,16 +20,17 @@ class Note:
     """
     id: int = 0
     time: float = 0.0
-    duration: float = 256.0
+    duration: float = field(default=256.0, metadata=config(field_name='dur'))
     pitch: int = 40
-    velocity: int = 80
-    articulation: List[Articulation] = field(default_factory=list)
+    velocity: int = field(default=80, metadata=config(field_name='vel'))
+    articulation: List[Articulation] = field(default_factory=list, metadata=config(field_name='art'))
     hand: Literal['<', '>'] = '>'
     
     # Storage fields for inherited properties (serialize to JSON with clean names)
     _color: Optional[str] = field(default=None, metadata=config(field_name='color'))
-    _colorMidiNote: Optional[str] = field(default=None, metadata=config(field_name='colorMidiNote'))
-    _blackNoteDirection: Optional[Literal['^', 'v']] = field(default=None, metadata=config(field_name='blackNoteDirection'))
+    _colorMidiLeftNote: Optional[str] = field(default=None, metadata=config(field_name='colL'))
+    _colorMidiRightNote: Optional[str] = field(default=None, metadata=config(field_name='colR'))
+    _blackNoteDirection: Optional[Literal['^', 'v']] = field(default=None, metadata=config(field_name='blkDir'))
     
     def __post_init__(self):
         """Initialize score reference as a non-dataclass attribute."""
@@ -51,23 +52,54 @@ class Note:
         """Set color - use None to reset to inheritance."""
         self._color = value
     
-    # Property: colorMidiNote (hand-dependent inheritance)
+    # Property: colorMidiLeftNote
+    @property
+    def colorMidiLeftNote(self) -> str:
+        """Get left MIDI note color - inherits from globalNote.colorLeftMidiNote if None."""
+        if self._colorMidiLeftNote is not None:
+            return self._colorMidiLeftNote
+        if self.score is None:
+            print("Warning: Note has no score reference for property inheritance.")
+            return '#000000'  # Fallback if no score reference
+        return self.score.properties.globalNote.colorLeftMidiNote
+    
+    @colorMidiLeftNote.setter
+    def colorMidiLeftNote(self, value: Optional[str]):
+        """Set left MIDI note color - use None to reset to inheritance."""
+        self._colorMidiLeftNote = value
+    
+    # Property: colorMidiRightNote
+    @property
+    def colorMidiRightNote(self) -> str:
+        """Get right MIDI note color - inherits from globalNote.colorRightMidiNote if None."""
+        if self._colorMidiRightNote is not None:
+            return self._colorMidiRightNote
+        if self.score is None:
+            print("Warning: Note has no score reference for property inheritance.")
+            return '#000000'  # Fallback if no score reference
+        return self.score.properties.globalNote.colorRightMidiNote
+    
+    @colorMidiRightNote.setter
+    def colorMidiRightNote(self, value: Optional[str]):
+        """Set right MIDI note color - use None to reset to inheritance."""
+        self._colorMidiRightNote = value
+    
+    # Property: colorMidiNote (hand-dependent inheritance - deprecated, use colorMidiLeftNote/colorMidiRightNote)
     @property
     def colorMidiNote(self) -> str:
         """Get MIDI note color - inherits based on hand (left '<' or right '>')."""
-        if self._colorMidiNote is not None:
-            return self._colorMidiNote
-        if self.score is None:
-            return '#000000'  # Fallback if no score reference
         if self.hand == '<':
-            return self.score.properties.globalNote.colorLeftMidiNote
+            return self.colorMidiLeftNote
         else:
-            return self.score.properties.globalNote.colorRightMidiNote
+            return self.colorMidiRightNote
     
     @colorMidiNote.setter
     def colorMidiNote(self, value: Optional[str]):
-        """Set MIDI note color - use None to reset to inheritance."""
-        self._colorMidiNote = value
+        """Set MIDI note color for current hand."""
+        if self.hand == '<':
+            self._colorMidiLeftNote = value
+        else:
+            self._colorMidiRightNote = value
     
     # Property: blackNoteDirection
     @property

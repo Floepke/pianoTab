@@ -14,7 +14,7 @@ class Text:
     text: str = 'Text'
     
     # Storage fields for inherited properties (serialize to JSON with clean names)
-    _fontSize: Optional[int] = field(default=None, metadata=config(field_name='fontSize'))
+    _fontSize: Optional[int] = field(default=None, metadata=config(field_name='fonSz'))
     _color: Optional[str] = field(default=None, metadata=config(field_name='color'))
     
     def __post_init__(self):
