@@ -7,6 +7,7 @@ from kivy.uix.widget import Widget
 from kivy.graphics import Color, Rectangle
 from kivy.properties import NumericProperty, ObjectProperty, ListProperty
 from kivy.core.window import Window
+from gui.colors import DARK
 
 
 class Sash(Widget):
@@ -19,7 +20,7 @@ class Sash(Widget):
         
         # Draw sash background (use canvas, not canvas.before to avoid duplication)
         with self.canvas:
-            self.bg_color = Color(0.2, 0.2, 0.2, 1)  # Dark gray
+            self.bg_color = Color(*DARK)
             self.bg_rect = Rectangle(pos=self.pos, size=self.size)
         
         self.bind(pos=self.update_rect, size=self.update_rect)
@@ -69,7 +70,7 @@ class SplitView(Widget):
     split_ratio = NumericProperty(0.5)  # Initial split ratio (0.0 to 1.0)
     left_widget = ObjectProperty(None, allownone=True)
     right_widget = ObjectProperty(None, allownone=True)
-    sash_color = ListProperty([0.2, 0.2, 0.2, 1])  # Dark gray by default
+    sash_color = ListProperty(DARK)  # Use color system default
     orientation = 'horizontal'  # 'horizontal' or 'vertical'
     
     # Add minimum size properties

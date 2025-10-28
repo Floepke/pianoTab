@@ -10,6 +10,7 @@ from kivy.uix.widget import Widget
 from kivy.graphics import Color, Rectangle
 from kivy.clock import Clock
 from kivy.core.window import Window
+from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER
 
 
 class MenuBar(BoxLayout):
@@ -47,7 +48,7 @@ class MenuBar(BoxLayout):
 
         # Background
         with self.canvas.before:
-            Color(0.25, 0.27, 0.30, 1)
+            Color(*DARK)
             self.bg = Rectangle(pos=self.pos, size=self.size)
         self.bind(pos=self._update_bg, size=self._update_bg)
 
@@ -86,15 +87,15 @@ class MenuBar(BoxLayout):
             size_hint_x=None,
             width=80,
             background_normal='',
-            background_color=(0.25, 0.27, 0.30, 1),
-            color=(0.95, 0.95, 0.95, 1)
+            background_color=DARK,
+            color=LIGHT
         )
         
         dropdown = DropDown(auto_width=False, width=180)
         
         # Style dropdown background
         with dropdown.canvas.before:
-            Color(0.20, 0.22, 0.25, 1)
+            Color(*DARK_LIGHTER)
             bg = Rectangle(pos=dropdown.pos, size=dropdown.size)
         dropdown.bind(
             pos=lambda w, p: setattr(bg, 'pos', p),
@@ -121,8 +122,8 @@ class MenuBar(BoxLayout):
             size_hint_x=None,
             width=80,
             background_normal='',
-            background_color=(0.25, 0.27, 0.30, 1),
-            color=(0.95, 0.95, 0.95, 1)
+            background_color=DARK,
+            color=LIGHT
         )
         
         # Extract callback and tooltip
@@ -163,8 +164,8 @@ class MenuBar(BoxLayout):
             size_hint_y=None,
             height=36,
             background_normal='',
-            background_color=(0.28, 0.32, 0.38, 1),
-            color=(0.92, 0.92, 0.95, 1),
+            background_color=DARK_LIGHTER,
+            color=LIGHT,
             halign='left',
             valign='middle'
         )
@@ -174,7 +175,7 @@ class MenuBar(BoxLayout):
             btn.bind(on_release=lambda b: (callback(), dropdown.dismiss()))
         else:
             # Disabled item
-            btn.color = (0.5, 0.5, 0.5, 1)
+            btn.color = DARK
         
         dropdown.add_widget(btn)
 
@@ -186,8 +187,8 @@ class MenuBar(BoxLayout):
             size_hint_y=None,
             height=36,
             background_normal='',
-            background_color=(0.28, 0.32, 0.38, 1),
-            color=(0.92, 0.92, 0.95, 1),
+            background_color=DARK_LIGHTER,
+            color=LIGHT,
             halign='left',
             valign='middle'
         )
@@ -198,7 +199,7 @@ class MenuBar(BoxLayout):
         
         # Style submenu background
         with submenu.canvas.before:
-            Color(0.20, 0.22, 0.25, 1)
+            Color(*DARK_LIGHTER)
             bg = Rectangle(pos=submenu.pos, size=submenu.size)
         submenu.bind(
             pos=lambda w, p: setattr(bg, 'pos', p),
@@ -248,7 +249,7 @@ class MenuBar(BoxLayout):
         """Add a separator line to dropdown."""
         sep = Widget(size_hint_y=None, height=1)
         with sep.canvas:
-            Color(0.4, 0.4, 0.4, 1)
+            Color(*DARK_LIGHTER)
             rect = Rectangle(pos=sep.pos, size=sep.size)
         sep.bind(
             pos=lambda w, p: setattr(rect, 'pos', p),

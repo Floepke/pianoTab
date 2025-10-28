@@ -13,6 +13,7 @@ from kivy.uix.label import Label
 from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.properties import StringProperty, ObjectProperty, ListProperty
 from kivy.clock import Clock
+from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER
 
 
 class ToolButton(Button):
@@ -27,8 +28,8 @@ class ToolButton(Button):
             font_size='16sp',
             bold=False,
             background_normal='',
-            background_color=(0.28, 0.32, 0.38, 1),
-            color=(0.92, 0.92, 0.95, 1),
+            background_color=DARK_LIGHTER,
+            color=LIGHT,
             **kwargs
         )
         # Left-align text
@@ -54,13 +55,13 @@ class ToolButton(Button):
     def _update_style(self):
         if self.is_selected:
             # Highlighted look
-            self.background_color = (0.40, 0.45, 0.55, 1)
-            self.color = (0.1, 0.1, 0.12, 1)
+            self.background_color = LIGHT_DARKER
+            self.color = DARK
             self.bold = True
         else:
             # Normal look
-            self.background_color = (0.28, 0.32, 0.38, 1)
-            self.color = (0.92, 0.92, 0.95, 1)
+            self.background_color = DARK_LIGHTER
+            self.color = LIGHT
             self.bold = False
 
 
@@ -92,7 +93,7 @@ class ToolSelector(BoxLayout):
 
         # Background
         with self.canvas.before:
-            Color(0.18, 0.18, 0.22, 1)
+            Color(*DARK)
             self.bg = Rectangle(pos=self.pos, size=self.size)
 
         # Height follows content
@@ -113,7 +114,7 @@ class ToolSelector(BoxLayout):
             height=32,
             font_size='16sp',
             bold=True,
-            color=(0.95, 0.95, 0.95, 1),
+            color=LIGHT,
             halign='left',
             valign='middle',
             padding=(8, 0)
@@ -124,7 +125,7 @@ class ToolSelector(BoxLayout):
         # Non-scroll list container background
         self.list_container = BoxLayout(orientation='vertical', size_hint_y=None)
         with self.list_container.canvas.before:
-            Color(0.20, 0.22, 0.25, 1)
+            Color(*DARK_LIGHTER)
             self.scroll_bg = RoundedRectangle(pos=self.list_container.pos, size=self.list_container.size, radius=[6])
         self.list_container.bind(pos=self._update_scroll_bg, size=self._update_scroll_bg)
 

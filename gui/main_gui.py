@@ -28,6 +28,7 @@ from gui.split_view import SplitView
 from gui.grid_selector import GridSelector
 from gui.tool_selector import ToolSelector
 from gui.menu_bar import MenuBar
+from gui.colors import DARK, DARK_LIGHTER, LIGHT_DARKER, LIGHT
 from utils.canvas import Canvas
 
 
@@ -46,13 +47,13 @@ class EditorWidget(Widget):
             # Add scissor test to clip content
             self.scissor = ScissorPush(x=int(self.x), y=int(self.y), 
                                       width=int(self.width), height=int(self.height))
-            self.bg_color = Color(0.15, 0.15, 0.2, 1)  # Dark blue-gray
+            self.bg_color = Color(*DARK_LIGHTER)
             self.bg_rect = Rectangle(pos=self.pos, size=self.size)
         
         # Draw some sample content
         with self.canvas:
             # Grid lines
-            Color(0.25, 0.25, 0.3, 1)
+            Color(*DARK)
             self.grid_lines = []
         
         # Close scissor test after main canvas
@@ -64,7 +65,7 @@ class EditorWidget(Widget):
         # Add label
         self.label = Label(
             text='Editor Area\n(Piano Tab Editor)',
-            color=(0.7, 0.7, 0.7, 1),
+            color=LIGHT_DARKER,
             font_size='20sp',
             halign='center'
         )
@@ -86,7 +87,7 @@ class EditorWidget(Widget):
         # Draw grid
         self.canvas.remove_group('grid')
         with self.canvas:
-            Color(0.25, 0.25, 0.3, 1)
+            Color(*DARK)
             # Vertical lines
             for x in range(int(self.x), int(self.x + self.width), 50):
                 Line(points=[x, self.y, x, self.y + self.height], width=1, group='grid')
@@ -110,12 +111,12 @@ class PrintPreviewWidget(Widget):
             # Add scissor test to clip content
             self.scissor = ScissorPush(x=int(self.x), y=int(self.y), 
                                       width=int(self.width), height=int(self.height))
-            self.bg_color = Color(0.25, 0.25, 0.25, 1)  # Medium gray
+            self.bg_color = Color(*DARK)
             self.bg_rect = Rectangle(pos=self.pos, size=self.size)
         
         # Draw paper representation
         with self.canvas:
-            Color(1, 1, 1, 1)  # White paper
+            Color(*LIGHT)  # White paper
             self.paper_rect = Rectangle(pos=self.pos, size=(100, 100))
         
         # Close scissor test after main canvas
@@ -127,7 +128,7 @@ class PrintPreviewWidget(Widget):
         # Add label
         self.label = Label(
             text='Print Preview Area\n(PDF Output)',
-            color=(0.9, 0.9, 0.9, 1),
+            color=LIGHT,
             font_size='20sp',
             halign='center'
         )
@@ -168,8 +169,8 @@ class SidePanelWidget(ScrollView):
             do_scroll_x=False,
             do_scroll_y=True,
             bar_width=8,
-            bar_color=(0.4, 0.4, 0.4, 0.8),
-            bar_inactive_color=(0.3, 0.3, 0.3, 0.5),
+            bar_color=DARK_LIGHTER,
+            bar_inactive_color=DARK,
             scroll_type=['bars', 'content'],
             **kwargs
         )
@@ -256,7 +257,7 @@ class PianoTabGUI(BoxLayout):
             orientation='horizontal',
             sash_width=40,
             split_ratio=0.15,
-            sash_color=[0.15, 0.15, 0.18, 1],
+            sash_color=DARK_LIGHTER,
             min_left_size=400,   # ← Side panel minimum width
             min_right_size=0   # ← Editor/preview minimum width
         )
@@ -270,20 +271,20 @@ class PianoTabGUI(BoxLayout):
             orientation='horizontal',
             sash_width=40,  # Wide sash as in tkinter version
             split_ratio=0.6,  # Editor takes 60% initially
-            sash_color=[0.2, 0.2, 0.2, 1]
+            sash_color=DARK
         )
         
         # Editor area (left side of right panel) - use our mm-based Canvas
         self.editor_area = Canvas(width_mm=210.0, height_mm=297.0,
-                                    background_color=(0.15, 0.15, 0.2, 1),
-                                    border_color=(0.3, 0.3, 0.35, 1),
+                                    background_color=DARK_LIGHTER,
+                                    border_color=DARK,
                                     border_width_px=1.0)
         self.editor_preview_split.set_left(self.editor_area)
         
         # Print preview area (right side of right panel) - also Canvas
         self.print_preview = Canvas(width_mm=210.0, height_mm=297.0,
-                                      background_color=(0.25, 0.25, 0.25, 1),
-                                      border_color=(0.4, 0.4, 0.45, 1),
+                                      background_color=DARK,
+                                      border_color=DARK_LIGHTER,
                                       border_width_px=1.0)
         self.editor_preview_split.set_right(self.print_preview)
         

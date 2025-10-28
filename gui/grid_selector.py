@@ -14,6 +14,7 @@ from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.properties import NumericProperty, StringProperty, ObjectProperty, ListProperty
 from kivy.core.window import Window
 from kivy.clock import Clock
+from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER
 
 
 class SpinBox(BoxLayout):
@@ -37,9 +38,9 @@ class SpinBox(BoxLayout):
             width=36,
             font_size='20sp',
             bold=True,
-            background_color=(0.3, 0.35, 0.4, 1),
+            background_color=DARK_LIGHTER,
             background_normal='',
-            color=(0.9, 0.9, 0.9, 1)
+            color=LIGHT
         )
         self.dec_btn.bind(on_press=self.decrease)
         self.add_widget(self.dec_btn)
@@ -48,13 +49,13 @@ class SpinBox(BoxLayout):
         self.value_label = Label(
             text='1',
             font_size='16sp',
-            color=(0.95, 0.95, 0.95, 1),
+            color=LIGHT,
             halign='center',
             valign='middle'
         )
         # Background for label
         with self.value_label.canvas.before:
-            Color(0.25, 0.28, 0.32, 1)
+            Color(*DARK)
             self.value_bg = Rectangle(pos=self.value_label.pos, size=self.value_label.size)
         self.value_label.bind(pos=self.update_label_bg, size=self.update_label_bg)
         self.value_label.bind(size=self.value_label.setter('text_size'))
@@ -67,9 +68,9 @@ class SpinBox(BoxLayout):
             width=36,
             font_size='20sp',
             bold=True,
-            background_color=(0.3, 0.35, 0.4, 1),
+            background_color=DARK_LIGHTER,
             background_normal='',
-            color=(0.9, 0.9, 0.9, 1)
+            color=LIGHT
         )
         self.inc_btn.bind(on_press=self.increase)
         self.add_widget(self.inc_btn)
@@ -125,11 +126,11 @@ class GridButton(Button):
     def update_style(self):
         """Update button appearance based on selection state."""
         if self.is_selected:
-            self.background_color = (0.35, 0.4, 0.45, 1)
-            self.color = (1, 1, 1, 1)
+            self.background_color = LIGHT_DARKER
+            self.color = DARK
         else:
             self.background_color = (0, 0, 0, 0)  # Transparent
-            self.color = (0.85, 0.85, 0.85, 1)
+            self.color = LIGHT_DARKER
     
     def set_selected(self, selected):
         """Set selection state."""
@@ -179,7 +180,7 @@ class GridSelector(BoxLayout):
         
         # Background
         with self.canvas.before:
-            Color(0.18, 0.18, 0.22, 1)
+            Color(*DARK)
             self.bg = Rectangle(pos=self.pos, size=self.size)
         
         # Let widget height follow content height (for panel scrolling)
@@ -211,7 +212,7 @@ class GridSelector(BoxLayout):
             height=32,
             font_size='16sp',
             bold=True,
-            color=(0.95, 0.95, 0.95, 1),
+            color=LIGHT,
             halign='left',
             valign='middle',
             padding=(8, 0)
@@ -224,7 +225,7 @@ class GridSelector(BoxLayout):
         
         # Background for grid list
         with gridlist_container.canvas.before:
-            Color(0.2, 0.22, 0.25, 1)
+            Color(*DARK_LIGHTER)
             self.scroll_bg = RoundedRectangle(
                 pos=gridlist_container.pos,
                 size=gridlist_container.size,
@@ -265,7 +266,7 @@ class GridSelector(BoxLayout):
         
         # Background
         with subdiv_container.canvas.before:
-            Color(0.2, 0.22, 0.25, 1)
+            Color(*DARK_LIGHTER)
             self.subdiv_bg = RoundedRectangle(
                 pos=subdiv_container.pos,
                 size=subdiv_container.size,
@@ -279,7 +280,7 @@ class GridSelector(BoxLayout):
             size_hint_y=None,
             height=24,
             font_size='14sp',
-            color=(0.9, 0.9, 0.9, 1),
+            color=LIGHT,
             halign='left',
             valign='middle'
         )

@@ -2,34 +2,22 @@
 """
 PianoTab - Music Notation Editor
 Main application entry point for Kivy version.
-
-This is the main launcher for the PianoTab application.
-It initializes and runs the Kivy GUI.
 """
 import sys
 import os
-from pathlib import Path
 
-# Add current directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from kivy.config import Config
 
 # Configure Kivy before importing other Kivy modules
-# Set window size and position
 Config.set('graphics', 'width', '1400')
 Config.set('graphics', 'height', '800')
 Config.set('graphics', 'minimum_width', '100')
 Config.set('graphics', 'minimum_height', '100')
 Config.set('graphics', 'resizable', True)
-
-# Set multisampling for smoother graphics
 Config.set('graphics', 'multisamples', '2')
-
-# Enable window maximized on startup (platform-specific)
 Config.set('graphics', 'window_state', 'maximized')
-
-# Disable virtual keyboard for desktop app
 Config.set('kivy', 'keyboard_mode', '')
 
 from kivy.app import App
@@ -37,53 +25,70 @@ from kivy.core.window import Window
 from kivy.logger import Logger
 from kivy.metrics import Metrics
 from gui.main_gui import PianoTabGUI
+from gui.colors import DARK
 from editor.editor import Editor
 from file.SCORE import SCORE
 
-# set global scaling from kivy
-Metrics.density = 6  # 3x scaling
-Metrics.fontscale = .25  # 0.5x font scaling
+Metrics.density = 6
+Metrics.fontscale = .25
 
 class PianoTab(App):
-    """Main PianoTab application entry point and structure overview."""
-
+    """Main PianoTab application."""
+    
     title = 'PianoTab - Music Notation Editor'
-
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Initialize data models and controllers here
+        self.score = None
+        self.editor = None
+        self.gui = None
+    
     def build(self):
-        # Window and theme
-        Window.clearcolor = (0.10, 0.10, 0.12, 1)
+        """Build and return the root widget - UI construction only."""
+        # Window setup
+        Window.clearcolor = DARK
         try:
-            # Maximize on supported platforms
             Window.maximize()
         except Exception:
             pass
-
-        # Build GUI structure (left side panel + split view with editor/preview)
+        
+        # Create and return GUI (UI only)
         self.gui = PianoTabGUI()
-
-        # Initialize the SCORE model (document)
+        return self.gui
+    
+    def on_start(self):
+        """Called after build() - Initialize business logic here."""
+        Logger.info('PianoTab: Application started')
+        
+        # Initialize data model
         self.score = SCORE()
-
-        # some inline testing with note creation & current.pianotab auto-save
+        
+        # Create test data
         self.score.new_note(pitch=60, duration=256.0, time=0.0, stave_idx=0)
         self.score.new_note(pitch=62, duration=256.0, time=0.0, stave_idx=0)
         self.score.new_note(pitch=64, duration=256.0, time=0.0, stave_idx=0)
-
-
-
-        # Create Editor controller and pass the score
+        
+        # Initialize controllers
         self.editor = Editor(self.gui.get_editor_widget(), self.score)
-
-        return self.gui
-
-    def on_start(self):
-        Logger.info('PianoTab: Application started')
-
+        
+        # Setup any additional connections/bindings
+        self._setup_bindings()
+    
+    def _setup_bindings(self):
+        """Setup event bindings between components."""
+        # Example: bind keyboard shortcuts, menu actions, etc.
+        pass
+    
     def on_stop(self):
+        """Cleanup when app is closing."""
         Logger.info('PianoTab: Application stopping')
+        # Cleanup resources, save state, etc.
+        if self.editor:
+            self.editor.cleanup()  # If editor has cleanup method
 
 def main():
-    """Main entry point for PianoTab application."""
+    """Main entry point."""
     Logger.info('PianoTab: Starting PianoTab Music Notation Editor')
     app = PianoTab()
     try:
@@ -97,7 +102,6 @@ def main():
         return 1
     Logger.info('PianoTab: Application closed')
     return 0
-
 
 if __name__ == '__main__':
     sys.exit(main())
