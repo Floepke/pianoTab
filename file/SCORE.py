@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 from typing import List, Literal, Optional
 import json
-import time
 
 from file.metaInfo import MetaInfo
 from file.header import Header
@@ -61,12 +60,6 @@ class SCORE:
     def __post_init__(self):
         # Initialize ID generator starting from 0:
         self._id = IDGenerator(start_id=0)
-        
-        # Auto-save configuration (for runtime inspection)
-        self._auto_save_enabled = False
-        self._auto_save_path = 'current.pianotab'
-        self._last_save_time = 0  # Track last save timestamp
-        self._save_debounce = 1.0  # Don't save more than once per second
 
         # Ensure there's always a 'locked' lineBreak at time 0:
         if not self.lineBreak or not any(lb.time == 0.0 and lb.type == 'locked' for lb in self.lineBreak):
@@ -84,32 +77,6 @@ class SCORE:
         """Reset the ID generator to start from a specific ID."""
         self._id.reset(start_id)
     
-    def enable_auto_save(self, path: str = 'current.pianotab'):
-        """Enable auto-save: writes to path whenever score changes."""
-        self._auto_save_enabled = True
-        self._auto_save_path = path
-        self._auto_save()  # Write initial state
-    
-    def disable_auto_save(self):
-        """Disable auto-save."""
-        self._auto_save_enabled = False
-    
-    def _auto_save(self):
-        """Internal: auto-save if enabled, with debouncing to prevent excessive writes."""
-        if not self._auto_save_enabled:
-            return
-        
-        current_time = time.time()
-        if current_time - self._last_save_time < self._save_debounce:
-            return  # Too soon, skip this save
-        
-        try:
-            self.save(self._auto_save_path)
-            self._last_save_time = current_time
-        except Exception as e:
-            # Silent fail to avoid disrupting app flow
-            pass
-    
     # Convenience methods for managing line breaks and base grids:
     def new_basegrid(self, 
                      numerator: int = 4,
@@ -126,14 +93,12 @@ class SCORE:
                             measureAmount=measureAmount,
                             timeSignatureIndicatorVisible=timeSignatureIndicatorVisible)
         self.baseGrid.append(basegrid)
-        self._auto_save()
         return basegrid
 
     def new_linebreak(self, time: float = 0.0, type: Literal['manual', 'locked'] = 'manual') -> None:
         '''Add a new line break to the score.'''
         linebreak = LineBreak(id=self._next_id(), time=time, type=type)
         self.lineBreak.append(linebreak)
-        self._auto_save()
         return linebreak
     
     # Convenience methods for managing staves
@@ -204,9 +169,8 @@ class SCORE:
     def save(self, filename: str) -> None:
         '''Save SCORE instance to JSON file.'''
         with open(filename, 'w', encoding='utf-8') as f:
-            # Use compact JSON (no indentation) for current.pianotab to reduce file size and parsing time
-            indent = None if filename == self._auto_save_path else 4
-            json.dump(self.to_dict(), f, ensure_ascii=True, separators=(',', ':'), indent=indent)
+            # Write human-readable JSON with indentation
+            json.dump(self.to_dict(), f, ensure_ascii=True, indent=4)
     
     @classmethod
     def load(cls, filename: str) -> 'SCORE':

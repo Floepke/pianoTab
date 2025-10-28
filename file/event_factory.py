@@ -69,9 +69,6 @@ def _generate_event_factory(event_class: Type, event_list_name: str):
         event_list = getattr(stave.event, event_list_name)
         event_list.append(event)
         
-        # Trigger auto-save if enabled
-        self._auto_save()
-        
         return event
     
     # Set a helpful docstring

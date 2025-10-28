@@ -5,7 +5,7 @@
         "extension": ".pianotab",
         "description": "PianoTab score file",
         "version": "1.0",
-        "created": "27-10-2025_20:26:43",
+        "created": "28-10-2025_19:21:41",
         "author": "PianoTab Team",
         "license": "MIT"
     },
@@ -17,7 +17,7 @@
         "lyricist": "",
         "publisher": "",
         "copyright": "Copyright © 2025, PianoTab. All rights reserved.",
-        "timeStamp": "27-10-2025_20:26:43",
+        "timeStamp": "28-10-2025_19:21:41",
         "genre": "",
         "comment": ""
     },
@@ -153,7 +153,47 @@
             "name": "Stave 1",
             "scale": 1,
             "event": {
-                "note": [],
+                "note": [
+                    {
+                        "id": 1,
+                        "time": 0,
+                        "dur": 256,
+                        "pitch": 60,
+                        "vel": 80,
+                        "art": [],
+                        "hand": ">",
+                        "color": null,
+                        "colL": null,
+                        "colR": null,
+                        "blkDir": null
+                    },
+                    {
+                        "id": 2,
+                        "time": 0,
+                        "dur": 256,
+                        "pitch": 62,
+                        "vel": 80,
+                        "art": [],
+                        "hand": ">",
+                        "color": null,
+                        "colL": null,
+                        "colR": null,
+                        "blkDir": null
+                    },
+                    {
+                        "id": 3,
+                        "time": 0,
+                        "dur": 256,
+                        "pitch": 64,
+                        "vel": 80,
+                        "art": [],
+                        "hand": ">",
+                        "color": null,
+                        "colL": null,
+                        "colR": null,
+                        "blkDir": null
+                    }
+                ],
                 "graceNote": [],
                 "countLine": [],
                 "startRepeat": [],

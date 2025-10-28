@@ -63,18 +63,13 @@ class PianoTab(App):
 
         # Initialize the SCORE model (document)
         self.score = SCORE()
-        
-        # Enable auto-save to current.pianotab for runtime inspection
-        self.score.enable_auto_save('current.pianotab')
-        Logger.info('PianoTab: Auto-save enabled → current.pianotab')
 
         # some inline testing with note creation & current.pianotab auto-save
         self.score.new_note(pitch=60, duration=256.0, time=0.0, stave_idx=0)
         self.score.new_note(pitch=62, duration=256.0, time=0.0, stave_idx=0)
         self.score.new_note(pitch=64, duration=256.0, time=0.0, stave_idx=0)
 
-        # Trigger auto-save after initial notes
-        self.score._auto_save()
+
 
         # Create Editor controller and pass the score
         self.editor = Editor(self.gui.get_editor_widget(), self.score)
