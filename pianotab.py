@@ -83,9 +83,9 @@ class PianoTab(App):
     def on_stop(self):
         """Cleanup when app is closing."""
         Logger.info('PianoTab: Application stopping')
-        # Cleanup resources, save state, etc.
-        if self.editor:
-            self.editor.cleanup()  # If editor has cleanup method
+        
+        # Perform any necessary cleanup here
+        ...
 
 def main():
     """Main entry point."""

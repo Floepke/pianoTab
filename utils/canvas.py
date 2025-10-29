@@ -433,18 +433,29 @@ class Canvas(Widget):
             # Scale based on width only; enable vertical scrolling if content > viewport
             self._px_per_mm = max(1e-6, self.width / self.width_mm)
             view_w = int(round(self.width))
-            view_h = int(round(self.height))
-            self._view_x = int(self.x)
-            self._view_y = int(self.y)
-            self._view_w = view_w
-            self._view_h = view_h
-            # Clamp scroll to content bounds
             content_h = self._content_height_px()
-            max_scroll = max(0, content_h - self._view_h)
-            if self._scroll_px < 0:
+            
+            # Center vertically if content is smaller than widget height
+            if content_h <= self.height:
+                view_h = content_h
+                self._view_x = int(self.x)
+                self._view_y = int(round(self.y + (self.height - content_h) / 2))
+                self._view_w = view_w
+                self._view_h = view_h
                 self._scroll_px = 0.0
-            elif self._scroll_px > max_scroll:
-                self._scroll_px = float(max_scroll)
+            else:
+                # Content larger than viewport - enable scrolling
+                view_h = int(round(self.height))
+                self._view_x = int(self.x)
+                self._view_y = int(self.y)
+                self._view_w = view_w
+                self._view_h = view_h
+                # Clamp scroll to content bounds
+                max_scroll = max(0, content_h - self._view_h)
+                if self._scroll_px < 0:
+                    self._scroll_px = 0.0
+                elif self._scroll_px > max_scroll:
+                    self._scroll_px = float(max_scroll)
         elif self.keep_aspect:
             scale_x = self.width / self.width_mm
             scale_y = self.height / self.height_mm

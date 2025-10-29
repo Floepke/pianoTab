@@ -7,7 +7,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.dropdown import DropDown
 from kivy.uix.widget import Widget
-from kivy.graphics import Color, Rectangle
+from kivy.graphics import Color, Rectangle, Line
 from kivy.clock import Clock
 from kivy.core.window import Window
 from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER
@@ -46,7 +46,7 @@ class MenuBar(BoxLayout):
         kwargs['spacing'] = 0
         super().__init__(**kwargs)
 
-        # Background
+        # Background (no border on menu bar)
         with self.canvas.before:
             Color(*DARK)
             self.bg = Rectangle(pos=self.pos, size=self.size)
@@ -93,14 +93,21 @@ class MenuBar(BoxLayout):
         
         dropdown = DropDown(auto_width=False, width=180)
         
-        # Style dropdown background
+        # Style dropdown background with border
         with dropdown.canvas.before:
-            Color(*DARK_LIGHTER)
+            # Background
+            Color(*DARK)
             bg = Rectangle(pos=dropdown.pos, size=dropdown.size)
-        dropdown.bind(
-            pos=lambda w, p: setattr(bg, 'pos', p),
-            size=lambda w, s: setattr(bg, 'size', s)
-        )
+            # Border
+            Color(*DARK_LIGHTER)
+            border = Line(rectangle=(dropdown.x, dropdown.y, dropdown.width, dropdown.height), width=1)
+        
+        def update_dropdown_graphics(instance, value):
+            bg.pos = instance.pos
+            bg.size = instance.size
+            border.rectangle = (instance.x, instance.y, instance.width, instance.height)
+        
+        dropdown.bind(pos=update_dropdown_graphics, size=update_dropdown_graphics)
         
         # Add items
         for item_name, item_value in items.items():
@@ -164,7 +171,7 @@ class MenuBar(BoxLayout):
             size_hint_y=None,
             height=36,
             background_normal='',
-            background_color=DARK_LIGHTER,
+            background_color=DARK,
             color=LIGHT,
             halign='left',
             valign='middle'
@@ -175,7 +182,7 @@ class MenuBar(BoxLayout):
             btn.bind(on_release=lambda b: (callback(), dropdown.dismiss()))
         else:
             # Disabled item
-            btn.color = DARK
+            btn.color = DARK_LIGHTER
         
         dropdown.add_widget(btn)
 
@@ -187,7 +194,7 @@ class MenuBar(BoxLayout):
             size_hint_y=None,
             height=36,
             background_normal='',
-            background_color=DARK_LIGHTER,
+            background_color=DARK,
             color=LIGHT,
             halign='left',
             valign='middle'
@@ -197,10 +204,21 @@ class MenuBar(BoxLayout):
         # Create the submenu dropdown
         submenu = DropDown(auto_width=False, width=180)
         
-        # Style submenu background
+        # Style submenu background with border
         with submenu.canvas.before:
-            Color(*DARK_LIGHTER)
+            # Background
+            Color(*DARK)
             bg = Rectangle(pos=submenu.pos, size=submenu.size)
+            # Border
+            Color(*DARK_LIGHTER)
+            border = Line(rectangle=(submenu.x, submenu.y, submenu.width, submenu.height), width=1)
+        
+        def update_submenu_graphics(instance, value):
+            bg.pos = instance.pos
+            bg.size = instance.size
+            border.rectangle = (instance.x, instance.y, instance.width, instance.height)
+        
+        submenu.bind(pos=update_submenu_graphics, size=update_submenu_graphics)
         submenu.bind(
             pos=lambda w, p: setattr(bg, 'pos', p),
             size=lambda w, s: setattr(bg, 'size', s)

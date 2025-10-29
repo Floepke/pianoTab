@@ -53,7 +53,7 @@ class ColorScheme:
 # Default color scheme instance
 default_colors = ColorScheme(
     color_light=(1.0, 1.0, 1.0, 1.0),      # White
-    color_dark=(0.10, 0.10, 0.12, 1.0)     # Near-black (matches Window.clearcolor)
+    color_dark=(0.2, 0.2, 0.2, 1.0)     # Near-black (matches Window.clearcolor)
 )
 
 # Easy access to colors throughout the app

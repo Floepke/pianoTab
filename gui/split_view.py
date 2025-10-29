@@ -17,6 +17,7 @@ class Sash(Widget):
         super().__init__(**kwargs)
         self.split_view = split_view
         self.dragging = False
+        self.hovering = False
         
         # Draw sash background (use canvas, not canvas.before to avoid duplication)
         with self.canvas:
@@ -24,14 +25,48 @@ class Sash(Widget):
             self.bg_rect = Rectangle(pos=self.pos, size=self.size)
         
         self.bind(pos=self.update_rect, size=self.update_rect)
+        
+        # Bind to mouse position for hover detection
+        Window.bind(mouse_pos=self.on_mouse_pos)
     
     def update_rect(self, *args):
         """Update sash rectangle."""
         self.bg_rect.pos = self.pos
         self.bg_rect.size = self.size
     
+    def on_mouse_pos(self, window, pos):
+        """Handle mouse position changes for hover effect."""
+        # Don't change cursor if we're dragging (it's already set)
+        if self.dragging:
+            return
+        
+        # Skip hover detection if sash width is 0 (disabled)
+        if (self.split_view.orientation == 'horizontal' and self.width == 0) or \
+           (self.split_view.orientation == 'vertical' and self.height == 0):
+            return
+        
+        # Check if mouse is over the sash
+        is_hovering = self.collide_point(*self.to_widget(*pos))
+        
+        if is_hovering and not self.hovering:
+            # Mouse entered sash
+            self.hovering = True
+            if self.split_view.orientation == 'horizontal':
+                Window.set_system_cursor('size_we')
+            else:
+                Window.set_system_cursor('size_ns')
+        elif not is_hovering and self.hovering:
+            # Mouse left sash
+            self.hovering = False
+            Window.set_system_cursor('arrow')
+    
     def on_touch_down(self, touch):
         """Handle mouse down on sash."""
+        # Disable dragging if sash width is 0
+        if (self.split_view.orientation == 'horizontal' and self.width == 0) or \
+           (self.split_view.orientation == 'vertical' and self.height == 0):
+            return False
+            
         if self.collide_point(*touch.pos):
             self.dragging = True
             touch.grab(self)

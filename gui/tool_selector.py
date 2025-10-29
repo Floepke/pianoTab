@@ -10,43 +10,82 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.button import Button
 from kivy.uix.label import Label
+from kivy.uix.image import Image
 from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.properties import StringProperty, ObjectProperty, ListProperty
 from kivy.clock import Clock
 from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER
+from icons.icon import load_icon
 
 
-class ToolButton(Button):
-    """A styled button that supports a selected state."""
+class ToolButton(BoxLayout):
+    """A styled button with icon and text that supports a selected state."""
     is_selected = False
 
-    def __init__(self, text, on_select, **kwargs):
+    def __init__(self, text, icon_name=None, on_select=None, **kwargs):
         super().__init__(
-            text=text,
+            orientation='horizontal',
             size_hint_y=None,
-            height=36,
-            font_size='16sp',
-            bold=False,
-            background_normal='',
-            background_color=DARK_LIGHTER,
-            color=LIGHT,
+            height=96,
+            spacing=8,
+            padding=[8, 0, 8, 0],
             **kwargs
         )
-        # Left-align text
-        self.halign = 'left'
-        self.valign = 'middle'
-        self.bind(size=self._update_text_size)
+        
+        self.text = text
         self._on_select = on_select
-        self.bind(on_release=self._handle_press)
+        
+        # Background color
+        with self.canvas.before:
+            self.bg_color = Color(*DARK_LIGHTER)
+            self.bg_rect = Rectangle(pos=self.pos, size=self.size)
+        self.bind(pos=self._update_bg, size=self._update_bg)
+        
+        # Icon (if provided)
+        self.icon_widget = None
+        if icon_name:
+            icon_texture = load_icon(icon_name)
+            if icon_texture:
+                self.icon_widget = Image(
+                    texture=icon_texture.texture,
+                    size_hint=(None, None),
+                    size=(96, 96),
+                    allow_stretch=True,
+                    keep_ratio=True
+                )
+                self.add_widget(self.icon_widget)
+        
+        # Text label
+        self.label = Label(
+            text=text,
+            font_size='16sp',
+            bold=False,
+            color=LIGHT,
+            halign='left',
+            valign='middle',
+            text_size=(None, None)
+        )
+        self.label.bind(size=self._update_text_size)
+        self.add_widget(self.label)
+        
+        # Handle clicks
+        self.bind(on_touch_down=self._on_touch_down)
+        
         self._update_style()
-
+    
+    def _update_bg(self, *args):
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
+    
     def _update_text_size(self, *args):
-        # Allow halign to take effect
-        self.text_size = (self.width - 12, None)
-
-    def _handle_press(self, *args):
-        if self._on_select:
-            self._on_select(self.text)
+        self.label.text_size = (self.label.width, None)
+    
+    def _on_touch_down(self, instance, touch):
+        if self.collide_point(*touch.pos):
+            if self._on_select:
+                self._on_select(self.text)
+            return True
+        return False
 
     def set_selected(self, selected: bool):
         self.is_selected = selected
@@ -55,14 +94,14 @@ class ToolButton(Button):
     def _update_style(self):
         if self.is_selected:
             # Highlighted look
-            self.background_color = LIGHT_DARKER
-            self.color = DARK
-            self.bold = True
+            self.bg_color.rgba = LIGHT_DARKER
+            self.label.color = DARK
+            self.label.bold = True
         else:
             # Normal look
-            self.background_color = DARK_LIGHTER
-            self.color = LIGHT
-            self.bold = False
+            self.bg_color.rgba = DARK_LIGHTER
+            self.label.color = LIGHT
+            self.label.bold = False
 
 
 class ToolSelector(BoxLayout):
@@ -80,6 +119,17 @@ class ToolSelector(BoxLayout):
         'Note', 'Grace-note', 'Beam', 'Line-break',
         'Count-line', 'Text', 'Slur', 'Tempo'
     ])
+    # Map tool names to icon names (without .png extension)
+    tool_icons = {
+        'Note': 'note',
+        'Grace-note': 'gracenote',
+        'Beam': 'beam',
+        'Line-break': 'linebreak',
+        'Count-line': 'countline',
+        'Text': 'text',
+        'Slur': 'slur',
+        'Tempo': 'tempo'
+    }
 
     def __init__(self, callback=None, **kwargs):
         # Set up as vertical BoxLayout with sizing
@@ -139,7 +189,8 @@ class ToolSelector(BoxLayout):
         # Create buttons
         self._buttons = {}
         for name in self.tools:
-            btn = ToolButton(text=name, on_select=self.select_tool)
+            icon_name = self.tool_icons.get(name)  # Get icon name or None
+            btn = ToolButton(text=name, icon_name=icon_name, on_select=self.select_tool)
             self._buttons[name] = btn
             self.button_column.add_widget(btn)
 

@@ -252,19 +252,12 @@ class PianoTabGUI(BoxLayout):
         self.menu_bar = MenuBar(menu_config)
         self.add_widget(self.menu_bar)
         
-        # Main horizontal split: left panel | editor-preview split
-        self.main_split = SplitView(
-            orientation='horizontal',
-            sash_width=40,
-            split_ratio=0.15,
-            sash_color=DARK_LIGHTER,
-            min_left_size=400,   # ← Side panel minimum width
-            min_right_size=0   # ← Editor/preview minimum width
-        )
+        # Main horizontal layout: fixed-width left panel | editor-preview split
+        self.main_layout = BoxLayout(orientation='horizontal', spacing=0)
         
-        # Left side panel
-        self.side_panel = SidePanelWidget()
-        self.main_split.set_left(self.side_panel)
+        # Left side panel with fixed width
+        self.side_panel = SidePanelWidget(size_hint_x=None, width=400)
+        self.main_layout.add_widget(self.side_panel)
         
         # Right side: Editor-Preview split view
         self.editor_preview_split = SplitView(
@@ -283,16 +276,16 @@ class PianoTabGUI(BoxLayout):
         
         # Print preview area (right side of right panel) - also Canvas
         self.print_preview = Canvas(width_mm=210.0, height_mm=297.0,
-                                      background_color=DARK,
+                                      background_color=(1, 1, 1, 1),
                                       border_color=DARK_LIGHTER,
                                       border_width_px=1.0)
         self.editor_preview_split.set_right(self.print_preview)
         
-        # Add editor-preview split to main split
-        self.main_split.set_right(self.editor_preview_split)
+        # Add editor-preview split to main layout
+        self.main_layout.add_widget(self.editor_preview_split)
         
-        # Add main split to root layout
-        self.add_widget(self.main_split)
+        # Add main layout to root layout
+        self.add_widget(self.main_layout)
     
     def get_editor_widget(self):
         """Get reference to the editor widget."""

@@ -4,7 +4,7 @@
         {
             "label": "Run PianoTab",
             "type": "shell",
-            "command": "${workspaceFolder}/venv/bin/python3",
+            "command": "${workspaceFolder}/.venv/bin/python3",
             "args": [
                 "${workspaceFolder}/pianotab.py"
             ],

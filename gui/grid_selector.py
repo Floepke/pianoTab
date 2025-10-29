@@ -115,22 +115,31 @@ class GridButton(Button):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.size_hint_y = None
-        self.height = 32
+        self.height = 36
         self.background_normal = ''
         self.background_down = ''
         self.halign = 'left'
-        self.padding = [10, 0]
-        self.font_size = '14sp'
+        self.valign = 'middle'
+        self.font_size = '16sp'
+        self.bold = False
         self.update_style()
+        # Bind size to update text_size for left alignment
+        self.bind(size=self._update_text_size)
+    
+    def _update_text_size(self, *args):
+        # Allow halign to take effect
+        self.text_size = (self.width - 12, None)
     
     def update_style(self):
         """Update button appearance based on selection state."""
         if self.is_selected:
             self.background_color = LIGHT_DARKER
             self.color = DARK
+            self.bold = True
         else:
-            self.background_color = (0, 0, 0, 0)  # Transparent
-            self.color = LIGHT_DARKER
+            self.background_color = DARK_LIGHTER
+            self.color = LIGHT
+            self.bold = False
     
     def set_selected(self, selected):
         """Set selection state."""
@@ -236,9 +245,9 @@ class GridSelector(BoxLayout):
         # Inner layout for buttons (no internal scrolling)
         self.button_layout = BoxLayout(
             orientation='vertical',
-            spacing=2,
+            spacing=6,
             size_hint_y=None,
-            padding=[6, 6]
+            padding=[4, 6]
         )
         self.button_layout.bind(minimum_height=self.button_layout.setter('height'))
         
