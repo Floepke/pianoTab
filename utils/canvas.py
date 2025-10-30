@@ -203,10 +203,10 @@ class Canvas(Widget):
         x2_mm: float,
         y2_mm: float,
         *,
-        color: str = "#000000",
-        width_mm: float = 0.25,
-        dash: bool = False,
-        dash_pattern_mm: Tuple[float, float] = (2.0, 2.0),
+        stroke_color: str = "#000000",
+        stroke_width_mm: float = 0.25,
+        stroke_dash: bool = False,
+        stroke_dash_pattern_mm: Tuple[float, float] = (2.0, 2.0),
         id: Optional[Iterable[str]] = None,
     ) -> int:
         """Add a straight line segment between two points in mm.
@@ -221,12 +221,12 @@ class Canvas(Widget):
             'type': 'line',
             'group': group,
             'points_mm': [float(x1_mm), float(y1_mm), float(x2_mm), float(y2_mm)],
-            'color': self._parse_color(color),
-            'w_mm': float(width_mm),
+            'color': self._parse_color(stroke_color),
+            'w_mm': float(stroke_width_mm),
             'smooth': False,
             'close': False,
-            'dash': bool(dash),
-            'dash_mm': (float(dash_pattern_mm[0]), float(dash_pattern_mm[1])),
+            'dash': bool(stroke_dash),
+            'dash_mm': (float(stroke_dash_pattern_mm[0]), float(stroke_dash_pattern_mm[1])),
             'id': set(id or []),
         }
         self._register_id(item_id)

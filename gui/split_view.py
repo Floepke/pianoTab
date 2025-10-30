@@ -11,7 +11,7 @@ from kivy.properties import NumericProperty, ObjectProperty, ListProperty
 from kivy.clock import Clock
 from kivy.core.window import Window
 from gui.colors import DARK, LIGHT_DARKER
-from gui.callbacks import BUTTON_CONFIG, DEFAULT_SASH_BUTTONS
+from gui.callbacks import BUTTON_CONFIG
 from functools import partial
 from icons.icon import load_icon
 
@@ -73,15 +73,11 @@ class ToolSash(Widget):
         self.buttons = []
         # Determine which buttons to show:
         # - If explicit button_keys provided, use them.
-        # - Otherwise start with DEFAULT_SASH_BUTTONS and append any extra keys
-        #   from BUTTON_CONFIG so newly added actions appear automatically.
+        # - Otherwise use BUTTON_CONFIG insertion order as the single source of truth.
         if button_keys is not None:
             keys = list(button_keys)
         else:
-            keys = list(DEFAULT_SASH_BUTTONS) if DEFAULT_SASH_BUTTONS else []
-            for k in BUTTON_CONFIG.keys():
-                if k not in keys:
-                    keys.append(k)
+            keys = list(BUTTON_CONFIG.keys())
         for key in keys:
             callback = BUTTON_CONFIG.get(key)
 

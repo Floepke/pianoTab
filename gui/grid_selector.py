@@ -4,17 +4,12 @@ Grid Selector Widget for PianoTab GUI (Kivy version).
 Allows selecting note length grid and subdivision for cursor snapping.
 """
 
-from kivy.uix.widget import Widget
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.scrollview import ScrollView
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.behaviors import ButtonBehavior
-from kivy.uix.textinput import TextInput
 from kivy.graphics import Color, Rectangle, RoundedRectangle
-from kivy.properties import NumericProperty, StringProperty, ObjectProperty, ListProperty
-from kivy.core.window import Window
-from kivy.clock import Clock
+from kivy.properties import NumericProperty, ObjectProperty
 from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER, ACCENT_COLOR
 
 

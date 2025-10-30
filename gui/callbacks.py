@@ -18,7 +18,7 @@ Configuration format examples:
     - '---' key: Separator (menu bar only)
 """
 
-from typing import Callable, Dict, Optional, Tuple, Union, List
+from typing import Callable, Dict, Tuple, Union
 
 
 # Type aliases for clarity
@@ -97,25 +97,11 @@ def create_button_config(app_instance) -> ButtonConfig:
         # Sash toolbar buttons (between editor and preview)
         "note2left": app_instance.on_note_to_left,
         "note2right": app_instance.on_note_to_right,
-        "note": app_instance.on_add_note,
+        "noteLeft": None,
+        "noteRight": None,
+        "previous": None,
+        "next": None
     }
-
-
-def get_default_sash_buttons() -> List[str]:
-    """
-    Get the default list of buttons to show in the sash toolbar.
-    
-    Returns:
-        List of button keys that should appear by default
-        
-    Notes:
-        The ToolSash widget will automatically append any additional buttons
-        from BUTTON_CONFIG that aren't in this list.
-    """
-    return [
-        "note2left",
-        "note2right",
-    ]
 
 
 # Placeholder implementations for demonstration
@@ -134,24 +120,16 @@ def _not_implemented(action: str) -> Callable[[], None]:
     return _cb
 
 
-# Legacy standalone configs for backwards compatibility
-# (These should be replaced by calling the create_* functions with an app instance)
-
-BUTTON_CONFIG: ButtonConfig = {
-    "note2left": _not_implemented("note2left"),
-    "note2right": _not_implemented("note2right"),
-    "note": _not_implemented("note"),
-}
-
-DEFAULT_SASH_BUTTONS: List[str] = get_default_sash_buttons()
+# Single source of truth for toolbar buttons:
+BUTTON_CONFIG: ButtonConfig = {}
+# Order of toolbar buttons follows insertion order of BUTTON_CONFIG as returned by
+# create_button_config(app_instance). No separate default list is used.
 
 
 __all__ = [
     "create_menu_config",
     "create_button_config",
-    "get_default_sash_buttons",
     "BUTTON_CONFIG",
-    "DEFAULT_SASH_BUTTONS",
     "MenuConfig",
     "ButtonConfig",
 ]

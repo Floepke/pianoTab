@@ -5,16 +5,12 @@ Replicates the CustomTkinter ToolSelector: a titled label and a scrollable
 list of tool buttons with a single-selection highlight and callback.
 """
 
-from kivy.uix.widget import Widget
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.scrollview import ScrollView
-from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.image import Image
 from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.properties import StringProperty, ObjectProperty, ListProperty
-from kivy.clock import Clock
-from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER, ACCENT_COLOR
+from gui.colors import DARK, DARK_LIGHTER, LIGHT, ACCENT_COLOR
 from icons.icon import load_icon
 
 

@@ -10,7 +10,7 @@ from kivy.uix.widget import Widget
 from kivy.graphics import Color, Rectangle, Line
 from kivy.clock import Clock
 from kivy.core.window import Window
-from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER
+from gui.colors import DARK, DARK_LIGHTER, LIGHT
 
 
 class MenuBar(BoxLayout):

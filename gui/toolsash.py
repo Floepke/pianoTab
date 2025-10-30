@@ -21,15 +21,13 @@ from kivy.uix.widget import Widget
 from kivy.graphics import Color, Rectangle, Line
 from kivy.graphics.scissor_instructions import ScissorPush, ScissorPop
 from kivy.uix.label import Label
-from kivy.uix.button import Button
 from kivy.uix.scrollview import ScrollView
-from kivy.core.window import Window
 from kivy.clock import Clock
 from gui.split_view import SplitView
 from gui.grid_selector import GridSelector
 from gui.tool_selector import ToolSelector
 from gui.menu_bar import MenuBar
-from gui.callbacks import create_menu_config, create_button_config
+from gui.callbacks import create_menu_config
 from gui.colors import DARK, DARK_LIGHTER, LIGHT_DARKER, LIGHT
 from utils.canvas import Canvas
 
@@ -226,13 +224,11 @@ class PianoTabGUI(BoxLayout):
         self.setup_layout()
     
     def _setup_button_callbacks(self):
-        """Bind toolbar button callbacks to this GUI instance."""
-        from gui.callbacks import BUTTON_CONFIG
-        
-        # Update the global BUTTON_CONFIG with instance methods
-        BUTTON_CONFIG["note2left"] = self.on_note_to_left
-        BUTTON_CONFIG["note2right"] = self.on_note_to_right
-        BUTTON_CONFIG["note"] = self.on_add_note
+        """Bind toolbar button callbacks to this GUI instance from a single config source."""
+        from gui.callbacks import BUTTON_CONFIG, create_button_config
+        # Replace the global BUTTON_CONFIG with the instance-bound config
+        BUTTON_CONFIG.clear()
+        BUTTON_CONFIG.update(create_button_config(self))
     
     def setup_layout(self):
         """Create the main layout structure with menu bar and resizable panels."""
