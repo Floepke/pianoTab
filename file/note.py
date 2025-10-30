@@ -20,18 +20,18 @@ class Note:
     """
     id: int = 0
     time: float = 0.0
-    duration: float = field(default=256.0, metadata=config(field_name='dur'))
+    duration: float = field(default=256.0, metadata=config(field_name='duration'))
     pitch: int = 40
-    velocity: int = field(default=80, metadata=config(field_name='vel'))
+    velocity: int = field(default=80, metadata=config(field_name='velocity'))
     articulation: List[Articulation] = field(default_factory=list, metadata=config(field_name='art'))
     hand: Literal['<', '>'] = '>'
     
     # Storage fields for inherited properties (serialize to JSON with clean names)
     _color: Optional[str] = field(default=None, metadata=config(field_name='color'))
-    _colorMidiLeftNote: Optional[str] = field(default=None, metadata=config(field_name='colL'))
-    _colorMidiRightNote: Optional[str] = field(default=None, metadata=config(field_name='colR'))
-    _blackNoteDirection: Optional[Literal['^', 'v']] = field(default=None, metadata=config(field_name='blkDir'))
-    
+    _colorMidiLeftNote: Optional[str] = field(default=None, metadata=config(field_name='_colorMidiLeftNote'))
+    _colorMidiRightNote: Optional[str] = field(default=None, metadata=config(field_name='_colorMidiRightNote'))
+    _blackNoteDirection: Optional[Literal['^', 'v']] = field(default=None, metadata=config(field_name='_blackNoteDirection'))
+
     def __post_init__(self):
         """Initialize score reference as a non-dataclass attribute."""
         self.score: Optional['SCORE'] = None

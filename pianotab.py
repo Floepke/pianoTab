@@ -6,6 +6,8 @@ Main application entry point for Kivy version.
 import sys
 import os
 
+os.environ["KIVY_METRICS_DENSITY"] = "2.0"
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from kivy.config import Config
@@ -22,15 +24,14 @@ Config.set('kivy', 'keyboard_mode', '')
 
 from kivy.app import App
 from kivy.core.window import Window
+from kivy.clock import Clock
 from kivy.logger import Logger
-from kivy.metrics import Metrics
+from kivy.utils import platform
 from gui.main_gui import PianoTabGUI
 from gui.colors import DARK
 from editor.editor import Editor
 from file.SCORE import SCORE
-
-Metrics.density = 6
-Metrics.fontscale = .25
+from utils.file_manager import FileManager
 
 class PianoTab(App):
     """Main PianoTab application."""
@@ -39,19 +40,22 @@ class PianoTab(App):
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # Initialize data models and controllers here
-        self.score = None
+        # Initialize UI and controllers here (no data models in App)
         self.editor = None
         self.gui = None
+        self.file_manager = None
     
     def build(self):
         """Build and return the root widget - UI construction only."""
         # Window setup
         Window.clearcolor = DARK
-        try:
-            Window.maximize()
-        except Exception:
-            pass
+        # On macOS, try to enter real native fullscreen (green button behavior)
+        # after the window is created and visible. Other platforms use
+        # window_state='maximized' (configured above).
+        if platform == 'macosx':
+            # Try twice with small delays to catch the moment after first draw.
+            Clock.schedule_once(lambda _dt: self._try_enter_native_fullscreen_macos(attempt=1), 0.25)
+            Clock.schedule_once(lambda _dt: self._try_enter_native_fullscreen_macos(attempt=2), 1.0)
         
         # Create and return GUI (UI only)
         self.gui = PianoTabGUI()
@@ -61,24 +65,77 @@ class PianoTab(App):
         """Called after build() - Initialize business logic here."""
         Logger.info('PianoTab: Application started')
         
-        # Initialize data model
-        self.score = SCORE()
+        # Initialize Editor (which owns the SCORE)
+        self.editor = Editor(self.gui.get_editor_widget())
         
-        # Create test data
-        self.score.new_note(pitch=60, duration=256.0, time=0.0, stave_idx=0)
-        self.score.new_note(pitch=62, duration=256.0, time=0.0, stave_idx=0)
-        self.score.new_note(pitch=64, duration=256.0, time=0.0, stave_idx=0)
-        
-        # Initialize controllers
-        self.editor = Editor(self.gui.get_editor_widget(), self.score)
+        # Example test notes
+        self.editor.score.new_note(pitch=60, duration=256.0, time=0.0, stave_idx=0)
+        self.editor.score.new_note(pitch=62, duration=256.0, time=0.0, stave_idx=0)
+        self.editor.score.new_note(pitch=40, duration=256.0, time=0.0, stave_idx=0)
         
         # Setup any additional connections/bindings
         self._setup_bindings()
+        
+        # File management: create and wire into GUI
+        self.file_manager = FileManager(app=self, gui=self.gui, editor=self.editor)
+        # Mark dirty on edits
+        self.editor.on_modified = self.file_manager.mark_dirty
+        # Let GUI delegate its menu actions to the manager
+        if hasattr(self.gui, 'set_file_manager'):
+            self.gui.set_file_manager(self.file_manager)
     
     def _setup_bindings(self):
         """Setup event bindings between components."""
         # Example: bind keyboard shortcuts, menu actions, etc.
         pass
+
+    def _try_enter_native_fullscreen_macos(self, attempt: int = 1):
+        """Best-effort native fullscreen on macOS using AppKit when available.
+
+        - First, try PyObjC to call NSWindow.toggleFullScreen_ for true native
+          macOS fullscreen (separate Space, menu bar auto-hide behavior).
+        - If PyObjC isn't available, fall back to Kivy's fullscreen/maximize.
+        - Attempt this a couple of times as the main window may not be ready
+          immediately after build().
+        """
+        # Only run on macOS
+        if platform != 'macosx':
+            return
+
+        def _is_nswindow_fullscreen(ns_window) -> bool:
+            try:
+                # NSWindowStyleMaskFullScreen = 1 << 14
+                NSWindowStyleMaskFullScreen = 1 << 14
+                return bool(ns_window.styleMask() & NSWindowStyleMaskFullScreen)
+            except Exception:
+                return False
+
+        # Try using PyObjC (preferred for true native fullscreen)
+        try:
+            from objc import lookUpClass  # type: ignore
+            NSApplication = lookUpClass('NSApplication')
+            app = NSApplication.sharedApplication()
+            ns_window = app.mainWindow() or app.keyWindow()
+            if ns_window is not None:
+                if not _is_nswindow_fullscreen(ns_window):
+                    ns_window.toggleFullScreen_(None)
+                # If still not fullscreen, we'll try once more later (via schedule)
+                return
+        except Exception:
+            # PyObjC not installed or AppKit not available; fall back below
+            pass
+
+        # Fallback: try Kivy's toggle_fullscreen, then maximize
+        try:
+            # Kivy's toggle_fullscreen is borderless fullscreen; not native but better than nothing
+            Window.toggle_fullscreen()
+            return
+        except Exception:
+            pass
+        try:
+            Window.maximize()
+        except Exception:
+            Logger.debug('PianoTab: Fullscreen/maximize not supported on this platform')
     
     def on_stop(self):
         """Cleanup when app is closing."""

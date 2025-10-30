@@ -14,7 +14,7 @@ from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.properties import NumericProperty, StringProperty, ObjectProperty, ListProperty
 from kivy.core.window import Window
 from kivy.clock import Clock
-from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER
+from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER, ACCENT_COLOR
 
 
 class SpinBox(BoxLayout):
@@ -112,10 +112,10 @@ class GridButton(Button):
     
     is_selected = False
     
-    def __init__(self, **kwargs):
+    def __init__(self, widget_height=96, **kwargs):
         super().__init__(**kwargs)
         self.size_hint_y = None
-        self.height = 36
+        self.height = widget_height
         self.background_normal = ''
         self.background_down = ''
         self.halign = 'left'
@@ -133,8 +133,8 @@ class GridButton(Button):
     def update_style(self):
         """Update button appearance based on selection state."""
         if self.is_selected:
-            self.background_color = LIGHT_DARKER
-            self.color = DARK
+            self.background_color = ACCENT_COLOR
+            self.color = LIGHT
             self.bold = True
         else:
             self.background_color = DARK_LIGHTER
@@ -170,6 +170,8 @@ class GridSelector(BoxLayout):
         kwargs['spacing'] = 8
         kwargs['size_hint_y'] = None
         super().__init__(**kwargs)
+        
+        self.widget_height = 96  # Standard widget height for consistency
         
         self.callback = callback
         self.current_grid_name = '4 - Quarter'
@@ -218,7 +220,7 @@ class GridSelector(BoxLayout):
         self.grid_label = Label(
             text='Grid Step: 256.0',
             size_hint_y=None,
-            height=32,
+            height=self.widget_height,
             font_size='16sp',
             bold=True,
             color=LIGHT,
@@ -254,7 +256,7 @@ class GridSelector(BoxLayout):
         # Create grid buttons
         self.grid_buttons = {}
         for grid_name, ticks in self.grid_lengths:
-            btn = GridButton(text=grid_name)
+            btn = GridButton(text=grid_name, widget_height=self.widget_height)
             btn.bind(on_press=lambda instance, name=grid_name: self.select_grid(name))
             self.button_layout.add_widget(btn)
             self.grid_buttons[grid_name] = btn
@@ -265,10 +267,12 @@ class GridSelector(BoxLayout):
         self.add_widget(gridlist_container)
         
         # Subdivision section - use BoxLayout
+        # Height = widget_height + spinbox_height + spacing + (padding*2)
+        # 96 + 36 + 6 + 16 = 154
         subdiv_container = BoxLayout(
             orientation='vertical',
             size_hint_y=None,
-            height=80,
+            height=self.widget_height + 36 + 6 + 16,
             spacing=6,
             padding=8
         )
@@ -285,12 +289,12 @@ class GridSelector(BoxLayout):
         
         # Label
         subdiv_label = Label(
-            text='Divide by:',
+            text='÷',
             size_hint_y=None,
-            height=24,
-            font_size='14sp',
+            height=self.widget_height,
+            font_size='48sp',
             color=LIGHT,
-            halign='left',
+            halign='center',
             valign='middle'
         )
         subdiv_label.bind(size=subdiv_label.setter('text_size'))

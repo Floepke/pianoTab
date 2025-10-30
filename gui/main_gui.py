@@ -11,6 +11,7 @@ Recreates the tkinter GUI with:
 
 import sys
 import os
+import math
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -226,14 +227,10 @@ class PianoTabGUI(BoxLayout):
         # Add menu bar at the top with dict-based configuration
         menu_config = {
             'File': {
-                'New': None,
-                'Open...': None,
-                'Open Recent...': {
-                    'recent1': None,
-                    'recent2': None
-                },
-                'Save': None,
-                'Save as...': None,
+                'New': self.on_new,
+                'Load...': self.on_open,
+                'Save': self.on_save,
+                'Save as...': self.on_save_as,
                 '---': None,  # Separator
                 'Exit': self.on_exit
             },
@@ -269,7 +266,7 @@ class PianoTabGUI(BoxLayout):
         
         # Editor area (left side of right panel) - use our mm-based Canvas
         self.editor_area = Canvas(width_mm=210.0, height_mm=297.0,
-                                    background_color=DARK_LIGHTER,
+                                    background_color=(1, 1, 1, 1),
                                     border_color=DARK,
                                     border_width_px=1.0)
         self.editor_preview_split.set_left(self.editor_area)
@@ -286,6 +283,19 @@ class PianoTabGUI(BoxLayout):
         
         # Add main layout to root layout
         self.add_widget(self.main_layout)
+
+        # After layout is added and sized, position the editor/preview sash so
+        # the A4 paper in the print preview fits fully and uses available height.
+        Clock.schedule_once(self._fit_preview_page_on_start, 0)
+        # Also bind once to size changes to recalc after fullscreen/maximize settles
+        self._did_fit_preview = False
+        def _on_eps_size(_inst, _val):
+            if not self._did_fit_preview:
+                Clock.schedule_once(self._fit_preview_page_on_start, 0)
+        self.editor_preview_split.bind(size=_on_eps_size)
+
+        # File management is owned by App; GUI receives a setter later.
+        self.file_manager = None
     
     def get_editor_widget(self):
         """Get reference to the editor widget."""
@@ -299,15 +309,110 @@ class PianoTabGUI(BoxLayout):
         """Get reference to the side panel."""
         return self.side_panel
 
+    def _fit_preview_page_on_start(self, _dt):
+        """Adjust the editor-preview sash so the A4 page in the preview fits fully.
+
+        The preview Canvas uses scale_to_width, so content_height = preview_width * (page_h/page_w).
+        To fit exactly, set preview_width ≈ (preview_height - ε) / (page_h/page_w).
+        Then back-compute split_ratio so right panel width equals this preview width.
+        """
+        sp = self.editor_preview_split
+        if not sp:
+            return
+        total_w = sp.width
+        total_h = sp.height
+        # If sizes aren't ready yet, try again next frame
+        if total_w <= 0 or total_h <= 0:
+            Clock.schedule_once(self._fit_preview_page_on_start, 0)
+            return
+
+        # Page aspect based on the Canvas logical size (A4: 210x297 mm)
+        page_w_mm = getattr(self.print_preview, 'width_mm', 210.0)
+        page_h_mm = getattr(self.print_preview, 'height_mm', 297.0)
+        ratio = page_h_mm / page_w_mm if page_w_mm else math.sqrt(2.0)
+
+        sash = sp.sash_width
+        # Choose width so that int(round(width*ratio)) equals total_h as closely as possible
+        required_right = max(0.0, (total_h) / ratio)
+
+        # Respect SplitView minimums
+        min_left = getattr(sp, 'min_left_size', 150)
+        min_right = getattr(sp, 'min_right_size', 150)
+
+        # Max right width we can allocate while honoring min_left (accounting for full sash width)
+        max_right = max(0.0, total_w - min_left - sash)
+        desired_right = min(required_right, max_right)
+
+        # Compute split ratio so right_width = desired_right
+        # right_width = total_w * (1 - r) - sash/2  =>  r = 1 - (desired_right + sash/2)/total_w
+        if total_w > 0:
+            r = 1.0 - (desired_right + sash / 2.0) / total_w
+        else:
+            r = sp.split_ratio
+
+        # Enforce min right width if configured
+        min_right_ratio_cap = 1.0 - (min_right + sash / 2.0) / total_w if total_w > 0 else r
+        r = min(r, min_right_ratio_cap)
+
+        # Ensure min left width
+        min_left_ratio_floor = (min_left + sash / 2.0) / total_w if total_w > 0 else r
+        r = max(r, min_left_ratio_floor)
+
+        # Final clamp 0..1 and apply
+        sp.split_ratio = max(0.0, min(1.0, r))
+        sp.update_layout()
+
+        # One-shot pixel-perfect correction: recompute using the actual preview height
+        # to mitigate rounding differences (aim for round(width*ratio) == height)
+        try:
+            pw = float(self.print_preview.width)
+            ph = float(self.print_preview.height)
+            desired_right_rounded = max(0.0, round(ph / ratio))
+            desired_right_rounded = min(desired_right_rounded, max_right)
+            if abs(pw - desired_right_rounded) >= 1.0 and total_w > 0:
+                r2 = 1.0 - (desired_right_rounded + sash / 2.0) / total_w
+                r2 = min(r2, min_right_ratio_cap)
+                r2 = max(r2, min_left_ratio_floor)
+                sp.split_ratio = max(0.0, min(1.0, r2))
+                sp.update_layout()
+        except Exception:
+            pass
+        # Mark as done so we don't re-run on further size events
+        self._did_fit_preview = True
+
     ''' on_X event handlers '''
 
     def on_exit(self):
         """Handle File > Exit."""
-        ...
+        if self.file_manager:
+            self.file_manager.exit_app()
+        else:
+            from kivy.app import App
+            App.get_running_app().stop()
 
     def on_about(self):
         """Handle About menu."""
         ...
+
+    # ----- File menu delegates (wired in menu_config) -----
+    def set_file_manager(self, fm):
+        self.file_manager = fm
+
+    def on_new(self):
+        if self.file_manager:
+            self.file_manager.new_file()
+
+    def on_open(self):
+        if self.file_manager:
+            self.file_manager.open_file()
+
+    def on_save(self):
+        if self.file_manager:
+            self.file_manager.save_file()
+
+    def on_save_as(self):
+        if self.file_manager:
+            self.file_manager.save_file_as()
 
 
 __all__ = [

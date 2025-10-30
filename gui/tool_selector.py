@@ -14,7 +14,7 @@ from kivy.uix.image import Image
 from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.properties import StringProperty, ObjectProperty, ListProperty
 from kivy.clock import Clock
-from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER
+from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER, ACCENT_COLOR
 from icons.icon import load_icon
 
 
@@ -50,8 +50,7 @@ class ToolButton(BoxLayout):
                     texture=icon_texture.texture,
                     size_hint=(None, None),
                     size=(96, 96),
-                    allow_stretch=True,
-                    keep_ratio=True
+                    fit_mode="contain"
                 )
                 self.add_widget(self.icon_widget)
         
@@ -93,9 +92,9 @@ class ToolButton(BoxLayout):
 
     def _update_style(self):
         if self.is_selected:
-            # Highlighted look
-            self.bg_color.rgba = LIGHT_DARKER
-            self.label.color = DARK
+            # Highlighted look with accent color
+            self.bg_color.rgba = ACCENT_COLOR
+            self.label.color = LIGHT
             self.label.bold = True
         else:
             # Normal look

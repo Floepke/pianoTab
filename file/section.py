@@ -13,7 +13,7 @@ class Section:
     
     # Storage fields for inherited properties (serialize to JSON with clean names)
     _color: Optional[str] = field(default=None, metadata=config(field_name='color'))
-    _lineWidth: Optional[float] = field(default=None, metadata=config(field_name='lnWid'))
+    _lineWidth: Optional[float] = field(default=None, metadata=config(field_name='lineWidth'))
     
     def __post_init__(self):
         """Initialize score reference as a non-dataclass attribute."""
