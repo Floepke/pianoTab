@@ -15,6 +15,7 @@ from kivy.uix.textinput import TextInput
 
 from gui.colors import DARK, DARK_LIGHTER, LIGHT
 from file.SCORE import SCORE
+from typing import Any
 
 
 DEFAULT_EXT = ".piano"
@@ -197,6 +198,13 @@ class FileManager:
                 self.dirty = False
                 self._dismiss_popup()
                 self._info(f"Loaded: {os.path.basename(filepath)}")
+                # Update settings: last opened + recent files
+                try:
+                    settings = getattr(self.app, "settings", None)
+                    if settings is not None:
+                        settings.add_recent_file(filepath)
+                except Exception:
+                    pass
             except Exception as e:
                 self._dismiss_popup()
                 self._error(f"Failed to load file:\n{e}")
@@ -274,6 +282,13 @@ class FileManager:
             self._last_dir = os.path.dirname(path) or self._last_dir
             self.dirty = False
             self._info(f"Saved: {os.path.basename(path)}")
+            # Update settings: last opened + recent files
+            try:
+                settings = getattr(self.app, "settings", None)
+                if settings is not None:
+                    settings.add_recent_file(path)
+            except Exception:
+                pass
         except Exception as e:
             self._error(f"Failed to save file:\n{e}")
 

@@ -4,93 +4,199 @@ Similar to tkinter's PanedWindow but with customizable sash width.
 """
 
 from kivy.uix.widget import Widget
+from kivy.uix.button import Button, ButtonBehavior
+from kivy.uix.image import Image
 from kivy.graphics import Color, Rectangle
 from kivy.properties import NumericProperty, ObjectProperty, ListProperty
+from kivy.clock import Clock
 from kivy.core.window import Window
-from gui.colors import DARK
+from gui.colors import DARK, LIGHT_DARKER
+from gui.callbacks import BUTTON_CONFIG, DEFAULT_SASH_BUTTONS
+from functools import partial
+from icons.icon import load_icon
 
 
-class Sash(Widget):
-    """Draggable sash for splitting views."""
-    
-    def __init__(self, split_view, **kwargs):
+class IconButton(ButtonBehavior, Image):
+    """A button that displays an icon image with a colored background."""
+
+    def __init__(self, icon_name: str = '', **kwargs):
+        super().__init__(**kwargs)
+        self.size_hint = (None, None)
+        self.size = (64, 64)
+
+        # Draw background rectangle
+        with self.canvas.before:
+            self._bg_color = Color(*LIGHT_DARKER)
+            self._bg_rect = Rectangle(pos=self.pos, size=self.size)
+
+        # Keep background in sync
+        self.bind(pos=self._sync_bg, size=self._sync_bg)
+
+        # Load and set the icon image
+        if icon_name:
+            icon = load_icon(icon_name)
+            if icon:
+                self.texture = icon.texture
+
+    def _sync_bg(self, *args):
+        self._bg_rect.pos = self.pos
+        self._bg_rect.size = self.size
+
+    def on_press(self):
+        # Darken on press
+        self._bg_color.rgba = DARK
+
+    def on_release(self):
+        # Restore color
+        self._bg_color.rgba = LIGHT_DARKER
+
+
+class ToolSash(Widget):
+    """Draggable sash with embedded toolbar buttons.
+
+    Buttons are direct children with inline positioning logic,
+    ensuring they move perfectly in sync with the sash.
+    """
+
+    def __init__(self, split_view, button_keys=None, **kwargs):
         super().__init__(**kwargs)
         self.split_view = split_view
         self.dragging = False
         self.hovering = False
-        
-        # Draw sash background (use canvas, not canvas.before to avoid duplication)
+
+        # Draw sash background
         with self.canvas:
             self.bg_color = Color(*DARK)
             self.bg_rect = Rectangle(pos=self.pos, size=self.size)
-        
-        self.bind(pos=self.update_rect, size=self.update_rect)
-        
-        # Bind to mouse position for hover detection
+
+        # Create buttons directly as children from centralized config
+        self.buttons = []
+        # Determine which buttons to show:
+        # - If explicit button_keys provided, use them.
+        # - Otherwise start with DEFAULT_SASH_BUTTONS and append any extra keys
+        #   from BUTTON_CONFIG so newly added actions appear automatically.
+        if button_keys is not None:
+            keys = list(button_keys)
+        else:
+            keys = list(DEFAULT_SASH_BUTTONS) if DEFAULT_SASH_BUTTONS else []
+            for k in BUTTON_CONFIG.keys():
+                if k not in keys:
+                    keys.append(k)
+        for key in keys:
+            callback = BUTTON_CONFIG.get(key)
+
+            icon = load_icon(key)
+            if icon is not None:
+                btn = IconButton(icon_name=key)
+            else:
+                # Fallback to text button if icon is missing
+                btn = Button(text=key, size_hint=(None, None), size=(64, 64))
+
+            # Bind callback if available; else print placeholder
+            if callback is not None:
+                btn.bind(on_release=partial(self._invoke_action, callback))
+            else:
+                btn.bind(on_release=partial(self._action_missing, key))
+
+            self.add_widget(btn)
+            self.buttons.append(btn)
+
+        # Bind sash properties to update button positions immediately
+        self.bind(pos=self._update_layout, size=self._update_layout, center_x=self._update_layout)
+
+        # Hover detection for cursor feedback
         Window.bind(mouse_pos=self.on_mouse_pos)
-    
-    def update_rect(self, *args):
-        """Update sash rectangle."""
+
+        # First-frame sync
+        Clock.schedule_once(lambda dt: self._update_layout(), 0)
+
+    def _update_layout(self, *args):
+        # Background matches sash
         self.bg_rect.pos = self.pos
         self.bg_rect.size = self.size
-    
+
+        # Position buttons vertically centered, stacked at top of sash
+        btn_spacing = 10
+        top_padding = 0
+        current_y = self.top - top_padding
+        
+        for btn in self.buttons:
+            btn.center_x = self.center_x
+            btn.top = current_y
+            current_y -= (btn.height + btn_spacing)
+
+    # Centralized action invocation helpers
+    def _invoke_action(self, cb, *_args):
+        try:
+            cb()
+        except Exception as exc:
+            print(f"Action error: {exc}")
+
+    def _action_missing(self, key, *_args):
+        print(f"No action configured for '{key}'")
+
     def on_mouse_pos(self, window, pos):
-        """Handle mouse position changes for hover effect."""
-        # Don't change cursor if we're dragging (it's already set)
+        # Avoid cursor flicker while dragging
         if self.dragging:
             return
-        
-        # Skip hover detection if sash width is 0 (disabled)
+
+        # Skip when sash disabled
         if (self.split_view.orientation == 'horizontal' and self.width == 0) or \
            (self.split_view.orientation == 'vertical' and self.height == 0):
             return
-        
-        # Check if mouse is over the sash
+
+        # Hover logic - check if over any button
         is_hovering = self.collide_point(*self.to_widget(*pos))
-        
-        if is_hovering and not self.hovering:
-            # Mouse entered sash
+        over_button = False
+        for btn in self.buttons:
+            if btn.collide_point(*btn.to_widget(*pos)):
+                over_button = True
+                break
+
+        if is_hovering and not over_button and not self.hovering:
             self.hovering = True
-            if self.split_view.orientation == 'horizontal':
-                Window.set_system_cursor('size_we')
-            else:
-                Window.set_system_cursor('size_ns')
-        elif not is_hovering and self.hovering:
-            # Mouse left sash
+            Window.set_system_cursor('size_we' if self.split_view.orientation == 'horizontal' else 'size_ns')
+        elif (not is_hovering or over_button) and self.hovering:
             self.hovering = False
             Window.set_system_cursor('arrow')
-    
+
     def on_touch_down(self, touch):
-        """Handle mouse down on sash."""
-        # Disable dragging if sash width is 0
+        # Disable dragging if sash width/height is 0
         if (self.split_view.orientation == 'horizontal' and self.width == 0) or \
            (self.split_view.orientation == 'vertical' and self.height == 0):
             return False
-            
-        if self.collide_point(*touch.pos):
+
+        # Let buttons handle touches first
+        for btn in self.buttons:
+            tp = btn.to_widget(*touch.pos)
+            if btn.collide_point(*tp):
+                if btn.on_touch_down(touch):
+                    return True
+
+        # Otherwise begin dragging if within sash bounds
+        sp = self.to_widget(*touch.pos)
+        if self.collide_point(*sp):
             self.dragging = True
             touch.grab(self)
-            # Change cursor to resize
-            if self.split_view.orientation == 'horizontal':
-                Window.set_system_cursor('size_we')
-            else:
-                Window.set_system_cursor('size_ns')
+            Window.set_system_cursor('size_we' if self.split_view.orientation == 'horizontal' else 'size_ns')
             return True
         return super().on_touch_down(touch)
-    
+
     def on_touch_move(self, touch):
-        """Handle mouse drag on sash."""
         if touch.grab_current is self and self.dragging:
             self.split_view.update_split(touch.pos)
+            # Force immediate sync so toolbar snaps in the same frame
+            self._update_layout()
             return True
         return super().on_touch_move(touch)
-    
+
     def on_touch_up(self, touch):
-        """Handle mouse up."""
         if touch.grab_current is self:
             self.dragging = False
             touch.ungrab(self)
             Window.set_system_cursor('arrow')
+            # One more sync in case final position snapped
+            self._update_layout()
             return True
         return super().on_touch_up(touch)
 
@@ -112,30 +218,40 @@ class SplitView(Widget):
     min_left_size = NumericProperty(150)  # Minimum pixels for left panel
     min_right_size = NumericProperty(150)  # Minimum pixels for right panel
     
+    # Snap-to-fit properties
+    snap_threshold = NumericProperty(20)  # Pixels within which to snap
+    snap_ratio = NumericProperty(None, allownone=True)  # Target ratio for snapping (calculated from paper dimensions)
+    
     def __init__(self, orientation='horizontal', **kwargs):
         super().__init__(**kwargs)
         self.orientation = orientation
+        self._user_set_ratio = False  # Track if user has manually set the ratio
         
         # Container for left/top widget
         self.left_container = Widget()
         self.add_widget(self.left_container)
-        
-        # Sash
-        self.sash = Sash(self, size_hint=(None, 1) if orientation == 'horizontal' else (1, None))
+
+        # Sash (integrated with toolbar)
+        self.sash = ToolSash(self, size_hint=(None, 1) if orientation == 'horizontal' else (1, None))
         if orientation == 'horizontal':
             self.sash.width = self.sash_width
         else:
             self.sash.height = self.sash_width
         self.add_widget(self.sash)
-        
+
         # Container for right/bottom widget
         self.right_container = Widget()
         self.add_widget(self.right_container)
-        
-        # Bind to size changes
-        self.bind(size=self.update_layout, pos=self.update_layout)
+
+        # Bind to size changes - only update layout, don't change ratio unless user hasn't set it
+        self.bind(size=self._on_size_change, pos=self.update_layout)
         self.bind(sash_width=self.on_sash_width_change)
         self.bind(sash_color=self.update_sash_color)
+    
+    def _on_size_change(self, *args):
+        """Handle size changes - update layout but preserve user's split ratio."""
+        # Only update the layout, don't recalculate split_ratio
+        self.update_layout()
     
     def on_sash_width_change(self, instance, value):
         """Update sash size when sash_width changes."""
@@ -181,9 +297,14 @@ class SplitView(Widget):
             self.left_container.pos = self.pos
             self.left_container.size = (max(0, left_width), self.height)
             
-            # Position and size sash
-            self.sash.pos = (self.x + left_width, self.y)
-            self.sash.size = (self.sash_width, self.height)
+            # Position and size sash - force immediate internal update
+            new_sash_pos = (self.x + left_width, self.y)
+            new_sash_size = (self.sash_width, self.height)
+            self.sash.pos = new_sash_pos
+            self.sash.size = new_sash_size
+            # Bypass property binding delay - update toolbar immediately
+            if hasattr(self.sash, '_update_layout'):
+                self.sash._update_layout()
             
             # Position and size right container
             self.right_container.pos = (self.x + left_width + self.sash_width, self.y)
@@ -225,7 +346,7 @@ class SplitView(Widget):
                 self.right_widget.size = self.right_container.size
     
     def update_split(self, touch_pos):
-        """Update split ratio based on touch position."""
+        """Update split ratio based on touch position with snap-to-fit functionality."""
         if self.orientation == 'horizontal':
             # Calculate new ratio based on x position
             relative_x = touch_pos[0] - self.x
@@ -235,6 +356,16 @@ class SplitView(Widget):
             min_ratio = self.min_left_size / self.width
             max_ratio = 1.0 - (self.min_right_size / self.width)
             new_ratio = max(min_ratio, min(max_ratio, new_ratio))
+            
+            # Snap to ideal ratio if close enough
+            if self.snap_ratio is not None:
+                # Calculate pixel position of current ratio and snap ratio
+                current_x = new_ratio * self.width
+                snap_x = self.snap_ratio * self.width
+                
+                # If within threshold, snap to ideal ratio
+                if abs(current_x - snap_x) <= self.snap_threshold:
+                    new_ratio = self.snap_ratio
         else:
             # Calculate new ratio based on y position
             relative_y = touch_pos[1] - self.y
@@ -244,6 +375,76 @@ class SplitView(Widget):
             min_ratio = self.min_right_size / self.height
             max_ratio = 1.0 - (self.min_left_size / self.height)
             new_ratio = max(min_ratio, min(max_ratio, new_ratio))
+            
+            # Snap to ideal ratio if close enough
+            if self.snap_ratio is not None:
+                # Calculate pixel position of current ratio and snap ratio
+                current_y = (1.0 - new_ratio) * self.height
+                snap_y = (1.0 - self.snap_ratio) * self.height
+                
+                # If within threshold, snap to ideal ratio
+                if abs(current_y - snap_y) <= self.snap_threshold:
+                    new_ratio = self.snap_ratio
         
+        self._user_set_ratio = True  # Mark that user has manually adjusted
         self.split_ratio = new_ratio
         self.update_layout()
+    
+    def set_snap_ratio_from_aspect(self, aspect_ratio):
+        """
+        Calculate and set the snap ratio based on paper aspect ratio (height/width).
+        
+        For horizontal split: calculates the split ratio where the right panel width
+        equals right panel height divided by aspect_ratio, so the paper fits exactly.
+        
+        Args:
+            aspect_ratio: Paper height / paper width (e.g., 297/210 for A4)
+        """
+        if self.orientation == 'horizontal':
+            # For scale_to_width rendering: 
+            # right_width should equal right_height / aspect_ratio for perfect fit
+            # right_width = total_width * (1 - ratio) - sash_width/2
+            # We want: right_width = height / aspect_ratio
+            # So: total_width * (1 - ratio) - sash_width/2 = height / aspect_ratio
+            # Solving: ratio = 1 - (height/aspect_ratio + sash_width/2) / total_width
+            
+            total_width = self.width
+            total_height = self.height
+            
+            if total_width > 0 and total_height > 0 and aspect_ratio > 0:
+                required_right_width = total_height / aspect_ratio
+                snap_ratio = 1.0 - (required_right_width + self.sash_width / 2.0) / total_width
+                
+                # Clamp to valid range
+                min_ratio = self.min_left_size / total_width
+                max_ratio = 1.0 - (self.min_right_size / total_width)
+                snap_ratio = max(min_ratio, min(max_ratio, snap_ratio))
+                
+                self.snap_ratio = snap_ratio
+            else:
+                self.snap_ratio = None
+
+        else:
+            # For vertical split, similar calculation
+            total_width = self.width
+            total_height = self.height
+
+            if total_width > 0 and total_height > 0 and aspect_ratio > 0:
+                required_bottom_height = total_width * aspect_ratio
+                snap_ratio = 1.0 - (required_bottom_height + self.sash_width / 2.0) / total_height
+
+                # Clamp to valid range
+                min_ratio = self.min_right_size / total_height
+                max_ratio = 1.0 - (self.min_left_size / total_height)
+                snap_ratio = max(min_ratio, min(max_ratio, snap_ratio))
+
+                self.snap_ratio = snap_ratio
+            else:
+                self.snap_ratio = None
+
+# Backwards compatibility: export Sash name for existing imports
+# New name is ToolSash, but some modules still import `Sash` from gui.split_view
+Sash = ToolSash
+
+# Explicit re-exports for clarity when using `from gui.split_view import *`
+__all__ = ["SplitView", "ToolSash", "Sash"]

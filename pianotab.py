@@ -6,7 +6,7 @@ Main application entry point for Kivy version.
 import sys
 import os
 
-os.environ["KIVY_METRICS_DENSITY"] = "2.0"
+os.environ["KIVY_METRICS_DENSITY"] = "1.5"
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -27,11 +27,12 @@ from kivy.core.window import Window
 from kivy.clock import Clock
 from kivy.logger import Logger
 from kivy.utils import platform
-from gui.main_gui import PianoTabGUI
+from gui.toolsash import PianoTabGUI
 from gui.colors import DARK
 from editor.editor import Editor
 from file.SCORE import SCORE
 from utils.file_manager import FileManager
+from utils.settings import SettingsManager
 
 class PianoTab(App):
     """Main PianoTab application."""
@@ -44,6 +45,9 @@ class PianoTab(App):
         self.editor = None
         self.gui = None
         self.file_manager = None
+        # App-wide settings available from anywhere via App.get_running_app().settings
+        self.settings: SettingsManager = SettingsManager()
+        self.settings.load()
     
     def build(self):
         """Build and return the root widget - UI construction only."""
@@ -142,7 +146,12 @@ class PianoTab(App):
         Logger.info('PianoTab: Application stopping')
         
         # Perform any necessary cleanup here
-        ...
+        try:
+            # Persist settings just in case
+            if hasattr(self, "settings") and self.settings is not None:
+                self.settings.save()
+        except Exception:
+            pass
 
 def main():
     """Main entry point."""

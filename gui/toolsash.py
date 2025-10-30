@@ -29,6 +29,7 @@ from gui.split_view import SplitView
 from gui.grid_selector import GridSelector
 from gui.tool_selector import ToolSelector
 from gui.menu_bar import MenuBar
+from gui.callbacks import create_menu_config, create_button_config
 from gui.colors import DARK, DARK_LIGHTER, LIGHT_DARKER, LIGHT
 from utils.canvas import Canvas
 
@@ -219,33 +220,25 @@ class PianoTabGUI(BoxLayout):
         self.editor_area = None
         self.print_preview = None
         
+        # Bind button callbacks to this instance
+        self._setup_button_callbacks()
+        
         self.setup_layout()
+    
+    def _setup_button_callbacks(self):
+        """Bind toolbar button callbacks to this GUI instance."""
+        from gui.callbacks import BUTTON_CONFIG
+        
+        # Update the global BUTTON_CONFIG with instance methods
+        BUTTON_CONFIG["note2left"] = self.on_note_to_left
+        BUTTON_CONFIG["note2right"] = self.on_note_to_right
+        BUTTON_CONFIG["note"] = self.on_add_note
     
     def setup_layout(self):
         """Create the main layout structure with menu bar and resizable panels."""
         
-        # Add menu bar at the top with dict-based configuration
-        menu_config = {
-            'File': {
-                'New': self.on_new,
-                'Load...': self.on_open,
-                'Save': self.on_save,
-                'Save as...': self.on_save_as,
-                '---': None,  # Separator
-                'Exit': self.on_exit
-            },
-            'Edit': {
-                'Undo': None,
-                'Redo': None,
-                '---': None,  # Separator
-                'Cut': None,
-                'Copy': None,
-                'Paste': None
-            },
-            'Help': {
-                'About': self.on_about
-            }
-        }
+        # Add menu bar at the top using centralized configuration
+        menu_config = create_menu_config(self)
         self.menu_bar = MenuBar(menu_config)
         self.add_widget(self.menu_bar)
         
@@ -259,7 +252,7 @@ class PianoTabGUI(BoxLayout):
         # Right side: Editor-Preview split view
         self.editor_preview_split = SplitView(
             orientation='horizontal',
-            sash_width=40,  # Wide sash as in tkinter version
+            sash_width=80,  # Wide sash for toolbar buttons
             split_ratio=0.6,  # Editor takes 60% initially
             sash_color=DARK
         )
@@ -284,15 +277,9 @@ class PianoTabGUI(BoxLayout):
         # Add main layout to root layout
         self.add_widget(self.main_layout)
 
-        # After layout is added and sized, position the editor/preview sash so
-        # the A4 paper in the print preview fits fully and uses available height.
-        Clock.schedule_once(self._fit_preview_page_on_start, 0)
-        # Also bind once to size changes to recalc after fullscreen/maximize settles
-        self._did_fit_preview = False
-        def _on_eps_size(_inst, _val):
-            if not self._did_fit_preview:
-                Clock.schedule_once(self._fit_preview_page_on_start, 0)
-        self.editor_preview_split.bind(size=_on_eps_size)
+        # After layout is added and sized, calculate the snap ratio for perfect paper fit
+        # This allows the user to snap to this position when dragging the sash
+        Clock.schedule_once(self._setup_snap_ratio, 0)
 
         # File management is owned by App; GUI receives a setter later.
         self.file_manager = None
@@ -309,12 +296,41 @@ class PianoTabGUI(BoxLayout):
         """Get reference to the side panel."""
         return self.side_panel
 
+    def _setup_snap_ratio(self, _dt):
+        """Calculate and set the snap ratio for the editor-preview split.
+        
+        This allows the sash to snap to the perfect position where the paper
+        dimensions (width_mm/height_mm ratio) fit exactly in the right panel.
+        """
+        sp = self.editor_preview_split
+        if not sp:
+            return
+        
+        # Wait until sizes are ready
+        if sp.width <= 0 or sp.height <= 0:
+            Clock.schedule_once(self._setup_snap_ratio, 0)
+            return
+        
+        # Get paper aspect ratio from the Canvas
+        page_w_mm = getattr(self.print_preview, 'width_mm', 210.0)
+        page_h_mm = getattr(self.print_preview, 'height_mm', 297.0)
+        aspect_ratio = page_h_mm / page_w_mm if page_w_mm else math.sqrt(2.0)
+        
+        # Set snap ratio on the split view
+        sp.set_snap_ratio_from_aspect(aspect_ratio)
+        
+        # Also bind to size changes to recalculate snap ratio
+        sp.bind(size=lambda *args: sp.set_snap_ratio_from_aspect(aspect_ratio))
+
     def _fit_preview_page_on_start(self, _dt):
         """Adjust the editor-preview sash so the A4 page in the preview fits fully.
 
         The preview Canvas uses scale_to_width, so content_height = preview_width * (page_h/page_w).
         To fit exactly, set preview_width ≈ (preview_height - ε) / (page_h/page_w).
         Then back-compute split_ratio so right panel width equals this preview width.
+        
+        NOTE: This method is currently disabled. The snap-to-fit behavior allows users
+        to manually snap to this position by dragging the sash.
         """
         sp = self.editor_preview_split
         if not sp:
@@ -402,7 +418,7 @@ class PianoTabGUI(BoxLayout):
         if self.file_manager:
             self.file_manager.new_file()
 
-    def on_open(self):
+    def on_load(self):
         if self.file_manager:
             self.file_manager.open_file()
 
@@ -413,6 +429,23 @@ class PianoTabGUI(BoxLayout):
     def on_save_as(self):
         if self.file_manager:
             self.file_manager.save_file_as()
+
+    # ----- Toolbar button delegates (wired in callbacks.py) -----
+    
+    def on_note_to_left(self):
+        """Move selected note(s) to left hand."""
+        print("Move note to left hand")
+        # TODO: Implement note hand assignment logic
+    
+    def on_note_to_right(self):
+        """Move selected note(s) to right hand."""
+        print("Move note to right hand")
+        # TODO: Implement note hand assignment logic
+    
+    def on_add_note(self):
+        """Add a new note at current position."""
+        print("Add note")
+        # TODO: Implement note creation logic
 
 
 __all__ = [
