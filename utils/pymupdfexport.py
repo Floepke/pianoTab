@@ -70,6 +70,9 @@ class PyMuPDFCanvas(Canvas):
         # Fixed: scale all PDF stroke widths to match on-screen appearance.
         # 2.0 empirically matches Canvas rendering thickness.
         self.pdf_stroke_scale: float = 2.0
+        # Optional fine-tune for baseline alignment in points (applied to bl_y)
+        # Keep default 0.0; adjust if a consistent offset is observed across viewers.
+        self.pdf_text_baseline_adjust_pt: float = 0.0
 
     def _scale_width(self, width_pt: float) -> float:
         """Apply global PDF stroke scaling and minimum width clamp."""
@@ -197,9 +200,9 @@ class PyMuPDFCanvas(Canvas):
         self._mirror(cmd)
         return item_id
 
-    def add_path(self, points_mm: Iterable[float], *, color: str = '#000000', width_mm: float = 0.25,
+    def add_polyline(self, points_mm: Iterable[float], *, color: str = '#000000', width_mm: float = 0.25,
                  dash: bool = False, dash_pattern_mm: Tuple[float, float] = (2.0, 2.0), id: Optional[Iterable[str]] = None) -> int:
-        item_id = super().add_path(points_mm, color=color, width_mm=width_mm, dash=dash,
+        item_id = super().add_polyline(points_mm, color=color, width_mm=width_mm, dash=dash,
                                    dash_pattern_mm=dash_pattern_mm, id=id)
         if not self.pdf_mode:
             return item_id
@@ -230,6 +233,24 @@ class PyMuPDFCanvas(Canvas):
             'outline': bool(outline),
             'outline_color': outline_color,
             'outline_w_mm': float(outline_width_mm),
+        }
+        self._mirror(cmd)
+        return item_id
+
+    def add_text(self, text: str, x_mm: float, y_mm: float, font_size_pt: float, angle_deg: float = 0.0,
+                 anchor: str = 'top_left', color: str = '#000000', id: Optional[Iterable[str]] = None) -> int:  # type: ignore[override]
+        item_id = super().add_text(text, x_mm, y_mm, font_size_pt, angle_deg, anchor, color, id)
+        if not self.pdf_mode:
+            return item_id
+        cmd = {
+            'type': 'text',
+            'text': str(text),
+            'x': float(x_mm),
+            'y': float(y_mm),
+            'font_pt': float(font_size_pt),
+            'angle_deg': float(angle_deg),
+            'anchor': str(anchor or 'top_left'),
+            'color': color,
         }
         self._mirror(cmd)
         return item_id
@@ -315,40 +336,124 @@ class PyMuPDFCanvas(Canvas):
                 width_pt = _mm_to_pt(c.get('outline_w_mm', 0.25))
                 shape.finish(color=stroke_rgb, fill=fill_rgb, width=self._scale_width(width_pt), lineCap=1)
                 shape.commit()
+            elif t == 'text':
+                # Compute text metrics in pt for anchoring
+                txt = c.get('text', '')
+                font_pt = float(c.get('font_pt', 12.0))
+                color_rgb = _hex_to_rgb(c.get('color', '#000000'))
+                # Measure actual text bbox using a temporary TextWriter to get accurate height
+                try:
+                    font_obj = fitz.Font("cour")
+                except Exception:
+                    font_obj = None
+                try:
+                    tw_measure = fitz.TextWriter(page.rect)
+                    # place baseline at y=font_pt to ensure positive rect
+                    tw_measure.append(fitz.Point(0, font_pt), txt, font=font_obj, fontsize=font_pt)
+                    measure_rect = tw_measure.text_rect
+                    w_pt = float(measure_rect.width)
+                    h_pt = float(measure_rect.height)
+                except Exception:
+                    try:
+                        w_pt = float(page.get_text_length(txt, fontname="courier", fontsize=font_pt))
+                    except Exception:
+                        w_pt = max(0.0, len(txt) * font_pt * 0.6)
+                    h_pt = font_pt
+                # Anchor point (top-left coordinate system)
+                ax_pt, ay_pt = self._xy_mm_to_pdf_pt(c.get('x', 0.0), c.get('y', 0.0))
+                # Offset from anchor to top-left of unrotated text box
+                off_x, off_y = self._anchor_offsets_pt(c.get('anchor', 'top_left'), w_pt, h_pt)
+                tl_x = ax_pt + off_x
+                tl_y = ay_pt + off_y
+                # TextWriter expects baseline bottom-left position
+                bl_x = tl_x
+                bl_y = tl_y + h_pt
+                rot = float(c.get('angle_deg', 0.0))
+                try:
+                    # Prepare a TextWriter for arbitrary-angle rotation via morph
+                    tw = fitz.TextWriter(page.rect)
+                    bl_y_adj = bl_y + float(getattr(self, 'pdf_text_baseline_adjust_pt', 0.0))
+                    tw.append(fitz.Point(bl_x, bl_y_adj), txt, font=font_obj, fontsize=font_pt)
+                    # Rotate clockwise by angle_deg around the anchor point (note: PyMuPDF uses CCW)
+                    m = fitz.Matrix(1, 0, 0, 1).prerotate(-rot)
+                    tw.write_text(page, color=color_rgb, morph=(fitz.Point(ax_pt, ay_pt), m))
+                except Exception as _e:
+                    # Fallback: no rotation, draw at baseline
+                    page.insert_text(fitz.Point(bl_x, bl_y), txt, fontsize=font_pt, fontname="courier", color=color_rgb)
 
     # ----- Dashed polyline drawing (manual) -----
 
     def _pdf_draw_dashed_polyline(self, page, pts: List[Tuple[float, float]], color: Tuple[float, float, float], width_pt: float,
                                on_pt: float, off_pt: float, *, close: bool = False):
-        """Draw dashed lines by splitting into small solid segments (avoid Shape.dashes incompatibilities)."""
+        """Draw dashed polyline with continuous dash phase across segments."""
         if len(pts) < 2:
             return
+        # If dash pattern is invalid, draw solid
+        if on_pt <= 0 or off_pt < 0:
+            for i in range(len(pts) - 1):
+                p1, p2 = pts[i], pts[i + 1]
+                page.draw_line(fitz.Point(*p1), fitz.Point(*p2), color=color, width=self._scale_width(width_pt), lineCap=1)
+            if close:
+                p1, p2 = pts[-1], pts[0]
+                page.draw_line(fitz.Point(*p1), fitz.Point(*p2), color=color, width=self._scale_width(width_pt), lineCap=1)
+            return
+
         points = list(pts)
         if close:
             points = points + [points[0]]
-        # Iterate pairwise segments
+
+        eps = 1e-9
+        dash_on = True
+        dash_remaining = on_pt  # remaining length in the current on/off run
+
         for i in range(len(points) - 1):
             x1, y1 = points[i]
             x2, y2 = points[i + 1]
             dx = x2 - x1
             dy = y2 - y1
-            seg_len = (dx*dx + dy*dy) ** 0.5
-            if seg_len <= 1e-9:
+            seg_len = (dx * dx + dy * dy) ** 0.5
+            if seg_len <= eps:
                 continue
             ux = dx / seg_len
             uy = dy / seg_len
+
             pos = 0.0
-            on = True
-            remaining = on_pt
-            while pos < seg_len - 1e-9:
-                run = min(remaining, seg_len - pos)
-                if on and run > 0:
+            while pos < seg_len - eps:
+                run = min(dash_remaining, seg_len - pos)
+                if dash_on and run > eps:
                     sx = x1 + ux * pos
                     sy = y1 + uy * pos
                     ex = x1 + ux * (pos + run)
                     ey = y1 + uy * (pos + run)
-                    # Draw each dash directly via page.draw_line using round caps
-                    page.draw_line(fitz.Point(sx, sy), fitz.Point(ex, ey), color=color, width=self._scale_width(width_pt), lineCap=1)
+                    page.draw_line(
+                        fitz.Point(sx, sy),
+                        fitz.Point(ex, ey),
+                        color=color,
+                        width=self._scale_width(width_pt),
+                        lineCap=1
+                    )
                 pos += run
-                on = not on
-                remaining = on_pt if on else off_pt
+                dash_remaining -= run
+                if dash_remaining <= eps:
+                    dash_on = not dash_on
+                    dash_remaining = on_pt if dash_on else off_pt
+
+    @staticmethod
+    def _anchor_offsets_pt(anchor: str, w_pt: float, h_pt: float) -> Tuple[float, float]:
+        """Offsets from anchor point to top-left of a text rectangle in PDF points.
+
+        Coordinates use top-left origin with Y increasing downward.
+        """
+        a = (anchor or 'top_left').strip().lower()
+        mapping = {
+            'top_left': (0.0, 0.0), 'tl': (0.0, 0.0),
+            'top': (-w_pt / 2.0, 0.0), 'tc': (-w_pt / 2.0, 0.0),
+            'top_right': (-w_pt, 0.0), 'tr': (-w_pt, 0.0),
+            'left': (0.0, -h_pt / 2.0), 'cl': (0.0, -h_pt / 2.0),
+            'center': (-w_pt / 2.0, -h_pt / 2.0), 'cc': (-w_pt / 2.0, -h_pt / 2.0),
+            'right': (-w_pt, -h_pt / 2.0), 'cr': (-w_pt, -h_pt / 2.0),
+            'bottom_left': (0.0, -h_pt), 'bl': (0.0, -h_pt),
+            'bottom': (-w_pt / 2.0, -h_pt), 'bc': (-w_pt / 2.0, -h_pt),
+            'bottom_right': (-w_pt, -h_pt), 'br': (-w_pt, -h_pt),
+        }
+        return mapping.get(a, (0.0, 0.0))

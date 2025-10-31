@@ -126,24 +126,31 @@ class ColorScheme:
         }
 
 
-# Default color scheme instance
+'''
+    Here the app colors are defined.
+
+    The colors are used throughout the app for consistent styling.
+    The ColorScheme class generates two extra colors (lighter/darker variants)
+    based on the provided light and dark base colors.
+'''
 default_colors = ColorScheme(
-    color_light='#FFFFFF',      # White
-    color_dark="#1C241D",       # Near-black (matches Window.clearcolor)
-    accent_color="#B2B2B2"      # Green - for selections and highlights
+    color_light='#FFFFFF',
+    color_dark="#1C241D",
+    accent_color="#06aec1"
 )
 
 # Easy access to colors throughout the app
 LIGHT = default_colors.color_light              # (1.0, 1.0, 1.0, 1.0)
-LIGHT_DARKER = default_colors.color_light_darker  # (0.775, 0.775, 0.78, 1.0)
-DARK_LIGHTER = default_colors.color_dark_lighter  # (0.325, 0.325, 0.33, 1.0)
-DARK = default_colors.color_dark                # (0.10, 0.10, 0.12, 1.0)
-ACCENT_COLOR = default_colors.accent_color       # (0.2, 0.6, 1.0, 1.0) - Blue accent
+LIGHT_DARKER = default_colors.color_light_darker  # lighter variant of light
+DARK_LIGHTER = default_colors.color_dark_lighter  # lighter variant of dark
+DARK = default_colors.color_dark                # base dark
+
+# Accent color derives directly from the configured ColorScheme so changing
+# the 'accent_color' parameter above updates selection/pressed states app-wide.
+ACCENT_COLOR = default_colors.accent_color
 
 
 __all__ = [
-    'ColorScheme',
-    'default_colors',
     'LIGHT',
     'LIGHT_DARKER',
     'DARK_LIGHTER',

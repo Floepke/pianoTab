@@ -36,6 +36,7 @@ class SpinBox(BoxLayout):
             bold=True,
             background_color=DARK_LIGHTER,
             background_normal='',
+            background_down='',
             color=LIGHT
         )
         self.dec_btn.bind(on_press=self.decrease)
@@ -68,6 +69,7 @@ class SpinBox(BoxLayout):
             bold=True,
             background_color=DARK_LIGHTER,
             background_normal='',
+            background_down='',
             color=LIGHT
         )
         self.inc_btn.bind(on_press=self.increase)
@@ -78,7 +80,7 @@ class SpinBox(BoxLayout):
         # Bind for mouse wheel support
         self.bind(on_touch_down=self.on_spinbox_touch)
 
-    def _bind_press_highlight(self, btn, normal_color=DARK_LIGHTER, pressed_color=LIGHT_DARKER):
+    def _bind_press_highlight(self, btn, normal_color=DARK_LIGHTER, pressed_color=ACCENT_COLOR):
         """Bind button to show pressed highlight color and restore on release."""
         def _on_state(instance, state):
             if state == 'down':
@@ -166,7 +168,7 @@ class GridButton(Button):
         # Temporarily show press highlight; restore style on release
         if value == 'down':
             self._saved_bg = getattr(self, '_saved_bg', self.background_color)
-            self.background_color = LIGHT_DARKER
+            self.background_color = ACCENT_COLOR
         else:
             # Restore to selected/non-selected style
             self.update_style()
@@ -344,11 +346,12 @@ class GridSelector(BoxLayout):
             bold=True,
             background_color=DARK,
             background_normal='',
+            background_down='',
             color=LIGHT
         )
         dec_btn.bind(on_press=lambda *_: self.decrease_subdivision())
-        # Highlight on press (normal=DARK, pressed=LIGHT_DARKER)
-        dec_btn.bind(state=lambda inst, s: setattr(inst, 'background_color', LIGHT_DARKER if s == 'down' else DARK))
+        # Highlight on press tied to accent color
+        dec_btn.bind(state=lambda inst, s: setattr(inst, 'background_color', ACCENT_COLOR if s == 'down' else DARK))
         left_vbox.add_widget(dec_btn)
         left_vbox.add_widget(_W(size_hint_y=1))
         subdiv_container.add_widget(left_vbox)
@@ -410,11 +413,12 @@ class GridSelector(BoxLayout):
             bold=True,
             background_color=DARK,
             background_normal='',
+            background_down='',
             color=LIGHT
         )
         inc_btn.bind(on_press=lambda *_: self.increase_subdivision())
-        # Highlight on press (normal=DARK, pressed=LIGHT_DARKER)
-        inc_btn.bind(state=lambda inst, s: setattr(inst, 'background_color', LIGHT_DARKER if s == 'down' else DARK))
+        # Highlight on press tied to accent color
+        inc_btn.bind(state=lambda inst, s: setattr(inst, 'background_color', ACCENT_COLOR if s == 'down' else DARK))
         right_vbox.add_widget(inc_btn)
         right_vbox.add_widget(_W(size_hint_y=1))
         subdiv_container.add_widget(right_vbox)

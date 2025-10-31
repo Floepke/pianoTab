@@ -2,7 +2,8 @@ from typing import List, Tuple, Optional, Dict, Any, Iterable
 import math
 
 from kivy.uix.widget import Widget
-from kivy.graphics import Color, Rectangle, Line, Ellipse, Mesh, InstructionGroup
+from kivy.graphics import Color, Rectangle, Line, Ellipse, Mesh, InstructionGroup, PushMatrix, PopMatrix, Rotate, Translate
+from kivy.core.text import Label as CoreLabel
 from kivy.graphics.scissor_instructions import ScissorPush, ScissorPop
 from kivy.clock import Clock
 
@@ -234,7 +235,7 @@ class Canvas(Widget):
         self._redraw_item(item_id)
         return item_id
 
-    def add_path(
+    def add_polyline(
         self,
         points_mm: Iterable[float],
         *,
@@ -301,6 +302,55 @@ class Canvas(Widget):
             'outline': bool(outline),
             'outline_color': self._parse_color(outline_color),
             'outline_w_mm': float(outline_width_mm),
+            'id': set(id or []),
+        }
+        self._register_id(item_id)
+        self._draw_order.append(item_id)
+        self._redraw_item(item_id)
+        return item_id
+
+    def add_text(
+        self,
+        text: str,
+        x_mm: float,
+        y_mm: float,
+        font_size_pt: float,
+        angle_deg: float = 0.0,
+        anchor: str = "top_left",
+        color: str = "#000000",
+        id: Optional[Iterable[str]] = None,
+    ) -> int:
+        """Add a text label.
+
+        Parameters
+        - text: string content
+        - x_mm, y_mm: anchor position in mm (top-left origin, like other add_* calls)
+        - font_size_pt: font size in points (pt)
+        - angle_deg: rotation in degrees (clockwise in the canvas' top-left system)
+        - anchor: where the (x,y) refers to. Supported values (case-insensitive):
+            'top_left', 'top', 'top_right', 'left', 'center', 'right',
+            'bottom_left', 'bottom', 'bottom_right'. Abbreviations like 'tl', 'tc', 'tr',
+            'cl', 'cc', 'cr', 'bl', 'bc', 'br' are also accepted.
+        - color: hex string like '#RRGGBB' or '#RRGGBBAA'
+
+        Notes
+        - Font is fixed to 'Courier New' in pianoTab. you can only use one good readable font.
+        - Hit-testing uses the un-rotated bounding box (rotation ignored for clicks).
+        """
+        item_id = self._new_item_id()
+        group = InstructionGroup()
+        self._items_group.add(group)
+
+        self._items[item_id] = {
+            'type': 'text',
+            'group': group,
+            'text': str(text),
+            'x_mm': float(x_mm),
+            'y_mm': float(y_mm),
+            'font_pt': float(font_size_pt),
+            'angle_deg': float(angle_deg),
+            'anchor': str(anchor or 'top_left'),
+            'color': self._parse_color(color),
             'id': set(id or []),
         }
         self._register_id(item_id)
@@ -565,6 +615,8 @@ class Canvas(Widget):
             self._draw_path_instr(g, item)
         elif t == 'polygon':
             self._draw_polygon_instr(g, item)
+        elif t == 'text':
+            self._draw_text_instr(g, item)
 
     def _draw_rectangle_instr(self, g: InstructionGroup, item: Dict[str, Any]):
         x_mm, y_mm, w_mm, h_mm = item['x_mm'], item['y_mm'], item['w_mm'], item['h_mm']
@@ -656,6 +708,40 @@ class Canvas(Widget):
             g.add(Color(*item['outline_color']))
             g.add(Line(points=pts_px, width=max(1.0, item['outline_w_mm'] * self._px_per_mm), close=True))
 
+    def _draw_text_instr(self, g: InstructionGroup, item: Dict[str, Any]):
+        # Prepare label (Courier New, size in px converted from pt)
+        text = item['text']
+        color_rgba = item['color']
+        # Convert pt -> mm -> px (1 pt = 1/72 inch = 25.4/72 mm)
+        px_per_mm = max(1e-6, self._px_per_mm)
+        font_px = max(1.0, (item['font_pt'] * 25.4 / 72.0) * px_per_mm)
+
+        # Build CoreLabel for texture
+        lbl = CoreLabel(text=text, font_name='Courier New', font_size=font_px, color=color_rgba)
+        lbl.refresh()
+        tex = lbl.texture
+        if not tex:
+            return
+        w_px, h_px = tex.size
+
+        # Anchor point in px (global coordinates)
+        ax_px, ay_px = self._mm_to_px_point(item['x_mm'], item['y_mm'])
+
+        # Offsets from anchor to rectangle bottom-left
+        off_x, off_y = self._anchor_offsets(item.get('anchor', 'top_left'), w_px, h_px)
+
+        # Draw with local transform around anchor point
+        g.add(PushMatrix())
+        g.add(Translate(ax_px, ay_px))
+        # Positive angle in our top-left system should rotate clockwise; negate for Kivy's CCW
+        ang = float(item.get('angle_deg', 0.0))
+        if abs(ang) > 1e-9:
+            g.add(Rotate(angle=-ang))
+        # Ensure texture draws with its own color (avoid multiplying by previous color)
+        g.add(Color(1.0, 1.0, 1.0, 1.0))
+        g.add(Rectangle(texture=tex, pos=(off_x, off_y), size=(w_px, h_px)))
+        g.add(PopMatrix())
+
     # ---------- Internal: hit testing ----------
 
     def _hit_test(self, item_id: int, pos_mm: Tuple[float, float]) -> bool:
@@ -738,7 +824,51 @@ class Canvas(Widget):
                     return True
             return False
 
+        if t == 'text':
+            # Simple AABB hit test ignoring rotation.
+            # Compute bottom-left of the text box from the anchor and compare.
+            # Convert anchor point to px, then to mm for comparison with current (x,y) mm.
+            px_per_mm = max(1e-6, self._px_per_mm)
+            # Build texture metrics similar to draw (pt -> px)
+            font_px = max(1.0, (item['font_pt'] * 25.4 / 72.0) * px_per_mm)
+            lbl = CoreLabel(text=item['text'], font_name='Courier New', font_size=font_px)
+            lbl.refresh()
+            tex = lbl.texture
+            if not tex:
+                return False
+            w_px, h_px = tex.size
+            ax_px, ay_px = self._mm_to_px_point(item['x_mm'], item['y_mm'])
+            off_x, off_y = self._anchor_offsets(item.get('anchor', 'top_left'), w_px, h_px)
+            bl_x_px = ax_px + off_x
+            bl_y_px = ay_px + off_y
+            # Convert current test point (x,y) mm to px for comparison
+            tx_px, ty_px = self._mm_to_px_point(x, y)
+            return (bl_x_px <= tx_px <= bl_x_px + w_px) and (bl_y_px <= ty_px <= bl_y_px + h_px)
+
         return False
+
+    @staticmethod
+    def _anchor_offsets(anchor: str, w_px: float, h_px: float) -> Tuple[float, float]:
+        """Return bottom-left offsets (dx, dy) from the given anchor to the text box.
+
+        Anchor names (case-insensitive):
+        - 'top_left'|'tl', 'top'|'tc', 'top_right'|'tr'
+        - 'left'|'cl', 'center'|'cc', 'right'|'cr'
+        - 'bottom_left'|'bl', 'bottom'|'bc', 'bottom_right'|'br'
+        """
+        a = (anchor or 'top_left').strip().lower()
+        mapping = {
+            'top_left': (0.0, -h_px), 'tl': (0.0, -h_px),
+            'top': (-w_px / 2.0, -h_px), 'tc': (-w_px / 2.0, -h_px),
+            'top_right': (-w_px, -h_px), 'tr': (-w_px, -h_px),
+            'left': (0.0, -h_px / 2.0), 'cl': (0.0, -h_px / 2.0),
+            'center': (-w_px / 2.0, -h_px / 2.0), 'cc': (-w_px / 2.0, -h_px / 2.0),
+            'right': (-w_px, -h_px / 2.0), 'cr': (-w_px, -h_px / 2.0),
+            'bottom_left': (0.0, 0.0), 'bl': (0.0, 0.0),
+            'bottom': (-w_px / 2.0, 0.0), 'bc': (-w_px / 2.0, 0.0),
+            'bottom_right': (-w_px, 0.0), 'br': (-w_px, 0.0),
+        }
+        return mapping.get(a, (0.0, -h_px))
 
     @staticmethod
     def _dist_point_to_segment(px, py, x1, y1, x2, y2) -> float:

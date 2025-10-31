@@ -407,7 +407,7 @@ class PianoTabGUI(BoxLayout):
         """Handle About menu."""
         ...
 
-    # ----- File menu delegates (wired in menu_config) -----
+    # ----- File menu delegates (wired in menu_config in callbacks.py) -----
     def set_file_manager(self, fm):
         self.file_manager = fm
 
@@ -426,127 +426,6 @@ class PianoTabGUI(BoxLayout):
     def on_save_as(self):
         if self.file_manager:
             self.file_manager.save_file_as()
-
-    def on_export_pdf(self):
-        """Export a test PDF using PyMuPDFCanvas and draw some test lines/shapes."""
-        try:
-            # Match preview canvas size in mm
-            w_mm = getattr(self.print_preview, 'width_mm', 210.0)
-            h_mm = getattr(self.print_preview, 'height_mm', 297.0)
-
-            pdfc = PyMuPDFCanvas(width_mm=w_mm, height_mm=h_mm, background_color=(1,1,1,1))
-            pdfc.pdf_mode = True
-            pdfc.new_page()
-
-            # Draw identical test content to both the on-screen preview and the PDF
-            # so they can be compared visually.
-            self._draw_sample_page(self.print_preview)
-            self._draw_sample_page(pdfc)
-
-            # Save under tests/output/export_test.pdf
-            import os, time
-            out_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'tests', 'output')
-            os.makedirs(out_dir, exist_ok=True)
-            ts = time.strftime('%Y%m%d_%H%M%S')
-            out_path = os.path.join(out_dir, f'export_test_{ts}.pdf')
-            pdfc.save_pdf(out_path)
-            pdfc.close_pdf()
-            print(f"PDF exported to: {out_path}")
-        except Exception as e:
-            print(f"PDF export failed: {e}")
-
-    def _draw_sample_page(self, canvas: Canvas):
-        """Draw a deterministic sample page on the given mm-based canvas.
-        Used for side-by-side comparison with PDF export.
-        """
-        # If this is an on-screen canvas, clear its items first
-        try:
-            if isinstance(canvas, Canvas):
-                canvas.clear()
-        except Exception:
-            pass
-
-        w_mm = getattr(canvas, 'width_mm', 210.0)
-        h_mm = getattr(canvas, 'height_mm', 297.0)
-        margin = 10.0
-
-        # Frame
-        canvas.add_rectangle(margin, margin, w_mm - margin, h_mm - margin,
-                             outline=True, outline_color="#000000", outline_width_mm=0.4)
-
-        # Crosshair
-        canvas.add_line(margin, margin, w_mm - margin, h_mm - margin,
-                        stroke_color="#FF0000", stroke_width_mm=0.3)
-        canvas.add_line(margin, h_mm - margin, w_mm - margin, margin,
-                        stroke_color="#0000FF", stroke_width_mm=0.3)
-
-        # Dashed horizontal line
-        y_mid = h_mm * 0.5
-        canvas.add_line(margin, y_mid, w_mm - margin, y_mid,
-                        stroke_color="#008000", stroke_width_mm=0.25,
-                        stroke_dash=True, stroke_dash_pattern_mm=(3.0, 1.5))
-
-        # Path polyline
-        canvas.add_path([margin, 40, margin + 40, 55, margin + 80, 45, margin + 120, 60],
-                        color="#333333", width_mm=0.25)
-
-        # Oval and polygon
-        canvas.add_oval(w_mm*0.6, h_mm*0.6, w_mm*0.85, h_mm*0.85,
-                        fill=True, fill_color="#CCCCFF",
-                        outline=True, outline_color="#333399", outline_width_mm=0.3)
-        poly = [w_mm*0.6, h_mm*0.45, w_mm*0.75, h_mm*0.35, w_mm*0.85, h_mm*0.5, w_mm*0.7, h_mm*0.55]
-        canvas.add_polygon(poly, fill=True, fill_color="#FFE0CC",
-                           outline=True, outline_color="#CC6600", outline_width_mm=0.3)
-
-    def on_draw_thinnest_line(self):
-        """Draw the thinnest possible visible line on the editor view to compare against PDF.
-
-        Kivy clamps to at least 1px width; we use a very small mm width so you can
-        see how the 1px minimum looks on screen in the editor.
-        """
-        try:
-            cv = self.editor_area
-            if not isinstance(cv, Canvas):
-                return
-            cv.clear()
-            w_mm = getattr(cv, 'width_mm', 210.0)
-            h_mm = getattr(cv, 'height_mm', 297.0)
-            margin = 10.0
-            # Draw a thin rectangle frame for reference
-            cv.add_rectangle(margin, margin, w_mm - margin, h_mm - margin,
-                             outline=True, outline_color="#888888", outline_width_mm=0.2)
-            # Draw the thinnest line (mm width extremely small -> clamped to 1px)
-            y = h_mm * 0.25
-            cv.add_line(margin, y, w_mm - margin, y,
-                        stroke_color="#000000", stroke_width_mm=0.01)
-            # A second slightly thicker line for comparison
-            y2 = h_mm * 0.35
-            cv.add_line(margin, y2, w_mm - margin, y2,
-                        stroke_color="#FF0000", stroke_width_mm=0.25)
-            # And a 1.0 mm line to see scaling
-            y3 = h_mm * 0.45
-            cv.add_line(margin, y3, w_mm - margin, y3,
-                        stroke_color="#0000FF", stroke_width_mm=1.0)
-            print("Drew thinnest line test on editor view (black = thinnest, red = 0.25mm, blue = 1.0mm)")
-        except Exception as e:
-            print(f"Failed to draw thinnest line test: {e}")
-
-    # ----- Toolbar button delegates (wired in callbacks.py) -----
-    
-    def on_note_to_left(self):
-        """Move selected note(s) to left hand."""
-        print("Move note to left hand")
-        # TODO: Implement note hand assignment logic
-    
-    def on_note_to_right(self):
-        """Move selected note(s) to right hand."""
-        print("Move note to right hand")
-        # TODO: Implement note hand assignment logic
-    
-    def on_add_note(self):
-        """Add a new note at current position."""
-        print("Add note")
-        # TODO: Implement note creation logic
 
 
 __all__ = [
