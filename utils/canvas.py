@@ -1,5 +1,6 @@
 from typing import List, Tuple, Optional, Dict, Any, Iterable
 import math
+import os
 
 from kivy.uix.widget import Widget
 from kivy.graphics import Color, Rectangle, Line, Ellipse, Mesh, InstructionGroup, PushMatrix, PopMatrix, Rotate, Translate
@@ -94,6 +95,40 @@ class Canvas(Widget):
 
         # Initial layout
         self._update_layout_and_redraw()
+
+    # ---------- Internal: font resolution ----------
+
+    def _get_courier_bold_font(self) -> str:
+        """Return a bold Courier font name/path for CoreLabel.
+
+        Prefers system 'Courier New Bold.ttf' on macOS; falls back to
+        family names Kivy can resolve; finally to regular 'Courier New'.
+        Cached on first use.
+        """
+        cached = getattr(self, "_cached_courier_bold_font", None)
+        if isinstance(cached, str) and cached:
+            return cached
+        candidates: List[str] = [
+            "/System/Library/Fonts/Supplemental/Courier New Bold.ttf",
+            "/Library/Fonts/Courier New Bold.ttf",
+            "/System/Library/Fonts/Courier New Bold.ttf",
+            "Courier New Bold",
+            "Courier-Bold",
+            "Courier New",
+            "courier",
+        ]
+        chosen = "Courier New"
+        for p in candidates:
+            if p.lower().endswith(".ttf"):
+                if os.path.exists(p):
+                    chosen = p
+                    break
+            else:
+                # Family name hint; accept first if no file found yet
+                if chosen == "Courier New":
+                    chosen = p
+        self._cached_courier_bold_font = chosen
+        return chosen
 
     # ---------- Public API (Tkinter-like) ----------
 
@@ -716,8 +751,8 @@ class Canvas(Widget):
         px_per_mm = max(1e-6, self._px_per_mm)
         font_px = max(1.0, (item['font_pt'] * 25.4 / 72.0) * px_per_mm)
 
-        # Build CoreLabel for texture
-        lbl = CoreLabel(text=text, font_name='Courier New', font_size=font_px, color=color_rgba)
+        # Build CoreLabel for texture (bold to match PDF appearance)
+        lbl = CoreLabel(text=text, font_name=self._get_courier_bold_font(), font_size=font_px, color=color_rgba)
         lbl.refresh()
         tex = lbl.texture
         if not tex:

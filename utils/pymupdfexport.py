@@ -364,7 +364,10 @@ class PyMuPDFCanvas(Canvas):
                 # Offset from anchor to top-left of unrotated text box
                 off_x, off_y = self._anchor_offsets_pt(c.get('anchor', 'top_left'), w_pt, h_pt)
                 tl_x = ax_pt + off_x
-                tl_y = ay_pt + off_y
+                # Apply user baseline nudge as a shift of the text's top-left before computing baseline.
+                # This guarantees the adjustment is honored regardless of TextWriter morph behavior.
+                baseline_adj = float(getattr(self, 'pdf_text_baseline_adjust_pt', 0.0))
+                tl_y = ay_pt + off_y + baseline_adj
                 # TextWriter expects baseline bottom-left position
                 bl_x = tl_x
                 bl_y = tl_y + h_pt
@@ -372,8 +375,7 @@ class PyMuPDFCanvas(Canvas):
                 try:
                     # Prepare a TextWriter for arbitrary-angle rotation via morph
                     tw = fitz.TextWriter(page.rect)
-                    bl_y_adj = bl_y + float(getattr(self, 'pdf_text_baseline_adjust_pt', 0.0))
-                    tw.append(fitz.Point(bl_x, bl_y_adj), txt, font=font_obj, fontsize=font_pt)
+                    tw.append(fitz.Point(bl_x, bl_y), txt, font=font_obj, fontsize=font_pt)
                     # Rotate clockwise by angle_deg around the anchor point (note: PyMuPDF uses CCW)
                     m = fitz.Matrix(1, 0, 0, 1).prerotate(-rot)
                     tw.write_text(page, color=color_rgb, morph=(fitz.Point(ax_pt, ay_pt), m))

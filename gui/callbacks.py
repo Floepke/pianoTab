@@ -252,7 +252,7 @@ def callback_my_test(app: AppCallbacks) -> None:
         # Fine-tune: nudge baseline up to match on-screen text (points). Set AFTER new_page()
         # so page creation doesn't accidentally reset any instance fields.
         try:
-            pdf_cv.pdf_text_baseline_adjust_pt = -10
+            pdf_cv.pdf_text_baseline_adjust_pt = -2.5
         except Exception:
             pass
 
