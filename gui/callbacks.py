@@ -54,6 +54,7 @@ def create_menu_config(app_instance) -> MenuConfig:
             'Load...': (app_instance.on_load, 'cmd / ctrl + o'),
             'Save': app_instance.on_save,
             'Save as...': app_instance.on_save_as,
+            'Export to PDF...': app_instance.on_export_pdf,
             '---': None,  # Separator
             'Exit': app_instance.on_exit
         },
@@ -63,7 +64,9 @@ def create_menu_config(app_instance) -> MenuConfig:
             '---': None,  # Separator
             'Cut': None,   # TODO: Implement
             'Copy': None,  # TODO: Implement
-            'Paste': None  # TODO: Implement
+            'Paste': None,  # TODO: Implement
+            '---': None,
+            'Draw thinnest line (Editor)': app_instance.on_draw_thinnest_line
         },
         'Help': {
             'About': app_instance.on_about

@@ -4,7 +4,7 @@ GUI package for PianoTab Kivy application.
 
 from gui.split_view import SplitView, Sash, ToolSash
 from gui.grid_selector import GridSelector, SpinBox, GridButton
-from gui.toolsash import (
+from gui.main_gui import (
     PianoTabGUI,
     EditorWidget,
     PrintPreviewWidget,

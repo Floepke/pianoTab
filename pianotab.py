@@ -27,7 +27,7 @@ from kivy.core.window import Window
 from kivy.clock import Clock
 from kivy.logger import Logger
 from kivy.utils import platform
-from gui.toolsash import PianoTabGUI
+from gui.main_gui import PianoTabGUI
 from gui.colors import DARK
 from editor.editor import Editor
 from file.SCORE import SCORE
@@ -72,18 +72,15 @@ class PianoTab(App):
         # Initialize Editor (which owns the SCORE)
         self.editor = Editor(self.gui.get_editor_widget())
         
-        # Example test notes
-        self.editor.score.new_note(pitch=60, duration=256.0, time=0.0, stave_idx=0)
-        self.editor.score.new_note(pitch=62, duration=256.0, time=0.0, stave_idx=0)
-        self.editor.score.new_note(pitch=40, duration=256.0, time=0.0, stave_idx=0)
-        
         # Setup any additional connections/bindings
         self._setup_bindings()
         
         # File management: create and wire into GUI
         self.file_manager = FileManager(app=self, gui=self.gui, editor=self.editor)
+        
         # Mark dirty on edits
         self.editor.on_modified = self.file_manager.mark_dirty
+        
         # Let GUI delegate its menu actions to the manager
         if hasattr(self.gui, 'set_file_manager'):
             self.gui.set_file_manager(self.file_manager)

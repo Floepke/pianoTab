@@ -207,4 +207,3 @@
     ],
     "quarterNoteLength": 256.0
 }
-Now we have the basic drawing functionality for the canvasses Editor and Printview in my app. great! For the print view I need top develop a comprehensive native pdf export. in the past i did this too with the tkinter Canvas icw pymupdf. I think we need to embed the Canvas with basic drawing functionality in a seperate file for maintainability and if we run one of the add_* methods we run the original method from canvas.py after that we draw the same line/polygon but on the pymupdf pdf canvas. it needs to gather the draw commands to draw vector pdf. give it a shot and then we will finetune and test every method.
