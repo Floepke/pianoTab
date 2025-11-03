@@ -73,6 +73,8 @@ class PyMuPDFCanvas(Canvas):
         # Optional fine-tune for baseline alignment in points (applied to bl_y)
         # Keep default 0.0; adjust if a consistent offset is observed across viewers.
         self.pdf_text_baseline_adjust_pt: float = 0.0
+        # Debug flag: when True, print text rendering decisions (angle, path used)
+        self.debug_pdf_text = False
 
     def _scale_width(self, width_pt: float) -> float:
         """Apply global PDF stroke scaling and minimum width clamp."""
@@ -352,57 +354,85 @@ class PyMuPDFCanvas(Canvas):
                 font_pt = float(c.get('font_pt', 12.0))
                 color_rgb = _hex_to_rgb(c.get('color', '#000000'))
                 # Measure actual text bbox using a temporary TextWriter to get accurate height
+                # Resolve a robust Base-14 font usable across PyMuPDF versions
+                font_obj = None
+                fontname_pdf = "Courier-Bold"
                 try:
-                    font_obj = fitz.Font("courbd")  # Courier Bold
+                    font_obj = fitz.Font(fontname_pdf)
                 except Exception:
                     try:
-                        font_obj = fitz.Font("cobb")  # Alternative Courier Bold name
+                        fontname_pdf = "Courier"
+                        font_obj = fitz.Font(fontname_pdf)
                     except Exception:
                         font_obj = None
                 
                 # Use font.text_length for width (advance width) to match Canvas CoreLabel behavior
                 # This gives consistent measurements with the on-screen rendering
                 try:
-                    if font_obj:
-                        w_pt = font_obj.text_length(txt, fontsize=font_pt)
+                    if font_obj is not None:
+                        w_pt = float(font_obj.text_length(txt, fontsize=font_pt))
                     else:
-                        w_pt = float(page.get_text_length(txt, fontname="courbd", fontsize=font_pt))
+                        # Heuristic fallback if Font() could not be created
+                        w_pt = max(0.0, len(txt) * font_pt * 0.6)
                     h_pt = font_pt  # Use font size as height for consistency
                 except Exception:
-                    try:
-                        w_pt = float(page.get_text_length(txt, fontname="courbd", fontsize=font_pt))
-                    except Exception:
-                        try:
-                            w_pt = float(page.get_text_length(txt, fontname="courier", fontsize=font_pt))
-                        except Exception:
-                            w_pt = max(0.0, len(txt) * font_pt * 0.6)
+                    w_pt = max(0.0, len(txt) * font_pt * 0.6)
                     h_pt = font_pt
                 # Anchor point (top-left coordinate system)
                 ax_pt, ay_pt = self._xy_mm_to_pdf_pt(c.get('x', 0.0), c.get('y', 0.0))
                 # Offset from anchor to top-left of unrotated text box
                 off_x, off_y = self._anchor_offsets_pt(c.get('anchor', 'top_left'), w_pt, h_pt)
                 tl_x = ax_pt + off_x
-                # Apply user baseline nudge as a shift of the text's top-left before computing baseline.
-                # This guarantees the adjustment is honored regardless of TextWriter morph behavior.
                 baseline_adj = float(getattr(self, 'pdf_text_baseline_adjust_pt', 0.0))
                 tl_y = ay_pt + off_y + baseline_adj
-                # TextWriter expects baseline bottom-left position
+                # Baseline bottom-left for unrotated text
                 bl_x = tl_x
                 bl_y = tl_y + h_pt
                 rot = float(c.get('angle_deg', 0.0))
+                path_used = ""
                 try:
-                    # Prepare a TextWriter for arbitrary-angle rotation via morph
-                    tw = fitz.TextWriter(page.rect)
-                    tw.append(fitz.Point(bl_x, bl_y), txt, font=font_obj, fontsize=font_pt)
-                    # Rotate clockwise by angle_deg around the anchor point (note: PyMuPDF uses CCW)
-                    m = fitz.Matrix(1, 0, 0, 1).prerotate(-rot)
-                    tw.write_text(page, color=color_rgb, morph=(fitz.Point(ax_pt, ay_pt), m))
-                except Exception as _e:
-                    # Fallback: no rotation, draw at baseline
+                    if abs(rot) > 1e-9:
+                        # Robust path: TextWriter with morph anchored at (ax_pt, ay_pt)
+                        tw = fitz.TextWriter(page.rect)
+                        # Use resolved Base-14 font object for portability
+                        font_for_tw = None
+                        try:
+                            font_for_tw = fitz.Font(fontname_pdf)
+                        except Exception:
+                            font_for_tw = None
+                        if font_for_tw is not None:
+                            tw.append(fitz.Point(bl_x, bl_y), txt, font=font_for_tw, fontsize=font_pt)
+                        else:
+                            # Last resort: let TextWriter pick a default font
+                            tw.append(fitz.Point(bl_x, bl_y), txt, fontsize=font_pt)
+                        m = fitz.Matrix(1, 0, 0, 1, 0, 0).prerotate(-rot)
+                        tw.write_text(page, color=color_rgb, morph=(fitz.Point(ax_pt, ay_pt), m))
+                        path_used = "TextWriter+morph"
+                    else:
+                        page.insert_text(
+                            fitz.Point(bl_x, bl_y), txt, fontsize=font_pt, fontname=fontname_pdf, color=color_rgb
+                        )
+                        path_used = "insert_text(no-rot)"
+                except Exception as e1:
+                    # Fallbacks for older versions: try insert_text with rotate (pivot = baseline)
                     try:
-                        page.insert_text(fitz.Point(bl_x, bl_y), txt, fontsize=font_pt, fontname="courbd", color=color_rgb)
+                        page.insert_text(
+                            fitz.Point(bl_x, bl_y), txt, fontsize=font_pt, fontname=fontname_pdf, color=color_rgb, rotate=-rot
+                        )
+                        path_used = "insert_text(rotate)"
+                    except Exception as e2:
+                        try:
+                            page.insert_text(
+                                fitz.Point(bl_x, bl_y), txt, fontsize=font_pt, fontname="Courier", color=color_rgb
+                            )
+                            path_used = "insert_text(courier,fallback-no-rot)"
+                        except Exception:
+                            path_used = "SKIPPED"
+                if getattr(self, 'debug_pdf_text', False):
+                    try:
+                        print(f"[PDF Text] '{txt[:24]}' angle={rot:.2f} at=({ax_pt:.1f},{ay_pt:.1f}) baseline=({bl_x:.1f},{bl_y:.1f}) path={path_used}")
                     except Exception:
-                        page.insert_text(fitz.Point(bl_x, bl_y), txt, fontsize=font_pt, fontname="courier", color=color_rgb)
+                        pass
 
     # ----- Dashed polyline drawing (manual) -----
 

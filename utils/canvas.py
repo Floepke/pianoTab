@@ -180,6 +180,7 @@ class CustomScrollbar(Widget):
         viewport_height = self.canvas_widget._view_h
         max_scroll = max(0, content_height - viewport_height)
         
+        # Keep fractional scrolling when using the scrollbar handle / track
         new_scroll = max_scroll * (1 - ratio)
         self.canvas_widget._scroll_px = max(0, min(max_scroll, new_scroll))
         
@@ -213,7 +214,9 @@ class CustomScrollbar(Widget):
         viewport_height = self.canvas_widget._view_h
         max_scroll = max(0, content_height - viewport_height)
         
-        self.canvas_widget._scroll_px = max(0, min(max_scroll, scroll_ratio * max_scroll))
+        # Keep fractional scrolling when dragging the scrollbar handle
+        raw = scroll_ratio * max_scroll
+        self.canvas_widget._scroll_px = max(0, min(max_scroll, raw))
         
         # Update canvas and scrollbar
         self.canvas_widget._redraw_all()
@@ -334,57 +337,82 @@ class Canvas(Widget):
         if hasattr(self, 'custom_scrollbar') and self.custom_scrollbar:
             self.custom_scrollbar.update_layout()
 
+    # ---------- Grid step source (editor -> grid_selector) ----------
+
+    def _get_grid_step_ticks(self) -> float:
+        """Return current grid step in ticks from editor.grid_selector when available.
+
+        Falls back to Canvas._grid_step_ticks when editor or grid_selector is not present.
+        """
+        try:
+            ed = getattr(self, 'piano_roll_editor', None)
+            if ed is not None:
+                # Preferred: editor.grid_selector.get_grid_step()
+                gs = getattr(ed, 'grid_selector', None)
+                if gs is not None and hasattr(gs, 'get_grid_step'):
+                    ticks = gs.get_grid_step()
+                    if isinstance(ticks, (int, float)) and ticks > 0:
+                        return float(ticks)
+                # Secondary: editor.get_grid_step()
+                if hasattr(ed, 'get_grid_step'):
+                    ticks = ed.get_grid_step()
+                    if isinstance(ticks, (int, float)) and ticks > 0:
+                        return float(ticks)
+        except Exception as e:
+            print(f"GRID DEBUG: failed to read grid step from editor: {e}")
+        return float(getattr(self, '_grid_step_ticks', 256.0))
+
     def _snap_scroll_to_grid(self, scroll_px: float) -> float:
         """Snap scroll position to align with visual grid in the editor based on current grid step.
         
-        The anchor point is at editor_margin - editorZoomPixelsQuarter,
+    The anchor point is at editor_margin - one quarter spacing (in mm),
         then snap in increments of the current grid step size.
         
         Special behavior: The first scroll down always snaps to the first grid position
         based on the current grid step (quarter, half, eighth, etc.).
         """
-        # Get editor margin and quarter note pixel spacing from score
+        # Get editor margin (mm) and quarter note length (ticks)
         editor_margin_mm = 0.0  # Default fallback
-        pixels_per_quarter = 100.0  # Default
         quarter_note_length = 256.0  # Default
-        
+
         if hasattr(self, 'piano_roll_editor') and self.piano_roll_editor:
             # Get editor margin from the piano roll editor (not canvas)
             if hasattr(self.piano_roll_editor, 'editor_margin'):
                 editor_margin_mm = self.piano_roll_editor.editor_margin
-            
+
             # Get values from score
             if hasattr(self.piano_roll_editor, 'score') and self.piano_roll_editor.score:
                 score = self.piano_roll_editor.score
-                if hasattr(score, 'properties') and hasattr(score.properties, 'editorZoomPixelsQuarter'):
-                    pixels_per_quarter = score.properties.editorZoomPixelsQuarter
                 if hasattr(score, 'quarterNoteLength'):
                     quarter_note_length = score.quarterNoteLength
-        
-        # Calculate current grid step spacing in pixels (direct calculation)
-        grid_step_quarters = self._grid_step_ticks / quarter_note_length
-        grid_step_pixels = grid_step_quarters * pixels_per_quarter
-        
-        # Convert to mm for calculation
-        quarter_spacing_mm = pixels_per_quarter * self._mm_per_pixel
-        grid_spacing_mm = grid_step_pixels * self._mm_per_pixel
-        
-        # Calculate anchor point in mm: editor_margin - editorZoomPixelsQuarter
+
+        # Calculate current grid step spacing in mm based on the canvas' content scale
+        grid_step_ticks = self._get_grid_step_ticks()
+        grid_step_quarters = grid_step_ticks / quarter_note_length
+        mm_per_quarter = float(self._quarter_note_spacing_mm)
+        grid_spacing_mm = grid_step_quarters * mm_per_quarter
+        px_per_mm = max(1e-6, self._px_per_mm)
+        quarter_spacing_mm = mm_per_quarter
+
+        # Calculate anchor point in mm: editor_margin - one quarter spacing
         anchor_mm = editor_margin_mm - quarter_spacing_mm
-        
-        # Convert scroll position to mm
-        scroll_mm = scroll_px * self._mm_per_pixel
-        
+
+        # Convert scroll position to mm (using current scale)
+        scroll_mm = scroll_px / px_per_mm
+
         # Normal snapping: Calculate offset from anchor and snap to current grid step
         offset_from_anchor = scroll_mm - anchor_mm
         snapped_offset = round(offset_from_anchor / grid_spacing_mm) * grid_spacing_mm
         snapped_scroll_mm = anchor_mm + snapped_offset
-        
+
         # Convert back to pixels
-        snapped_scroll_px = snapped_scroll_mm / self._mm_per_pixel
-        
-        print(f"SCROLL SNAP: {scroll_px:.1f}px -> {snapped_scroll_px:.1f}px (anchor: {anchor_mm:.1f}mm, grid: {grid_spacing_mm:.1f}mm, step: {self._grid_step_ticks}t)")
-        
+        snapped_scroll_px = snapped_scroll_mm * px_per_mm
+
+        print(
+            f"SCROLL SNAP: {scroll_px:.1f}px -> {snapped_scroll_px:.1f}px "
+            f"(px_per_mm: {px_per_mm:.3f}, anchor: {anchor_mm:.1f}mm, grid: {grid_spacing_mm:.1f}mm, step: {grid_step_ticks}t)"
+        )
+
         return snapped_scroll_px
 
     def update_scroll_step(self):
@@ -843,7 +871,8 @@ class Canvas(Widget):
             if content_h > self._view_h:  # scrolling only if content taller than viewport
                 # Calculate scroll step based on current grid step
                 grid_step_px = self._calculate_grid_step_pixels()
-                step = max(10, grid_step_px)  # Minimum 10px for usability, otherwise grid step distance
+                # Use exact grid step in pixels (rounded), allow fractional scales; clamp to at least 1px
+                step = max(1, int(round(grid_step_px)))
                 max_scroll = max(0.0, content_h - self._view_h)
                 if touch.button == 'scrollup':
                     # macOS natural: scroll up gesture moves content down (show lower parts)
@@ -980,6 +1009,14 @@ class Canvas(Widget):
             self._view_h = int(self.height)
             self._scroll_px = 0.0
 
+        # Inform editor about new scale so it can recompute mm-per-quarter from its zoom
+        try:
+            ed = getattr(self, 'piano_roll_editor', None)
+            if ed is not None and hasattr(ed, '_calculate_layout'):
+                ed._calculate_layout()
+        except Exception as e:
+            print(f"CANVAS: editor layout update error: {e}")
+
         # Update scissor and background rect
         self._scissor.x = int(self._view_x)
         self._scissor.y = int(self._view_y)
@@ -1017,11 +1054,9 @@ class Canvas(Widget):
         return mm_x, mm_y
 
     def _point_in_view_px(self, x_px: float, y_px: float) -> bool:
-        # Exclude scrollbar area when in scale_to_width mode
+        # Use the computed view width directly; it already accounts for scrollbar when visible
         right_boundary = self._view_x + self._view_w
-        if self.scale_to_width and self.custom_scrollbar.opacity > 0:
-            right_boundary -= self.custom_scrollbar.scrollbar_width
-        
+
         return (self._view_x <= x_px <= right_boundary) and (
             self._view_y <= y_px <= self._view_y + self._view_h
         )
@@ -1436,57 +1471,38 @@ class Canvas(Widget):
         # Use the same corrected calculation as the scroll system
         # to ensure cursor snapping matches the actual visual grid
         
-        try:
-            from utils.CONSTANTS import DEFAULT_PIXELS_PER_QUARTER
-            
-            # Use the correct values that we know work
-            # The score uses editorZoomPixelsQuarter=100 and quarterNoteLength=256.0
-            pixels_per_quarter = 100.0  # From score.properties.editorZoomPixelsQuarter
-            quarter_note_length = 256.0  # From score.quarterNoteLength
-            
-            zoom_factor = 1.0  # Default zoom
-            
-            # Use the same DPI conversion as the system's actual DPI
-            pixels_per_quarter_mm = pixels_per_quarter * self._mm_per_pixel * zoom_factor
-            
-            print(f"SNAP VALUES: pixels_per_quarter={pixels_per_quarter}, quarter_note_length={quarter_note_length}, pixels_per_quarter_mm={pixels_per_quarter_mm:.2f}")
-            
-            
-            # Convert mm to quarters using the corrected quarter note spacing
-            quarters = time_position_mm / pixels_per_quarter_mm
-            
-        except Exception as e:
-            # Fallback to original calculation if imports fail
-            quarters = time_position_mm / self._quarter_note_spacing_mm
-            quarter_note_length = 256.0  # Fallback
-            print(f"SNAP DEBUG: Using fallback calculation, error: {e}")
+        # Convert mm to quarters using the canvas' configured quarter spacing
+        mm_per_quarter = float(self._quarter_note_spacing_mm)
+        quarters = time_position_mm / mm_per_quarter
+        # Get quarter note length from score if available
+        quarter_note_length = 256.0
+        if hasattr(self, 'piano_roll_editor') and self.piano_roll_editor and getattr(self.piano_roll_editor, 'score', None):
+            ql = getattr(self.piano_roll_editor.score, 'quarterNoteLength', None)
+            if isinstance(ql, (int, float)) and ql > 0:
+                quarter_note_length = float(ql)
         
         # Convert quarters to ticks using the score's quarterNoteLength
         ticks = quarters * quarter_note_length
-        
+
         # DEBUG: Print what's happening with detailed grid step info
-        print(f"SNAP DEBUG: pos={time_position_mm:.1f}mm, grid_step={self._grid_step_ticks}t, quarters={quarters:.3f}, ticks={ticks:.1f}")
-        
+        grid_step_ticks = self._get_grid_step_ticks()
+        print(f"SNAP DEBUG: pos={time_position_mm:.1f}mm, grid_step={grid_step_ticks}t, quarters={quarters:.3f}, ticks={ticks:.1f}")
+
         # Snap to grid step
-        snapped_ticks = round(ticks / self._grid_step_ticks) * self._grid_step_ticks
-        
+        snapped_ticks = round(ticks / grid_step_ticks) * grid_step_ticks
+
         # Convert back to quarters and then to mm
         snapped_quarters = snapped_ticks / quarter_note_length
-        
+
         # Calculate the visual spacing multiplier based on grid step
         # If grid step is larger than quarter note, we need to scale the visual spacing
-        grid_step_in_quarters = self._grid_step_ticks / quarter_note_length
-        
-        try:
-            # Use the grid step ratio directly - this gives us the correct visual spacing
-            snapped_mm = (snapped_ticks / quarter_note_length) * pixels_per_quarter_mm
-            print(f"SNAP DEBUG: snapped_ticks={snapped_ticks:.1f}, snapped_quarters={snapped_quarters:.3f}, snapped_mm={snapped_mm:.1f}, grid_step_ratio={grid_step_in_quarters:.2f}")
-            print(f"GRID STEP DEBUG: {self._grid_step_ticks}t = {grid_step_in_quarters:.1f} quarters, visual spacing = {grid_step_in_quarters * pixels_per_quarter_mm:.1f}mm")
-        except:
-            snapped_mm = (snapped_ticks / quarter_note_length) * self._quarter_note_spacing_mm
-            print(f"SNAP DEBUG: (fallback) snapped_ticks={snapped_ticks:.1f}, snapped_quarters={snapped_quarters:.3f}, snapped_mm={snapped_mm:.1f}, grid_step_ratio={grid_step_in_quarters:.2f}")
-            print(f"GRID STEP DEBUG: (fallback) {self._grid_step_ticks}t = {grid_step_in_quarters:.1f} quarters, visual spacing = {grid_step_in_quarters * self._quarter_note_spacing_mm:.1f}mm")
-        
+        grid_step_in_quarters = grid_step_ticks / quarter_note_length
+
+        # Convert snapped ticks back to mm using the same quarter spacing
+        snapped_mm = (snapped_ticks / quarter_note_length) * mm_per_quarter
+        print(f"SNAP DEBUG: snapped_ticks={snapped_ticks:.1f}, snapped_quarters={snapped_quarters:.3f}, snapped_mm={snapped_mm:.1f}, grid_step_ratio={grid_step_in_quarters:.2f}")
+        print(f"GRID STEP DEBUG: {grid_step_ticks}t = {grid_step_in_quarters:.1f} quarters, visual spacing = {grid_step_in_quarters * mm_per_quarter:.1f}mm")
+
         return snapped_mm
     
     def _update_cursor_position(self, touch_x_px: float):
@@ -1561,25 +1577,19 @@ class Canvas(Widget):
         """
         # Get values directly from the score
         quarter_note_length = 256.0  # Default
-        pixels_per_quarter = 100.0   # Default
-        
         if hasattr(self, 'piano_roll_editor') and self.piano_roll_editor and hasattr(self.piano_roll_editor, 'score'):
             score = self.piano_roll_editor.score
-            if score:
-                # Get quarterNoteLength (ticks per quarter note)
-                if hasattr(score, 'quarterNoteLength'):
-                    quarter_note_length = score.quarterNoteLength
-                
-                # Get editorZoomPixelsQuarter (pixels per quarter note)
-                if hasattr(score, 'properties') and hasattr(score.properties, 'editorZoomPixelsQuarter'):
-                    pixels_per_quarter = score.properties.editorZoomPixelsQuarter
-        
-        # Calculate how many quarter notes this grid step represents
-        grid_step_quarters = self._grid_step_ticks / quarter_note_length
-        
-        # Calculate directly in pixels - no mm conversion needed
-        grid_step_pixels = grid_step_quarters * pixels_per_quarter
-        
-        print(f"VISUAL SCROLL STEP: {self._grid_step_ticks} ticks -> {grid_step_quarters:.3f} quarters -> {grid_step_pixels:.1f} pixels (direct)")
-        
+            if score and hasattr(score, 'quarterNoteLength'):
+                quarter_note_length = score.quarterNoteLength
+
+        # Calculate how many quarter notes this grid step represents using editor grid selector when available
+        grid_step_ticks = self._get_grid_step_ticks()
+        grid_step_quarters = grid_step_ticks / quarter_note_length
+
+        # Visual step in pixels should follow current canvas scale
+        mm_per_quarter = float(self._quarter_note_spacing_mm)
+        grid_step_pixels = grid_step_quarters * mm_per_quarter * max(1e-6, self._px_per_mm)
+
+        print(f"VISUAL SCROLL STEP: {grid_step_ticks} ticks -> {grid_step_quarters:.3f} quarters -> {grid_step_pixels:.1f} pixels (scale-aware)")
+
         return grid_step_pixels
