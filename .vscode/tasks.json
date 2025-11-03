@@ -4,7 +4,15 @@
 		{
 			"label": "Run PianoTab",
 			"type": "shell",
-			"command": "${workspaceFolder}/.venv/bin/python",
+			"windows": {
+				"command": "${workspaceFolder}/.venv/Scripts/python.exe"
+			},
+			"osx": {
+				"command": "${workspaceFolder}/.venv/bin/python"
+			},
+			"linux": {
+				"command": "${workspaceFolder}/.venv/bin/python"
+			},
 			"args": [
 				"${workspaceFolder}/pianotab.py"
 			],
