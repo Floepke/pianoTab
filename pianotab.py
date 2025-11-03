@@ -11,6 +11,8 @@ os.environ["KIVY_METRICS_DENSITY"] = "1.5"
 os.environ["KIVY_WINDOW"] = "sdl2"
 # Disable vsync which can cause hanging
 os.environ["KIVY_GL_BACKEND"] = "gl"
+# Additional environment variables to help with stability
+os.environ["KIVY_GL_DEBUG"] = "0"
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -23,7 +25,16 @@ Config.set('graphics', 'minimum_width', '800')
 Config.set('graphics', 'minimum_height', '600')
 Config.set('graphics', 'resizable', True)
 # Config.set('graphics', 'multisamples', '2')  # Disable multisampling to avoid graphics issues
-# Config.set('graphics', 'window_state', 'maximized')  # Start windowed instead of maximized
+
+# Platform-specific window state configuration
+import platform as py_platform
+if py_platform.system() == 'Linux':
+    # Enable maximization for Linux since it's working safely
+    Config.set('graphics', 'window_state', 'maximized')  # Start maximized on Linux
+else:
+    # Keep windowed for macOS and Windows for better compatibility
+    pass
+
 Config.set('kivy', 'keyboard_mode', '')
 # Disable vsync
 Config.set('graphics', 'vsync', '0')
@@ -69,6 +80,16 @@ class PianoTab(App):
         """Called after build() - Initialize business logic here."""
         Logger.info('PianoTab: Application started')
         
+        # Platform-specific window maximization for Linux
+        from kivy.utils import platform
+        if platform == 'linux':
+            try:
+                # Use a safer delayed maximization approach for Linux
+                Clock.schedule_once(self._safe_maximize_linux, 1.0)
+                Logger.info('PianoTab: Scheduled safe window maximization for Linux')
+            except Exception as e:
+                Logger.warning(f'PianoTab: Could not schedule window maximization: {e}')
+        
         # Initialize Editor (which owns the SCORE)
         self.editor = Editor(self.gui.get_editor_widget())
         
@@ -92,6 +113,27 @@ class PianoTab(App):
         """Setup event bindings between components."""
         # Example: bind keyboard shortcuts, menu actions, etc.
         pass
+
+    def _safe_maximize_linux(self, dt):
+        """Safely maximize window on Linux with error handling."""
+        try:
+            from kivy.utils import platform
+            if platform == 'linux':
+                # Check if the window is ready and properly initialized
+                if Window and hasattr(Window, 'maximize'):
+                    Window.maximize()
+                    Logger.info('PianoTab: Window maximized successfully on Linux')
+                else:
+                    Logger.warning('PianoTab: Window maximize method not available')
+        except Exception as e:
+            Logger.warning(f'PianoTab: Safe maximize failed: {e}')
+            # Fallback: try to resize to a large size
+            try:
+                # Set to a large window size as fallback
+                Window.size = (1600, 1000)
+                Logger.info('PianoTab: Window resized to large size (fallback)')
+            except Exception as fallback_error:
+                Logger.warning(f'PianoTab: Fallback resize also failed: {fallback_error}')
 
     def _try_enter_native_fullscreen_macos(self, attempt: int = 1):
         """Best-effort native fullscreen on macOS using AppKit when available.
