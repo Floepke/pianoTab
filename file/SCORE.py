@@ -68,6 +68,9 @@ class SCORE:
         # ensure there's always one baseGrid:
         if not self.baseGrid:
             self.baseGrid.append(BaseGrid())
+        
+        # Sync staveRange objects in all lineBreaks to match number of staves
+        self._sync_stave_ranges()
 
     def _next_id(self) -> int:
         """Get the next unique ID for this score."""
@@ -99,14 +102,48 @@ class SCORE:
         '''Add a new line break to the score.'''
         linebreak = LineBreak(id=self._next_id(), time=time, type=type)
         self.lineBreak.append(linebreak)
+        # Ensure new linebreak has correct number of staveRange objects
+        self._sync_stave_ranges()
         return linebreak
+    
+    def sync_stave_ranges(self) -> None:
+        '''Manually sync all lineBreak staveRange objects with the number of staves.
+        Call this if you modify staves or lineBreaks outside of the provided methods.'''
+        self._sync_stave_ranges()
     
     # Convenience methods for managing staves
     def new_stave(self, name: str = None, scale: float = 1.0) -> int:
         '''Add a new stave and return its index.'''
         stave_name = name or f'Stave {len(self.stave) + 1}'
         self.stave.append(Stave(name=stave_name, scale=scale))
+        # Sync staveRange objects in all lineBreaks
+        self._sync_stave_ranges()
         return len(self.stave) - 1
+    
+    def remove_stave(self, index: int) -> bool:
+        '''Remove stave by index and sync staveRange objects.'''
+        if 0 <= index < len(self.stave):
+            del self.stave[index]
+            # Sync staveRange objects in all lineBreaks
+            self._sync_stave_ranges()
+            return True
+        return False
+    
+    def _sync_stave_ranges(self) -> None:
+        '''Ensure all lineBreaks have the correct number of staveRange objects.'''
+        num_staves = len(self.stave)
+        
+        for line_break in self.lineBreak:
+            # Adjust staveRange list to match number of staves
+            current_ranges = len(line_break.staveRange)
+            
+            if current_ranges < num_staves:
+                # Add missing staveRange objects
+                for _ in range(num_staves - current_ranges):
+                    line_break.staveRange.append(StaveRange())
+            elif current_ranges > num_staves:
+                # Remove excess staveRange objects
+                line_break.staveRange = line_break.staveRange[:num_staves]
     
     def get_stave(self, index: int = 0) -> Stave:
         '''Get stave by index (default: first stave).'''

@@ -251,7 +251,9 @@ class PianoTabGUI(BoxLayout):
             orientation='horizontal',
             sash_width=80,  # Wide sash for toolbar buttons
             split_ratio=0.6,  # Editor takes 60% initially
-            sash_color=DARK
+            sash_color=DARK,
+            min_left_size=20,  # Minimum pixels for editor panel to prevent sash overlap
+            min_right_size=40   # Minimum pixels for preview panel
         )
         
         # Editor area (left side of right panel) - use our mm-based Canvas
@@ -349,7 +351,7 @@ class PianoTabGUI(BoxLayout):
         required_right = max(0.0, (total_h) / ratio)
 
         # Respect SplitView minimums
-        min_left = getattr(sp, 'min_left_size', 150)
+        min_left = getattr(sp, 'min_left_size', 2000)  # Larger than sash width to prevent overlap
         min_right = getattr(sp, 'min_right_size', 150)
 
         # Max right width we can allocate while honoring min_left (accounting for full sash width)
