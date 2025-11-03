@@ -24,8 +24,6 @@ Usage:
 """
 from __future__ import annotations
 from typing import Iterable, List, Tuple, Optional, Dict, Any
-import os
-import platform
 
 try:
     import fitz  # PyMuPDF
@@ -354,71 +352,22 @@ class PyMuPDFCanvas(Canvas):
                 font_pt = float(c.get('font_pt', 12.0))
                 color_rgb = _hex_to_rgb(c.get('color', '#000000'))
                 # Measure actual text bbox using a temporary TextWriter to get accurate height
-                # Use the same embedded monospace font as the Kivy canvas for metric parity
-                font_obj = None
-                font_path: Optional[str] = None
                 try:
-                    font_path = self._get_courier_bold_font()
+                    font_obj = fitz.Font("courbd")  # Courier Bold
                 except Exception:
-                    font_path = None
-                # If we received a family name, try resolving to a known system path (macOS)
-                if (not font_path or not font_path.lower().endswith('.ttf') or not os.path.exists(font_path)):
                     try:
-                        fam = (font_path or '').lower()
-                        sys = platform.system().lower()
-                        if 'courier new' in fam and sys == 'darwin':
-                            mac_candidates = [
-                                "/Library/Fonts/Courier New Bold.ttf",
-                                "/System/Library/Fonts/Supplemental/Courier New Bold.ttf",
-                            ]
-                            for p in mac_candidates:
-                                if os.path.exists(p):
-                                    font_path = p
-                                    try:
-                                        print(f"PDF FONT: resolved family '{fam}' to file: {font_path}")
-                                    except Exception:
-                                        pass
-                                    break
-                    except Exception:
-                        pass
-                # Only treat as a file if it actually exists and looks like a TTF
-                if font_path and isinstance(font_path, str) and font_path.lower().endswith('.ttf') and os.path.exists(font_path) and fitz:
-                    try:
-                        font_obj = fitz.Font(fontfile=font_path)
-                        try:
-                            print(f"PDF FONT: using embedded font file: {font_path}")
-                        except Exception:
-                            pass
+                        font_obj = fitz.Font("cobb")  # Alternative Courier Bold name
                     except Exception:
                         font_obj = None
-                        try:
-                            print(f"PDF FONT: failed to load embedded font file: {font_path}")
-                        except Exception:
-                            pass
-                if font_obj is None:
-                    # Fallback to built-in Courier Bold names
-                    try:
-                        font_obj = fitz.Font("courbd")
-                        try:
-                            print("PDF FONT: fallback to built-in 'courbd'")
-                        except Exception:
-                            pass
-                    except Exception:
-                        try:
-                            font_obj = fitz.Font("cobb")
-                            try:
-                                print("PDF FONT: fallback to built-in 'cobb'")
-                            except Exception:
-                                pass
-                        except Exception:
-                            font_obj = None
+                
+                # Use font.text_length for width (advance width) to match Canvas CoreLabel behavior
+                # This gives consistent measurements with the on-screen rendering
                 try:
-                    tw_measure = fitz.TextWriter(page.rect)
-                    # place baseline at y=font_pt to ensure positive rect
-                    tw_measure.append(fitz.Point(0, font_pt), txt, font=font_obj, fontsize=font_pt)
-                    measure_rect = tw_measure.text_rect
-                    w_pt = float(measure_rect.width)
-                    h_pt = float(measure_rect.height)
+                    if font_obj:
+                        w_pt = font_obj.text_length(txt, fontsize=font_pt)
+                    else:
+                        w_pt = float(page.get_text_length(txt, fontname="courbd", fontsize=font_pt))
+                    h_pt = font_pt  # Use font size as height for consistency
                 except Exception:
                     try:
                         w_pt = float(page.get_text_length(txt, fontname="courbd", fontsize=font_pt))
@@ -451,34 +400,9 @@ class PyMuPDFCanvas(Canvas):
                 except Exception as _e:
                     # Fallback: no rotation, draw at baseline
                     try:
-                        if font_path and font_path.lower().endswith('.ttf') and os.path.exists(font_path):
-                            page.insert_text(
-                                fitz.Point(bl_x, bl_y), txt,
-                                fontsize=font_pt, fontfile=font_path, color=color_rgb
-                            )
-                            try:
-                                print(f"PDF FONT DRAW: used fontfile={font_path}")
-                            except Exception:
-                                pass
-                        else:
-                            page.insert_text(
-                                fitz.Point(bl_x, bl_y), txt,
-                                fontsize=font_pt, fontname="courbd", color=color_rgb
-                            )
-                            try:
-                                print("PDF FONT DRAW: used fontname='courbd'")
-                            except Exception:
-                                pass
+                        page.insert_text(fitz.Point(bl_x, bl_y), txt, fontsize=font_pt, fontname="courbd", color=color_rgb)
                     except Exception:
-                        # Final fallback to generic courier font name
-                        page.insert_text(
-                            fitz.Point(bl_x, bl_y), txt,
-                            fontsize=font_pt, fontname="courier", color=color_rgb
-                        )
-                        try:
-                            print("PDF FONT DRAW: final fallback fontname='courier'")
-                        except Exception:
-                            pass
+                        page.insert_text(fitz.Point(bl_x, bl_y), txt, fontsize=font_pt, fontname="courier", color=color_rgb)
 
     # ----- Dashed polyline drawing (manual) -----
 
@@ -542,17 +466,18 @@ class PyMuPDFCanvas(Canvas):
         """Offsets from anchor point to top-left of a text rectangle in PDF points.
 
         Coordinates use top-left origin with Y increasing downward.
+        Matches Canvas._anchor_offsets for parity.
         """
         a = (anchor or 'top_left').strip().lower()
         mapping = {
-              'top_left': (0.0, 0.0), 'tl': (0.0, 0.0), 'nw': (0.0, 0.0),
-              'top': (-w_pt / 2.0, 0.0), 'tc': (-w_pt / 2.0, 0.0), 'n': (-w_pt / 2.0, 0.0),
-              'top_right': (-w_pt, 0.0), 'tr': (-w_pt, 0.0), 'ne': (-w_pt, 0.0),
-              'left': (0.0, -h_pt / 2.0), 'cl': (0.0, -h_pt / 2.0), 'w': (0.0, -h_pt / 2.0),
-              'center': (-w_pt / 2.0, -h_pt / 2.0), 'cc': (-w_pt / 2.0, -h_pt / 2.0), 'c': (-w_pt / 2.0, -h_pt / 2.0),
-              'right': (-w_pt, -h_pt / 2.0), 'cr': (-w_pt, -h_pt / 2.0), 'e': (-w_pt, -h_pt / 2.0),
-              'bottom_left': (0.0, -h_pt), 'bl': (0.0, -h_pt), 'sw': (0.0, -h_pt),
-              'bottom': (-w_pt / 2.0, -h_pt), 'bc': (-w_pt / 2.0, -h_pt), 's': (-w_pt / 2.0, -h_pt),
-              'bottom_right': (-w_pt, -h_pt), 'br': (-w_pt, -h_pt), 'se': (-w_pt, -h_pt),
+            'top_left': (0.0, 0.0), 'tl': (0.0, 0.0), 'nw': (0.0, 0.0),
+            'top': (-w_pt / 2.0, 0.0), 'tc': (-w_pt / 2.0, 0.0), 'n': (-w_pt / 2.0, 0.0),
+            'top_right': (-w_pt, 0.0), 'tr': (-w_pt, 0.0), 'ne': (-w_pt, 0.0),
+            'left': (0.0, -h_pt / 2.0), 'cl': (0.0, -h_pt / 2.0), 'w': (0.0, -h_pt / 2.0),
+            'center': (-w_pt / 2.0, -h_pt / 2.0), 'cc': (-w_pt / 2.0, -h_pt / 2.0), 'c': (-w_pt / 2.0, -h_pt / 2.0),
+            'right': (-w_pt, -h_pt / 2.0), 'cr': (-w_pt, -h_pt / 2.0), 'e': (-w_pt, -h_pt / 2.0),
+            'bottom_left': (0.0, -h_pt), 'bl': (0.0, -h_pt), 'sw': (0.0, -h_pt),
+            'bottom': (-w_pt / 2.0, -h_pt), 'bc': (-w_pt / 2.0, -h_pt), 's': (-w_pt / 2.0, -h_pt),
+            'bottom_right': (-w_pt, -h_pt), 'br': (-w_pt, -h_pt), 'se': (-w_pt, -h_pt),
         }
         return mapping.get(a, (0.0, 0.0))
