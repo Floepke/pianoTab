@@ -164,7 +164,7 @@ class SidePanelWidget(ScrollView):
     Contains grid selector and tool selector.
     """
     
-    def __init__(self, **kwargs):
+    def __init__(self, grid_callback=None, **kwargs):
         super().__init__(
             size_hint=(1, 1),
             do_scroll_x=False,
@@ -175,6 +175,8 @@ class SidePanelWidget(ScrollView):
             scroll_type=['bars', 'content'],
             **kwargs
         )
+        
+        self.grid_callback = grid_callback
         
         # Simple vertical layout
         self.layout = BoxLayout(
@@ -201,7 +203,10 @@ class SidePanelWidget(ScrollView):
     def on_grid_changed(self, grid_step):
         """Handle grid step change from GridSelector."""
         print(f'Grid step changed to: {grid_step} piano ticks')
-        # TODO: Update editor cursor snapping behavior
+        
+        # Call the main GUI callback if available
+        if self.grid_callback:
+            self.grid_callback(grid_step)
 
 
 class PianoTabGUI(BoxLayout):
@@ -243,7 +248,7 @@ class PianoTabGUI(BoxLayout):
         self.main_layout = BoxLayout(orientation='horizontal', spacing=0)
         
         # Left side panel with fixed width
-        self.side_panel = SidePanelWidget(size_hint_x=None, width=400)
+        self.side_panel = SidePanelWidget(size_hint_x=None, width=400, grid_callback=self.on_grid_step_changed)
         self.main_layout.add_widget(self.side_panel)
         
         # Right side: Editor-Preview split view
@@ -279,9 +284,28 @@ class PianoTabGUI(BoxLayout):
         # After layout is added and sized, calculate the snap ratio for perfect paper fit
         # This allows the user to snap to this position when dragging the sash
         Clock.schedule_once(self._setup_snap_ratio, 0)
+        
+        # Initialize editor with current grid step
+        Clock.schedule_once(self._init_grid_step, 0.1)
 
         # File management is owned by App; GUI receives a setter later.
         self.file_manager = None
+    
+    def _init_grid_step(self, dt):
+        """Initialize the editor with the current grid step from the side panel."""
+        if self.editor_area and self.side_panel:
+            # Get the current grid step from the grid selector
+            grid_step = self.side_panel.grid_selector.get_grid_step()
+            self.editor_area.set_grid_step(grid_step)
+            print(f'Initialized editor with grid step: {grid_step} piano ticks')
+    
+    def on_grid_step_changed(self, grid_step):
+        """Handle grid step change from the side panel."""
+        print(f'Main GUI received grid step change: {grid_step} piano ticks')
+        
+        # Update editor cursor snapping behavior
+        if self.editor_area:
+            self.editor_area.set_grid_step(grid_step)
     
     def get_editor_widget(self):
         """Get reference to the editor widget."""

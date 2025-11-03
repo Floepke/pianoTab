@@ -45,6 +45,9 @@ class EmbeddedFontManager:
             # Fallback to system fonts if embedding fails
             print(f"Warning: Could not extract embedded font: {e}")
             fallback_paths = [
+                # macOS system fonts
+                "/Library/Fonts/Courier New Bold.ttf",
+                "/System/Library/Fonts/Supplemental/Courier New Bold.ttf",
                 "/usr/share/fonts/truetype/msttcorefonts/Courier_New_Bold.ttf",
                 "/usr/share/fonts/truetype/msttcorefonts/courbd.ttf",
                 "Courier New Bold",

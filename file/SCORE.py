@@ -111,6 +111,145 @@ class SCORE:
         Call this if you modify staves or lineBreaks outside of the provided methods.'''
         self._sync_stave_ranges()
     
+    def validate_cross_references(self) -> List[str]:
+        '''Validate cross-references between objects and detect orphaned data.
+        
+        Returns:
+            List of warning messages about reference issues
+        '''
+        warnings = []
+        
+        # Get all existing IDs in the score
+        all_ids = set()
+        id_to_object = {}  # For detailed reporting
+        
+        # Collect all IDs from all event types across all staves
+        event_types = list(Event.__dataclass_fields__.keys())
+        
+        for stave_idx, stave in enumerate(self.stave):
+            for event_type in event_types:
+                event_list = getattr(stave.event, event_type)
+                for event in event_list:
+                    if hasattr(event, 'id'):
+                        event_id = event.id
+                        if event_id in all_ids:
+                            warnings.append(f"Duplicate ID {event_id}: {event_type} in stave {stave_idx}")
+                        all_ids.add(event_id)
+                        id_to_object[event_id] = (event_type, stave_idx, event)
+        
+        # Add lineBreak IDs
+        for i, line_break in enumerate(self.lineBreak):
+            if hasattr(line_break, 'id'):
+                if line_break.id in all_ids:
+                    warnings.append(f"Duplicate ID {line_break.id}: lineBreak[{i}] conflicts with existing event")
+                all_ids.add(line_break.id)
+                id_to_object[line_break.id] = ('lineBreak', i, line_break)
+        
+        # Check for suspicious patterns that might indicate missing references
+        
+        # 1. Check for beams without nearby notes
+        for stave_idx, stave in enumerate(self.stave):
+            for beam in stave.event.beam:
+                beam_time = beam.time
+                # Look for notes within a reasonable time window
+                nearby_notes = [
+                    note for note in stave.event.note 
+                    if abs(note.time - beam_time) <= beam.time + 256.0  # Within one quarter note
+                ]
+                if not nearby_notes:
+                    warnings.append(f"Beam {beam.id} at time {beam_time} in stave {stave_idx} has no nearby notes")
+        
+        # 2. Check for slurs with invalid time ranges
+        for stave_idx, stave in enumerate(self.stave):
+            for slur in stave.event.slur:
+                start_time = slur.time
+                end_time = slur.y4_time
+                
+                if end_time <= start_time:
+                    warnings.append(f"Slur {slur.id} in stave {stave_idx} has invalid time range: {start_time} to {end_time}")
+                
+                # Check if there are notes in the slur's time range
+                notes_in_range = [
+                    note for note in stave.event.note
+                    if start_time <= note.time <= end_time
+                ]
+                if not notes_in_range:
+                    warnings.append(f"Slur {slur.id} in stave {stave_idx} spans {start_time}-{end_time} but contains no notes")
+        
+        # 3. Check for notes with articulations that have score references
+        for stave_idx, stave in enumerate(self.stave):
+            for note in stave.event.note:
+                if note.score is None:
+                    warnings.append(f"Note {note.id} in stave {stave_idx} missing score reference")
+                
+                for art_idx, articulation in enumerate(note.articulation):
+                    if articulation.score is None:
+                        warnings.append(f"Articulation {art_idx} on note {note.id} in stave {stave_idx} missing score reference")
+        
+        # 4. Check lineBreak staveRange consistency (should be automatic now, but verify)
+        expected_stave_count = len(self.stave)
+        for lb_idx, line_break in enumerate(self.lineBreak):
+            actual_range_count = len(line_break.staveRange)
+            if actual_range_count != expected_stave_count:
+                warnings.append(f"LineBreak {lb_idx} has {actual_range_count} staveRange objects but score has {expected_stave_count} staves")
+        
+        # 5. Check for overlapping events that might indicate data corruption
+        for stave_idx, stave in enumerate(self.stave):
+            # Check for notes with identical time and pitch (possible duplicates)
+            notes = stave.event.note
+            for i, note1 in enumerate(notes):
+                for j, note2 in enumerate(notes[i+1:], i+1):
+                    if (note1.time == note2.time and 
+                        note1.pitch == note2.pitch and 
+                        note1.hand == note2.hand):
+                        warnings.append(f"Duplicate notes detected in stave {stave_idx}: {note1.id} and {note2.id} (time={note1.time}, pitch={note1.pitch})")
+        
+        return warnings
+    
+    def validate_data_integrity(self) -> List[str]:
+        '''Comprehensive validation of score data integrity.
+        
+        Returns:
+            List of all validation warnings and errors
+        '''
+        warnings = []
+        
+        # Cross-reference validation
+        warnings.extend(self.validate_cross_references())
+        
+        # ID uniqueness within score context
+        used_ids = set()
+        for stave_idx, stave in enumerate(self.stave):
+            event_types = list(Event.__dataclass_fields__.keys())
+            for event_type in event_types:
+                event_list = getattr(stave.event, event_type)
+                for event in event_list:
+                    if hasattr(event, 'id'):
+                        if event.id == 0:
+                            warnings.append(f"{event_type} in stave {stave_idx} has ID 0 (should be assigned)")
+                        elif event.id in used_ids:
+                            warnings.append(f"Duplicate ID {event.id} found in {event_type} in stave {stave_idx}")
+                        used_ids.add(event.id)
+        
+        # Time-based validation
+        for stave_idx, stave in enumerate(self.stave):
+            for note in stave.event.note:
+                if note.time < 0:
+                    warnings.append(f"Note {note.id} in stave {stave_idx} has negative time: {note.time}")
+                if note.duration <= 0:
+                    warnings.append(f"Note {note.id} in stave {stave_idx} has invalid duration: {note.duration}")
+                if not (1 <= note.pitch <= 88):
+                    warnings.append(f"Note {note.id} in stave {stave_idx} has invalid pitch: {note.pitch} (should be 1-88)")
+        
+        # LineBreak validation
+        for i, line_break in enumerate(self.lineBreak):
+            if line_break.time < 0:
+                warnings.append(f"LineBreak {i} has negative time: {line_break.time}")
+            if line_break.type == 'locked' and line_break.time != 0.0:
+                warnings.append(f"LineBreak {i} is 'locked' but time is {line_break.time} (should be 0.0)")
+        
+        return warnings
+    
     # Convenience methods for managing staves
     def new_stave(self, name: str = None, scale: float = 1.0) -> int:
         '''Add a new stave and return its index.'''
@@ -212,13 +351,13 @@ class SCORE:
     @classmethod
     def load(cls, filename: str) -> 'SCORE':
         '''Load ScoreFile instance from JSON file with validation and default filling.'''
-        from file.validation import validate_and_fix_score
+        from file.validation import full_score_validation
         
         with open(filename, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
-        # Validate and fix missing fields
-        fixed_data, warnings = validate_and_fix_score(data)
+        # Validate and fix missing fields + check cross-references
+        fixed_data, warnings = full_score_validation(data)
         
         # Print warnings about missing/fixed fields
         if warnings:

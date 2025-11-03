@@ -63,6 +63,7 @@ class ToolSash(Widget):
         self.split_view = split_view
         self.dragging = False
         self.hovering = False
+        self._drag_start_snap_ratio = None  # Store snap ratio at drag start to prevent flickering
 
         # Draw sash background
         with self.canvas:
@@ -173,6 +174,8 @@ class ToolSash(Widget):
         sp = self.to_widget(*touch.pos)
         if self.collide_point(*sp):
             self.dragging = True
+            # Store the current snap ratio to prevent flickering during drag
+            self._drag_start_snap_ratio = self.split_view.snap_ratio
             touch.grab(self)
             Window.set_system_cursor('size_we' if self.split_view.orientation == 'horizontal' else 'size_ns')
             return True
@@ -189,10 +192,14 @@ class ToolSash(Widget):
     def on_touch_up(self, touch):
         if touch.grab_current is self:
             self.dragging = False
+            self._drag_start_snap_ratio = None  # Clear stored snap ratio
             touch.ungrab(self)
             Window.set_system_cursor('arrow')
             # One more sync in case final position snapped
             self._update_layout()
+            # Recalculate snap ratio after drag is complete
+            if hasattr(self.split_view, '_last_aspect_ratio'):
+                self.split_view.set_snap_ratio_from_aspect(self.split_view._last_aspect_ratio)
             return True
         return super().on_touch_up(touch)
 
@@ -353,15 +360,25 @@ class SplitView(Widget):
             max_ratio = 1.0 - (self.min_right_size / self.width)
             new_ratio = max(min_ratio, min(max_ratio, new_ratio))
             
+            # Use stored snap ratio during dragging to prevent flickering
+            snap_ratio_to_use = None
+            if hasattr(self.sash, '_drag_start_snap_ratio') and self.sash._drag_start_snap_ratio is not None:
+                # Use the snap ratio that was calculated at the start of dragging
+                snap_ratio_to_use = self.sash._drag_start_snap_ratio
+            else:
+                # Not dragging or no stored ratio, use current snap ratio
+                snap_ratio_to_use = self.snap_ratio
+            
             # Snap to ideal ratio if close enough
-            if self.snap_ratio is not None:
+            if snap_ratio_to_use is not None:
                 # Calculate pixel position of current ratio and snap ratio
                 current_x = new_ratio * self.width
-                snap_x = self.snap_ratio * self.width
+                snap_x = snap_ratio_to_use * self.width
                 
                 # If within threshold, snap to ideal ratio
                 if abs(current_x - snap_x) <= self.snap_threshold:
-                    new_ratio = self.snap_ratio
+                    new_ratio = snap_ratio_to_use
+                    print(f"DEBUG: Snapped to ideal ratio {new_ratio:.3f} (using stored: {self.sash._drag_start_snap_ratio is not None})")
         else:
             # Calculate new ratio based on y position
             relative_y = touch_pos[1] - self.y
@@ -372,15 +389,22 @@ class SplitView(Widget):
             max_ratio = 1.0 - (self.min_left_size / self.height)
             new_ratio = max(min_ratio, min(max_ratio, new_ratio))
             
+            # Use stored snap ratio during dragging to prevent flickering
+            snap_ratio_to_use = None
+            if hasattr(self.sash, '_drag_start_snap_ratio') and self.sash._drag_start_snap_ratio is not None:
+                snap_ratio_to_use = self.sash._drag_start_snap_ratio
+            else:
+                snap_ratio_to_use = self.snap_ratio
+            
             # Snap to ideal ratio if close enough
-            if self.snap_ratio is not None:
+            if snap_ratio_to_use is not None:
                 # Calculate pixel position of current ratio and snap ratio
                 current_y = (1.0 - new_ratio) * self.height
-                snap_y = (1.0 - self.snap_ratio) * self.height
+                snap_y = (1.0 - snap_ratio_to_use) * self.height
                 
                 # If within threshold, snap to ideal ratio
                 if abs(current_y - snap_y) <= self.snap_threshold:
-                    new_ratio = self.snap_ratio
+                    new_ratio = snap_ratio_to_use
         
         self._user_set_ratio = True  # Mark that user has manually adjusted
         self.split_ratio = new_ratio
@@ -396,6 +420,9 @@ class SplitView(Widget):
         Args:
             aspect_ratio: Paper height / paper width (e.g., 297/210 for A4)
         """
+        # Store aspect ratio for recalculation during sash dragging
+        self._last_aspect_ratio = aspect_ratio
+        
         if self.orientation == 'horizontal':
             # For scale_to_width rendering: 
             # right_width should equal right_height / aspect_ratio for perfect fit
@@ -409,6 +436,13 @@ class SplitView(Widget):
             
             if total_width > 0 and total_height > 0 and aspect_ratio > 0:
                 required_right_width = total_height / aspect_ratio
+                
+                # For snap-to-fit, we don't account for scrollbar width because
+                # the goal is to fit the content perfectly, which means no scrolling
+                # and therefore no scrollbar should be visible after snapping
+                scrollbar_width = 0
+                
+                # Calculate snap ratio for perfect fit (without scrollbar)
                 snap_ratio = 1.0 - (required_right_width + self.sash_width / 2.0) / total_width
                 
                 # Clamp to valid range
@@ -417,6 +451,7 @@ class SplitView(Widget):
                 snap_ratio = max(min_ratio, min(max_ratio, snap_ratio))
                 
                 self.snap_ratio = snap_ratio
+                print(f"DEBUG: Set snap_ratio to {snap_ratio:.3f} for perfect fit (required_width: {required_right_width:.1f}, sash: {self.sash_width}, no scrollbar for snap-to-fit)")
             else:
                 self.snap_ratio = None
 

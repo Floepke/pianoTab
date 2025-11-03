@@ -74,10 +74,10 @@ class GlobalBarline:
 @dataclass
 class GlobalBasegrid:
     gridlineColor: str = '#000000'
-    gridlineWidth: float = 1.0
-    gridlineDashPattern: List[float] = field(default_factory=lambda: [4, 4])
+    gridlineWidth: float = .125
+    gridlineDashPattern: List[float] = field(default_factory=lambda: [2, 2])
     barlineColor: str = '#000000'
-    barlineWidth: float = 2.0
+    barlineWidth: float = .25
     fontSize: int = 12
 
 @dataclass_json
@@ -86,11 +86,11 @@ class GlobalStave:
     twoLineColor: str = '#000000'
     threeLineColor: str = '#000000'
     clefColor: str = '#000000'
-    twoLineWidth: float = 1.0
-    threeLineWidth: float = 2.0
-    clefWidth: float = 1.0
+    twoLineWidth: float = .125
+    threeLineWidth: float = .25
+    clefWidth: float = .125
     visible: int = field(default=1, metadata=config(field_name='visible?'))
-    clefDashPattern: List[float] = field(default_factory=lambda: [4, 4])
+    clefDashPattern: List[float] = field(default_factory=lambda: [.25, .25])
 
 @dataclass_json
 @dataclass

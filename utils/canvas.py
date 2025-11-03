@@ -7,7 +7,218 @@ from kivy.graphics import Color, Rectangle, Line, Ellipse, Mesh, InstructionGrou
 from kivy.core.text import Label as CoreLabel
 from kivy.graphics.scissor_instructions import ScissorPush, ScissorPop
 from kivy.clock import Clock
+from kivy.core.window import Window
 from .embedded_font import get_embedded_monospace_font
+from gui.colors import LIGHT, LIGHT_DARKER, DARK_LIGHTER, DARK, ACCENT_COLOR
+
+
+class CustomScrollbar(Widget):
+    """
+    Custom scrollbar widget for the Canvas that looks consistent across all platforms.
+    Positioned on the right side of the Canvas, twice as wide as the sash width.
+    """
+    
+    def __init__(self, canvas_widget, **kwargs):
+        super().__init__(**kwargs)
+        self.canvas_widget = canvas_widget
+        self.dragging = False
+        self.hovering = False
+        
+        # Scrollbar dimensions (twice the sash width from SplitView)
+        self.scrollbar_width = 40  # 2 * 20 (sash width)
+        self.thumb_min_height = 20
+        
+        # Colors using system theme - logical color mapping
+        self.track_color = LIGHT_DARKER       # Track: lighter version of light theme
+        self.thumb_color = ACCENT_COLOR       # Thumb: accent color for better visibility
+        self.thumb_hover_color = DARK         # Hover: full dark theme color
+        self.thumb_drag_color = DARK          # Drag: same as hover for consistency
+        
+        # Graphics instructions
+        with self.canvas:
+            # Track background
+            self.track_color_instr = Color(*self.track_color)
+            self.track_rect = Rectangle()
+            
+            # Thumb (scrollbar handle)
+            self.thumb_color_instr = Color(*self.thumb_color)
+            self.thumb_rect = Rectangle()
+        
+        # Bind to mouse events for hover detection
+        Window.bind(mouse_pos=self.on_mouse_pos)
+        
+        # Size and position properties
+        self.size_hint = (None, 1)
+        self.width = self.scrollbar_width
+        
+        # Update layout when canvas properties change
+        self.canvas_widget.bind(size=self.update_layout, pos=self.update_layout)
+        
+    def update_layout(self, *args):
+        """Update scrollbar position and thumb size based on canvas state."""
+        if not self.canvas_widget.scale_to_width:
+            # Hide scrollbar when not in scale_to_width mode
+            self.opacity = 0
+            return
+            
+        # Position scrollbar on the right side of the canvas
+        self.x = self.canvas_widget.x + self.canvas_widget.width - self.scrollbar_width
+        self.y = self.canvas_widget.y
+        self.height = self.canvas_widget.height
+        
+        # Update track
+        self.track_rect.pos = (self.x, self.y)
+        self.track_rect.size = (self.scrollbar_width, self.height)
+        
+        # Calculate thumb dimensions and position
+        content_height = self.canvas_widget._content_height_px()
+        viewport_height = self.canvas_widget._view_h
+        
+        if content_height <= viewport_height:
+            # No scrolling needed
+            self.opacity = 0
+            return
+        else:
+            self.opacity = 1
+            
+        # Thumb height proportional to viewport/content ratio with vertical margins
+        available_track_height = self.height - 10  # Reserve 5px margin top and bottom
+        thumb_height = max(self.thumb_min_height, 
+                          (viewport_height / content_height) * available_track_height)
+        
+        # Thumb position based on scroll offset with vertical margin
+        max_scroll = content_height - viewport_height
+        scroll_ratio = self.canvas_widget._scroll_px / max_scroll if max_scroll > 0 else 0
+        max_thumb_y = available_track_height - thumb_height
+        thumb_y = self.y + 5 + (max_thumb_y * (1 - scroll_ratio))  # 5px top margin + position
+        
+        # Update thumb rectangle with 5px margin on all sides
+        self.thumb_rect.pos = (self.x + 5, thumb_y)  # 5px margin from edges
+        self.thumb_rect.size = (self.scrollbar_width - 10, thumb_height)  # 5px margin on each side
+        
+    def on_mouse_pos(self, window, pos):
+        """Handle mouse hover for visual feedback."""
+        if self.dragging or self.opacity == 0:
+            return
+            
+        # Check if mouse is over the entire scrollbar area (full width)
+        mouse_x, mouse_y = pos
+        is_over_scrollbar = (self.x <= mouse_x <= self.x + self.scrollbar_width and 
+                            self.y <= mouse_y <= self.y + self.height)
+        
+        if is_over_scrollbar and not self.hovering:
+            self.hovering = True
+            self.thumb_color_instr.rgba = self.thumb_hover_color
+            Window.set_system_cursor('hand')
+        elif not is_over_scrollbar and self.hovering:
+            self.hovering = False
+            self.thumb_color_instr.rgba = self.thumb_color
+            Window.set_system_cursor('arrow')
+            
+    def on_touch_down(self, touch):
+        """Handle touch down for scrollbar dragging."""
+        if self.opacity == 0:
+            return False
+            
+        # Check if touch is within scrollbar area
+        if not self.collide_point(*touch.pos):
+            return False
+            
+        # Check if touch is on the thumb or in the thumb's vertical range (for easier dragging)
+        thumb_x, thumb_y = self.thumb_rect.pos
+        thumb_w, thumb_h = self.thumb_rect.size
+        
+        touch_x, touch_y = touch.pos
+        is_on_thumb = (thumb_x <= touch_x <= thumb_x + thumb_w and 
+                      thumb_y <= touch_y <= thumb_y + thumb_h)
+        
+        # Also allow dragging if clicking within the full scrollbar width in the thumb's vertical range
+        is_in_thumb_range = (self.x <= touch_x <= self.x + self.scrollbar_width and
+                            thumb_y <= touch_y <= thumb_y + thumb_h)
+        
+        if is_on_thumb or is_in_thumb_range:
+            # Start dragging - maintain the relative position where the user clicked
+            self.dragging = True
+            # Calculate offset from the top of the thumb to the click point
+            self.drag_offset = touch_y - thumb_y
+            touch.grab(self)
+            self.thumb_color_instr.rgba = self.thumb_drag_color
+            return True
+        else:
+            # Click on track - jump to position
+            self._jump_to_position(touch_y)
+            return True
+            
+    def on_touch_move(self, touch):
+        """Handle thumb dragging."""
+        if touch.grab_current is self and self.dragging:
+            self._drag_to_position(touch.pos[1])
+            return True
+        return False
+        
+    def on_touch_up(self, touch):
+        """Handle touch up - stop dragging."""
+        if touch.grab_current is self:
+            self.dragging = False
+            touch.ungrab(self)
+            # Restore hover color if still hovering, otherwise normal color
+            if self.hovering:
+                self.thumb_color_instr.rgba = self.thumb_hover_color
+            else:
+                self.thumb_color_instr.rgba = self.thumb_color
+            return True
+        return False
+        
+    def _jump_to_position(self, touch_y):
+        """Jump scroll position to where user clicked on track."""
+        # Calculate which part of the track was clicked
+        relative_y = touch_y - self.y
+        ratio = relative_y / self.height
+        
+        # Convert to scroll position (inverted because we scroll top-to-bottom)
+        content_height = self.canvas_widget._content_height_px()
+        viewport_height = self.canvas_widget._view_h
+        max_scroll = max(0, content_height - viewport_height)
+        
+        new_scroll = max_scroll * (1 - ratio)
+        self.canvas_widget._scroll_px = max(0, min(max_scroll, new_scroll))
+        
+        # Update canvas and scrollbar
+        self.canvas_widget._redraw_all()
+        self.canvas_widget._update_border()
+        self.update_layout()
+        
+    def _drag_to_position(self, touch_y):
+        """Update scroll position based on thumb drag."""
+        # Calculate new thumb position to maintain the same relative offset
+        new_thumb_y = touch_y - self.drag_offset
+        
+        # Calculate bounds for thumb movement
+        thumb_height = self.thumb_rect.size[1]
+        min_thumb_y = self.y
+        max_thumb_y = self.y + self.height - thumb_height
+        
+        # Clamp thumb position
+        clamped_thumb_y = max(min_thumb_y, min(max_thumb_y, new_thumb_y))
+        
+        # Convert thumb position to scroll ratio (inverted)
+        if max_thumb_y > min_thumb_y:
+            thumb_ratio = (clamped_thumb_y - min_thumb_y) / (max_thumb_y - min_thumb_y)
+            scroll_ratio = 1 - thumb_ratio  # Invert for top-to-bottom scroll
+        else:
+            scroll_ratio = 0
+            
+        # Update canvas scroll
+        content_height = self.canvas_widget._content_height_px()
+        viewport_height = self.canvas_widget._view_h
+        max_scroll = max(0, content_height - viewport_height)
+        
+        self.canvas_widget._scroll_px = max(0, min(max_scroll, scroll_ratio * max_scroll))
+        
+        # Update canvas and scrollbar
+        self.canvas_widget._redraw_all()
+        self.canvas_widget._update_border()
+        self.update_layout()
 
 
 class Canvas(Widget):
@@ -63,6 +274,18 @@ class Canvas(Widget):
 
         # Vertical scroll (in px) when content height exceeds widget height in scale_to_width mode
         self._scroll_px: float = 0.0
+        
+        # Calculate system DPI for pixel-to-mm conversion
+        self._mm_per_pixel: float = self._calculate_mm_per_pixel()
+        
+        # Quarter note spacing in mm for musical scrolling
+        self._quarter_note_spacing_mm: float = 10.0  # Default fallback value
+
+        # Grid-based cursor snapping
+        self._grid_step_ticks: float = 256.0  # Default to quarter note (256 ticks)
+        self._cursor_visible: bool = False
+        self._cursor_x_mm: float = 0.0  # Cursor position in mm coordinates
+        self._cursor_line_instr = None  # Will be created when needed
 
         # Drawing containers
         with self.canvas:
@@ -90,12 +313,85 @@ class Canvas(Widget):
         self._id: Dict[str, set] = {}
         self._draw_order: List[int] = []  # z-order (append = on top)
 
+        # Create and add custom scrollbar
+        self.custom_scrollbar = CustomScrollbar(self)
+        self.add_widget(self.custom_scrollbar)
+
+        # Bind to mouse motion for cursor tracking
+        Window.bind(mouse_pos=self.on_mouse_motion)
+
         # Defer expensive redraws during resize
         self._resched = None
         self.bind(pos=self._schedule_layout, size=self._schedule_layout)
 
         # Initial layout
         self._update_layout_and_redraw()
+
+    def set_piano_roll_editor(self, editor):
+        """Set the piano roll editor reference for accessing score data."""
+        self.piano_roll_editor = editor
+        # Update scroll step calculation when editor is set
+        if hasattr(self, 'custom_scrollbar') and self.custom_scrollbar:
+            self.custom_scrollbar.update_layout()
+
+    def _snap_scroll_to_grid(self, scroll_px: float) -> float:
+        """Snap scroll position to align with visual grid in the editor based on current grid step.
+        
+        The anchor point is at editor_margin - editorZoomPixelsQuarter,
+        then snap in increments of the current grid step size.
+        
+        Special behavior: The first scroll down always snaps to the first grid position
+        based on the current grid step (quarter, half, eighth, etc.).
+        """
+        # Get editor margin and quarter note pixel spacing from score
+        editor_margin_mm = 0.0  # Default fallback
+        pixels_per_quarter = 100.0  # Default
+        quarter_note_length = 256.0  # Default
+        
+        if hasattr(self, 'piano_roll_editor') and self.piano_roll_editor:
+            # Get editor margin from the piano roll editor (not canvas)
+            if hasattr(self.piano_roll_editor, 'editor_margin'):
+                editor_margin_mm = self.piano_roll_editor.editor_margin
+            
+            # Get values from score
+            if hasattr(self.piano_roll_editor, 'score') and self.piano_roll_editor.score:
+                score = self.piano_roll_editor.score
+                if hasattr(score, 'properties') and hasattr(score.properties, 'editorZoomPixelsQuarter'):
+                    pixels_per_quarter = score.properties.editorZoomPixelsQuarter
+                if hasattr(score, 'quarterNoteLength'):
+                    quarter_note_length = score.quarterNoteLength
+        
+        # Calculate current grid step spacing in pixels (direct calculation)
+        grid_step_quarters = self._grid_step_ticks / quarter_note_length
+        grid_step_pixels = grid_step_quarters * pixels_per_quarter
+        
+        # Convert to mm for calculation
+        quarter_spacing_mm = pixels_per_quarter * self._mm_per_pixel
+        grid_spacing_mm = grid_step_pixels * self._mm_per_pixel
+        
+        # Calculate anchor point in mm: editor_margin - editorZoomPixelsQuarter
+        anchor_mm = editor_margin_mm - quarter_spacing_mm
+        
+        # Convert scroll position to mm
+        scroll_mm = scroll_px * self._mm_per_pixel
+        
+        # Normal snapping: Calculate offset from anchor and snap to current grid step
+        offset_from_anchor = scroll_mm - anchor_mm
+        snapped_offset = round(offset_from_anchor / grid_spacing_mm) * grid_spacing_mm
+        snapped_scroll_mm = anchor_mm + snapped_offset
+        
+        # Convert back to pixels
+        snapped_scroll_px = snapped_scroll_mm / self._mm_per_pixel
+        
+        print(f"SCROLL SNAP: {scroll_px:.1f}px -> {snapped_scroll_px:.1f}px (anchor: {anchor_mm:.1f}mm, grid: {grid_spacing_mm:.1f}mm, step: {self._grid_step_ticks}t)")
+        
+        return snapped_scroll_px
+
+    def update_scroll_step(self):
+        """Update scroll step calculation when score data changes (e.g., quarterNoteLength)."""
+        if hasattr(self, 'custom_scrollbar') and self.custom_scrollbar:
+            self.custom_scrollbar.update_layout()
+            print(f"SCROLL STEP UPDATED: Grid step {self._grid_step_ticks} -> {self._calculate_grid_step_pixels():.1f} pixels")
 
     # ---------- Internal: font resolution ----------
 
@@ -106,6 +402,39 @@ class Canvas(Widget):
         across different systems without requiring specific fonts.
         """
         return get_embedded_monospace_font()
+
+    def _calculate_mm_per_pixel(self) -> float:
+        """Calculate millimeters per pixel based on system DPI.
+        
+        Returns:
+            float: Millimeters per pixel conversion factor
+        """
+        try:
+            # Get system DPI from Kivy Window
+            dpi = Window.dpi
+            if dpi <= 0:
+                # Fallback to common default DPI values by platform
+                import platform
+                system = platform.system().lower()
+                if system == 'darwin':  # macOS
+                    dpi = 72.0  # macOS default
+                elif system == 'windows':  # Windows
+                    dpi = 96.0  # Windows default
+                else:  # Linux and others
+                    dpi = 96.0  # Common Linux default
+                    
+            print(f"CANVAS DPI: Using {dpi} DPI for pixel-to-mm conversion")
+            
+            # Convert DPI to mm/pixel: 1 inch = 25.4 mm
+            mm_per_pixel = 25.4 / dpi
+            print(f"CANVAS DPI: {mm_per_pixel:.6f} mm/pixel conversion factor")
+            
+            return mm_per_pixel
+            
+        except Exception as e:
+            print(f"CANVAS DPI: Error calculating DPI, using 96 DPI fallback: {e}")
+            # Fallback to 96 DPI (0.264583 mm/pixel)
+            return 25.4 / 96.0
 
     # ---------- Public API (Tkinter-like) ----------
 
@@ -392,6 +721,53 @@ class Canvas(Widget):
     def find_by_tag(self, tag: str) -> List[int]:
         return sorted(self._id.get(tag, set()))
 
+    def delete_by_tag(self, tag: str):
+        """Delete all items with the specified tag."""
+        item_ids = list(self._id.get(tag, set()))
+        for item_id in item_ids:
+            self.delete(item_id)
+
+    def raise_in_order(self, tags: List[str]):
+        """Reorder items so that items with the specified tags are drawn in the given order.
+        
+        Items with tags earlier in the list will be drawn first (behind).
+        Items with tags later in the list will be drawn last (on top).
+        Items not matching any tag in the list maintain their relative order at the end.
+        
+        Args:
+            tags: List of tags in the desired drawing order (first = bottom, last = top)
+        
+        Example:
+            canvas.raise_in_order(['staveThreeLines', 'staveTwoLines', 'staveClefLines'])
+            # staveThreeLines will be drawn first (at the back)
+            # staveClefLines will be drawn last (on top)
+        """
+        # Build a new draw order
+        new_order = []
+        used_ids = set()
+        
+        # First, add items in tag order
+        for tag in tags:
+            tag_items = self.find_by_tag(tag)
+            for item_id in tag_items:
+                if item_id not in used_ids and item_id in self._draw_order:
+                    new_order.append(item_id)
+                    used_ids.add(item_id)
+        
+        # Then add remaining items that weren't matched by any tag
+        for item_id in self._draw_order:
+            if item_id not in used_ids:
+                new_order.append(item_id)
+        
+        # Update draw order
+        self._draw_order = new_order
+        
+        # Rebuild the items group in the new order
+        self._items_group.clear()
+        for item_id in self._draw_order:
+            if item_id in self._items:
+                self._items_group.add(self._items[item_id]['group'])
+
     def delete(self, item_id: int):
         """Delete an item by id."""
         item = self._items.pop(item_id, None)
@@ -434,6 +810,13 @@ class Canvas(Widget):
             # Reset scroll when disabling
             self._scroll_px = 0.0
         self._update_layout_and_redraw()
+        # Update scrollbar visibility
+        if hasattr(self, 'custom_scrollbar'):
+            self.custom_scrollbar.update_layout()
+
+    def set_quarter_note_spacing_mm(self, spacing_mm: float):
+        """Set the quarter note spacing in mm for musical scrolling."""
+        self._quarter_note_spacing_mm = float(spacing_mm)
 
     # ----- Events -----
 
@@ -442,10 +825,15 @@ class Canvas(Widget):
         pass
 
     def on_touch_down(self, touch):
-        # Only handle if inside our widget and within the view area
+        # Only handle if inside our widget
         if not self.collide_point(*touch.pos):
             return super().on_touch_down(touch)
 
+        # Let custom scrollbar handle touch events first
+        if self.custom_scrollbar.on_touch_down(touch):
+            return True
+
+        # Only continue with canvas logic if within the view area (excluding scrollbar)
         if not self._point_in_view_px(*touch.pos):
             return super().on_touch_down(touch)
 
@@ -453,16 +841,25 @@ class Canvas(Widget):
         if self.scale_to_width and hasattr(touch, 'button') and touch.button in ('scrollup', 'scrolldown'):
             content_h = self._content_height_px()
             if content_h > self._view_h:  # scrolling only if content taller than viewport
-                step = 40  # px per wheel notch
+                # Calculate scroll step based on current grid step
+                grid_step_px = self._calculate_grid_step_pixels()
+                step = max(10, grid_step_px)  # Minimum 10px for usability, otherwise grid step distance
                 max_scroll = max(0.0, content_h - self._view_h)
                 if touch.button == 'scrollup':
                     # macOS natural: scroll up gesture moves content down (show lower parts)
-                    self._scroll_px = min(max_scroll, self._scroll_px + step)
+                    new_scroll = min(max_scroll, self._scroll_px + step)
+                    self._scroll_px = self._snap_scroll_to_grid(new_scroll)
                 elif touch.button == 'scrolldown':
-                    self._scroll_px = max(0.0, self._scroll_px - step)
+                    new_scroll = max(0.0, self._scroll_px - step)
+                    self._scroll_px = self._snap_scroll_to_grid(new_scroll)
+                
+                # Ensure we stay within bounds after snapping
+                self._scroll_px = max(0.0, min(max_scroll, self._scroll_px))
                 # Redraw items and border with new scroll
                 self._redraw_all()
                 self._update_border()
+                # Update scrollbar to reflect new position
+                self.custom_scrollbar.update_layout()
             return True
 
         # Convert to mm (top-left origin)
@@ -477,6 +874,35 @@ class Canvas(Widget):
         # Clicked empty space inside canvas
         self.dispatch('on_item_click', None, touch, mm)
         return True
+
+    def on_touch_move(self, touch):
+        # Let scrollbar handle move events first
+        if self.custom_scrollbar.on_touch_move(touch):
+            return True
+        return super().on_touch_move(touch)
+
+    def on_touch_up(self, touch):
+        # Let scrollbar handle up events first
+        if self.custom_scrollbar.on_touch_up(touch):
+            return True
+        return super().on_touch_up(touch)
+
+    def on_mouse_motion(self, window, pos):
+        """Handle mouse motion for cursor tracking."""
+        mouse_x, mouse_y = pos
+        
+        # Check if mouse is over the canvas area (not scrollbar)
+        if (self.x <= mouse_x <= self.x + self.width - self.custom_scrollbar.scrollbar_width and
+            self.y <= mouse_y <= self.y + self.height):
+            
+            # Show cursor and update position
+            self._update_cursor_position(mouse_x - self.x)
+            if not self._cursor_visible:
+                self.show_cursor()
+        else:
+            # Hide cursor when mouse leaves canvas area
+            if self._cursor_visible:
+                self.hide_cursor()
 
     # ---------- Internal: layout / transforms ----------
 
@@ -493,8 +919,22 @@ class Canvas(Widget):
 
         if self.scale_to_width and self.width_mm > 0 and self.height_mm > 0:
             # Scale based on width only; enable vertical scrolling if content > viewport
-            self._px_per_mm = max(1e-6, self.width / self.width_mm)
-            view_w = int(round(self.width))
+            # Try calculating scale without scrollbar first
+            available_width = self.width
+            px_per_mm_without_scrollbar = max(1e-6, available_width / self.width_mm)
+            content_height_without_scrollbar = int(round(max(0.0, self.height_mm * px_per_mm_without_scrollbar)))
+            
+            # If content fits without scrollbar, use that calculation
+            if content_height_without_scrollbar <= self.height:
+                self._px_per_mm = px_per_mm_without_scrollbar
+                available_width = self.width  # No scrollbar needed
+            else:
+                # Content doesn't fit, so we'll need a scrollbar - recalculate with scrollbar space
+                if hasattr(self, 'custom_scrollbar'):
+                    available_width -= self.custom_scrollbar.scrollbar_width
+                self._px_per_mm = max(1e-6, available_width / self.width_mm)
+            
+            view_w = int(round(available_width))
             content_h = self._content_height_px()
             
             # Center vertically if content is smaller than widget height
@@ -554,6 +994,10 @@ class Canvas(Widget):
         # Border (around the full logical page/content); computed separately
         self._update_border()
 
+        # Update scrollbar layout
+        if hasattr(self, 'custom_scrollbar'):
+            self.custom_scrollbar.update_layout()
+
         # Redraw all items with new scale
         self._redraw_all()
 
@@ -573,7 +1017,12 @@ class Canvas(Widget):
         return mm_x, mm_y
 
     def _point_in_view_px(self, x_px: float, y_px: float) -> bool:
-        return (self._view_x <= x_px <= self._view_x + self._view_w) and (
+        # Exclude scrollbar area when in scale_to_width mode
+        right_boundary = self._view_x + self._view_w
+        if self.scale_to_width and self.custom_scrollbar.opacity > 0:
+            right_boundary -= self.custom_scrollbar.scrollbar_width
+        
+        return (self._view_x <= x_px <= right_boundary) and (
             self._view_y <= y_px <= self._view_y + self._view_h
         )
 
@@ -870,15 +1319,15 @@ class Canvas(Widget):
         """
         a = (anchor or 'top_left').strip().lower()
         mapping = {
-            'top_left': (0.0, -h_px), 'tl': (0.0, -h_px),
-            'top': (-w_px / 2.0, -h_px), 'tc': (-w_px / 2.0, -h_px),
-            'top_right': (-w_px, -h_px), 'tr': (-w_px, -h_px),
-            'left': (0.0, -h_px / 2.0), 'cl': (0.0, -h_px / 2.0),
-            'center': (-w_px / 2.0, -h_px / 2.0), 'cc': (-w_px / 2.0, -h_px / 2.0),
-            'right': (-w_px, -h_px / 2.0), 'cr': (-w_px, -h_px / 2.0),
-            'bottom_left': (0.0, 0.0), 'bl': (0.0, 0.0),
-            'bottom': (-w_px / 2.0, 0.0), 'bc': (-w_px / 2.0, 0.0),
-            'bottom_right': (-w_px, 0.0), 'br': (-w_px, 0.0),
+            'top_left': (0.0, -h_px), 'tl': (0.0, -h_px), 'nw': (0.0, -h_px),
+            'top': (-w_px / 2.0, -h_px), 'tc': (-w_px / 2.0, -h_px), 'n': (-w_px / 2.0, -h_px),
+            'top_right': (-w_px, -h_px), 'tr': (-w_px, -h_px), 'ne': (-w_px, -h_px),
+            'left': (0.0, -h_px / 2.0), 'cl': (0.0, -h_px / 2.0), 'w': (0.0, -h_px / 2.0),
+            'center': (-w_px / 2.0, -h_px / 2.0), 'cc': (-w_px / 2.0, -h_px / 2.0), 'c': (-w_px / 2.0, -h_px / 2.0),
+            'right': (-w_px, -h_px / 2.0), 'cr': (-w_px, -h_px / 2.0), 'e': (-w_px, -h_px / 2.0),
+            'bottom_left': (0.0, 0.0), 'bl': (0.0, 0.0), 'sw': (0.0, 0.0),
+            'bottom': (-w_px / 2.0, 0.0), 'bc': (-w_px / 2.0, 0.0), 's': (-w_px / 2.0, 0.0),
+            'bottom_right': (-w_px, 0.0), 'br': (-w_px, 0.0), 'se': (-w_px, 0.0),
         }
         return mapping.get(a, (0.0, -h_px))
 
@@ -970,3 +1419,167 @@ class Canvas(Widget):
                 overshoot = pos - seg_len
                 remaining = max(1e-6, (on_px if on else off_px) - overshoot)
             cx, cy = nx, ny
+
+    # ---------- Grid-based cursor snapping ----------
+    
+    def set_grid_step(self, grid_step_ticks: float):
+        """Set the grid step for cursor snapping in piano ticks."""
+        print(f"GRID DEBUG: Setting grid step to {grid_step_ticks} ticks")
+        self._grid_step_ticks = grid_step_ticks
+        
+    def get_grid_step(self) -> float:
+        """Get the current grid step in piano ticks."""
+        return self._grid_step_ticks
+    
+    def _snap_to_grid(self, time_position_mm: float) -> float:
+        """Snap a time position to the current grid step."""
+        # Use the same corrected calculation as the scroll system
+        # to ensure cursor snapping matches the actual visual grid
+        
+        try:
+            from utils.CONSTANTS import DEFAULT_PIXELS_PER_QUARTER
+            
+            # Use the correct values that we know work
+            # The score uses editorZoomPixelsQuarter=100 and quarterNoteLength=256.0
+            pixels_per_quarter = 100.0  # From score.properties.editorZoomPixelsQuarter
+            quarter_note_length = 256.0  # From score.quarterNoteLength
+            
+            zoom_factor = 1.0  # Default zoom
+            
+            # Use the same DPI conversion as the system's actual DPI
+            pixels_per_quarter_mm = pixels_per_quarter * self._mm_per_pixel * zoom_factor
+            
+            print(f"SNAP VALUES: pixels_per_quarter={pixels_per_quarter}, quarter_note_length={quarter_note_length}, pixels_per_quarter_mm={pixels_per_quarter_mm:.2f}")
+            
+            
+            # Convert mm to quarters using the corrected quarter note spacing
+            quarters = time_position_mm / pixels_per_quarter_mm
+            
+        except Exception as e:
+            # Fallback to original calculation if imports fail
+            quarters = time_position_mm / self._quarter_note_spacing_mm
+            quarter_note_length = 256.0  # Fallback
+            print(f"SNAP DEBUG: Using fallback calculation, error: {e}")
+        
+        # Convert quarters to ticks using the score's quarterNoteLength
+        ticks = quarters * quarter_note_length
+        
+        # DEBUG: Print what's happening with detailed grid step info
+        print(f"SNAP DEBUG: pos={time_position_mm:.1f}mm, grid_step={self._grid_step_ticks}t, quarters={quarters:.3f}, ticks={ticks:.1f}")
+        
+        # Snap to grid step
+        snapped_ticks = round(ticks / self._grid_step_ticks) * self._grid_step_ticks
+        
+        # Convert back to quarters and then to mm
+        snapped_quarters = snapped_ticks / quarter_note_length
+        
+        # Calculate the visual spacing multiplier based on grid step
+        # If grid step is larger than quarter note, we need to scale the visual spacing
+        grid_step_in_quarters = self._grid_step_ticks / quarter_note_length
+        
+        try:
+            # Use the grid step ratio directly - this gives us the correct visual spacing
+            snapped_mm = (snapped_ticks / quarter_note_length) * pixels_per_quarter_mm
+            print(f"SNAP DEBUG: snapped_ticks={snapped_ticks:.1f}, snapped_quarters={snapped_quarters:.3f}, snapped_mm={snapped_mm:.1f}, grid_step_ratio={grid_step_in_quarters:.2f}")
+            print(f"GRID STEP DEBUG: {self._grid_step_ticks}t = {grid_step_in_quarters:.1f} quarters, visual spacing = {grid_step_in_quarters * pixels_per_quarter_mm:.1f}mm")
+        except:
+            snapped_mm = (snapped_ticks / quarter_note_length) * self._quarter_note_spacing_mm
+            print(f"SNAP DEBUG: (fallback) snapped_ticks={snapped_ticks:.1f}, snapped_quarters={snapped_quarters:.3f}, snapped_mm={snapped_mm:.1f}, grid_step_ratio={grid_step_in_quarters:.2f}")
+            print(f"GRID STEP DEBUG: (fallback) {self._grid_step_ticks}t = {grid_step_in_quarters:.1f} quarters, visual spacing = {grid_step_in_quarters * self._quarter_note_spacing_mm:.1f}mm")
+        
+        return snapped_mm
+    
+    def _update_cursor_position(self, touch_x_px: float):
+        """Update cursor position based on touch position with grid snapping."""
+        # Convert touch position to mm coordinates (we only care about x)
+        mm_x, _ = self._px_to_mm(touch_x_px, 0)  # y doesn't matter for cursor position
+        
+        # Snap to grid
+        snapped_mm_x = self._snap_to_grid(mm_x)
+        
+        # Store cursor position
+        self._cursor_x_mm = snapped_mm_x
+        
+        # Redraw cursor if visible
+        if self._cursor_visible:
+            self._draw_cursor()
+    
+    def _draw_cursor(self):
+        """Draw or update the cursor line."""
+        # Remove existing cursor line if it exists
+        if self._cursor_line_instr:
+            self._items_group.remove(self._cursor_line_instr)
+            self._cursor_line_instr = None
+        
+        if not self._cursor_visible:
+            return
+            
+        # Convert cursor position to pixel coordinates (use any y for conversion)
+        cursor_x_px, _ = self._mm_to_px_point(self._cursor_x_mm, 0)
+        
+        # Create dashed line from top to bottom of the editor area
+        self._cursor_line_instr = InstructionGroup()
+        
+        # Set cursor color (accent color with transparency)
+        cursor_color = (*ACCENT_COLOR[:3], 0.7)  # Add transparency
+        self._cursor_line_instr.add(Color(*cursor_color))
+        
+        # Draw dashed vertical line
+        y_top = self._view_y + self._view_h
+        y_bottom = self._view_y
+        
+        # Use dashed line for cursor
+        dash_length = 5.0  # 5px on
+        gap_length = 3.0   # 3px off
+        points = [cursor_x_px, y_bottom, cursor_x_px, y_top]
+        self._draw_dashed_polyline(self._cursor_line_instr, points, 1.0, dash_length, gap_length)
+        
+        # Add cursor to the items group
+        self._items_group.add(self._cursor_line_instr)
+    
+    def show_cursor(self):
+        """Show the cursor line."""
+        self._cursor_visible = True
+        self._draw_cursor()
+    
+    def hide_cursor(self):
+        """Hide the cursor line."""
+        self._cursor_visible = False
+        if self._cursor_line_instr:
+            self._items_group.remove(self._cursor_line_instr)
+            self._cursor_line_instr = None
+    
+    def get_cursor_position_mm(self) -> float:
+        """Get the current cursor position in mm."""
+        return self._cursor_x_mm
+    
+    def _calculate_grid_step_pixels(self) -> float:
+        """Calculate scroll step in pixels to exactly match visual grid spacing.
+        
+        This should match the exact visual distance between grid lines in the editor.
+        Uses direct pixel calculation to avoid double conversion.
+        """
+        # Get values directly from the score
+        quarter_note_length = 256.0  # Default
+        pixels_per_quarter = 100.0   # Default
+        
+        if hasattr(self, 'piano_roll_editor') and self.piano_roll_editor and hasattr(self.piano_roll_editor, 'score'):
+            score = self.piano_roll_editor.score
+            if score:
+                # Get quarterNoteLength (ticks per quarter note)
+                if hasattr(score, 'quarterNoteLength'):
+                    quarter_note_length = score.quarterNoteLength
+                
+                # Get editorZoomPixelsQuarter (pixels per quarter note)
+                if hasattr(score, 'properties') and hasattr(score.properties, 'editorZoomPixelsQuarter'):
+                    pixels_per_quarter = score.properties.editorZoomPixelsQuarter
+        
+        # Calculate how many quarter notes this grid step represents
+        grid_step_quarters = self._grid_step_ticks / quarter_note_length
+        
+        # Calculate directly in pixels - no mm conversion needed
+        grid_step_pixels = grid_step_quarters * pixels_per_quarter
+        
+        print(f"VISUAL SCROLL STEP: {self._grid_step_ticks} ticks -> {grid_step_quarters:.3f} quarters -> {grid_step_pixels:.1f} pixels (direct)")
+        
+        return grid_step_pixels

@@ -268,3 +268,52 @@ def validate_and_fix_score(score_dict: Dict[str, Any]) -> Tuple[Dict[str, Any], 
                             all_warnings.extend(art_warnings)
     
     return fixed_score, all_warnings
+
+
+def validate_score_integrity(score_instance) -> List[str]:
+    """
+    Validate a loaded SCORE instance for data integrity and cross-references.
+    
+    Args:
+        score_instance: A SCORE instance (not a dict)
+    
+    Returns:
+        List of validation warnings and errors
+    """
+    if hasattr(score_instance, 'validate_data_integrity'):
+        return score_instance.validate_data_integrity()
+    else:
+        return ["Warning: SCORE instance does not support integrity validation"]
+
+
+def full_score_validation(score_data: dict) -> tuple[dict, list[str]]:
+    """
+    Complete validation pipeline: structural validation + cross-reference validation.
+    
+    Args:
+        score_data: Raw score data from JSON
+    
+    Returns:
+        Tuple of (validated_score_dict, all_warnings)
+    """
+    # First do structural validation
+    fixed_data, structural_warnings = validate_and_fix_score(score_data)
+    
+    # Convert to SCORE instance for cross-reference validation
+    try:
+        from file.SCORE import SCORE
+        score_instance = SCORE.from_dict(fixed_data)
+        score_instance.renumber_id()
+        score_instance._reattach_score_references()
+        
+        # Run integrity validation
+        integrity_warnings = validate_score_integrity(score_instance)
+        
+        # Combine all warnings
+        all_warnings = structural_warnings + integrity_warnings
+        
+        return fixed_data, all_warnings
+        
+    except Exception as e:
+        structural_warnings.append(f"Could not perform cross-reference validation: {e}")
+        return fixed_data, structural_warnings

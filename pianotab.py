@@ -72,6 +72,9 @@ class PianoTab(App):
         # Initialize Editor (which owns the SCORE)
         self.editor = Editor(self.gui.get_editor_widget())
         
+        # Set canvas reference to piano roll editor for scroll snap functionality
+        self.gui.get_editor_widget().set_piano_roll_editor(self.editor)
+        
         # Setup any additional connections/bindings
         self._setup_bindings()
         
