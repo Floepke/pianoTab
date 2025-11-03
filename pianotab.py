@@ -7,20 +7,26 @@ import sys
 import os
 
 os.environ["KIVY_METRICS_DENSITY"] = "1.5"
+# Try to force a specific window provider to avoid issues
+os.environ["KIVY_WINDOW"] = "sdl2"
+# Disable vsync which can cause hanging
+os.environ["KIVY_GL_BACKEND"] = "gl"
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from kivy.config import Config
 
 # Configure Kivy before importing other Kivy modules
-Config.set('graphics', 'width', '1400')
-Config.set('graphics', 'height', '800')
-Config.set('graphics', 'minimum_width', '100')
-Config.set('graphics', 'minimum_height', '100')
+Config.set('graphics', 'width', '1200')
+Config.set('graphics', 'height', '700')
+Config.set('graphics', 'minimum_width', '800')
+Config.set('graphics', 'minimum_height', '600')
 Config.set('graphics', 'resizable', True)
-Config.set('graphics', 'multisamples', '2')
-Config.set('graphics', 'window_state', 'maximized')
+# Config.set('graphics', 'multisamples', '2')  # Disable multisampling to avoid graphics issues
+# Config.set('graphics', 'window_state', 'maximized')  # Start windowed instead of maximized
 Config.set('kivy', 'keyboard_mode', '')
+# Disable vsync
+Config.set('graphics', 'vsync', '0')
 
 from kivy.app import App
 from kivy.core.window import Window
@@ -33,6 +39,7 @@ from editor.editor import Editor
 from file.SCORE import SCORE
 from utils.file_manager import FileManager
 from utils.settings import SettingsManager
+from utils.embedded_font import cleanup_embedded_fonts
 
 class PianoTab(App):
     """Main PianoTab application."""
@@ -53,13 +60,6 @@ class PianoTab(App):
         """Build and return the root widget - UI construction only."""
         # Window setup
         Window.clearcolor = DARK
-        # On macOS, try to enter real native fullscreen (green button behavior)
-        # after the window is created and visible. Other platforms use
-        # window_state='maximized' (configured above).
-        if platform == 'macosx':
-            # Try twice with small delays to catch the moment after first draw.
-            Clock.schedule_once(lambda _dt: self._try_enter_native_fullscreen_macos(attempt=1), 0.25)
-            Clock.schedule_once(lambda _dt: self._try_enter_native_fullscreen_macos(attempt=2), 1.0)
         
         # Create and return GUI (UI only)
         self.gui = PianoTabGUI()
@@ -149,6 +149,13 @@ class PianoTab(App):
                 self.settings.save()
         except Exception:
             pass
+        
+        # Clean up temporary font files
+        try:
+            cleanup_embedded_fonts()
+            Logger.info('PianoTab: Cleaned up temporary font files')
+        except Exception as e:
+            Logger.warning(f'PianoTab: Could not clean up font files: {e}')
 
 def main():
     """Main entry point."""

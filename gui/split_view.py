@@ -211,11 +211,11 @@ class SplitView(Widget):
     orientation = 'horizontal'  # 'horizontal' or 'vertical'
     
     # Add minimum size properties
-    min_left_size = NumericProperty(150)  # Minimum pixels for left panel
-    min_right_size = NumericProperty(150)  # Minimum pixels for right panel
+    min_left_size = NumericProperty(0)  # Minimum pixels for left panel (0 = can be completely hidden)
+    min_right_size = NumericProperty(0)  # Minimum pixels for right panel (0 = can be completely hidden)
     
     # Snap-to-fit properties
-    snap_threshold = NumericProperty(20)  # Pixels within which to snap
+    snap_threshold = NumericProperty(100)  # Pixels within which to snap
     snap_ratio = NumericProperty(None, allownone=True)  # Target ratio for snapping (calculated from paper dimensions)
     
     def __init__(self, orientation='horizontal', **kwargs):

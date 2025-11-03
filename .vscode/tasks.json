@@ -1,28 +1,28 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "Run PianoTab",
-            "type": "shell",
-            "command": "${workspaceFolder}/.venv/bin/python3",
-            "args": [
-                "${workspaceFolder}/pianotab.py"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "presentation": {
-                "reveal": "always",
-                "focus": true,
-                "panel": "shared",
-                "clear": true,
-                "showReuseMessage": false
-            },
-            "runOptions": {
-                "instanceLimit": 1
-            },
-            "problemMatcher": []
-        }
-    ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run PianoTab",
+			"type": "shell",
+			"command": "/home/linuxlite/Documents/.venv/bin/python",
+			"args": [
+				"${workspaceFolder}/pianotab.py"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"presentation": {
+				"reveal": "always",
+				"focus": true,
+				"panel": "shared",
+				"clear": true,
+				"showReuseMessage": false
+			},
+			"runOptions": {
+				"instanceLimit": 1
+			},
+			"problemMatcher": []
+		}
+	]
 }

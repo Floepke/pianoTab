@@ -97,6 +97,16 @@ class PyMuPDFCanvas(Canvas):
         w_pt = _mm_to_pt(self.width_mm)
         h_pt = _mm_to_pt(self.height_mm)
         self._page = self._doc.new_page(width=w_pt, height=h_pt)
+        
+        # Add a white background to the page
+        if self._page is not None:
+            shape = self._page.new_shape()
+            # Fill the entire page with white
+            rect = fitz.Rect(0, 0, w_pt, h_pt)
+            shape.draw_rect(rect)
+            shape.finish(fill=(1.0, 1.0, 1.0))  # White fill
+            shape.commit()
+        
         return self._page
 
     def save_pdf(self, path: str) -> Optional[str]:
@@ -343,9 +353,12 @@ class PyMuPDFCanvas(Canvas):
                 color_rgb = _hex_to_rgb(c.get('color', '#000000'))
                 # Measure actual text bbox using a temporary TextWriter to get accurate height
                 try:
-                    font_obj = fitz.Font("cour")
+                    font_obj = fitz.Font("courbd")  # Courier Bold
                 except Exception:
-                    font_obj = None
+                    try:
+                        font_obj = fitz.Font("cobb")  # Alternative Courier Bold name
+                    except Exception:
+                        font_obj = None
                 try:
                     tw_measure = fitz.TextWriter(page.rect)
                     # place baseline at y=font_pt to ensure positive rect
@@ -355,9 +368,12 @@ class PyMuPDFCanvas(Canvas):
                     h_pt = float(measure_rect.height)
                 except Exception:
                     try:
-                        w_pt = float(page.get_text_length(txt, fontname="courier", fontsize=font_pt))
+                        w_pt = float(page.get_text_length(txt, fontname="courbd", fontsize=font_pt))
                     except Exception:
-                        w_pt = max(0.0, len(txt) * font_pt * 0.6)
+                        try:
+                            w_pt = float(page.get_text_length(txt, fontname="courier", fontsize=font_pt))
+                        except Exception:
+                            w_pt = max(0.0, len(txt) * font_pt * 0.6)
                     h_pt = font_pt
                 # Anchor point (top-left coordinate system)
                 ax_pt, ay_pt = self._xy_mm_to_pdf_pt(c.get('x', 0.0), c.get('y', 0.0))
@@ -381,7 +397,10 @@ class PyMuPDFCanvas(Canvas):
                     tw.write_text(page, color=color_rgb, morph=(fitz.Point(ax_pt, ay_pt), m))
                 except Exception as _e:
                     # Fallback: no rotation, draw at baseline
-                    page.insert_text(fitz.Point(bl_x, bl_y), txt, fontsize=font_pt, fontname="courier", color=color_rgb)
+                    try:
+                        page.insert_text(fitz.Point(bl_x, bl_y), txt, fontsize=font_pt, fontname="courbd", color=color_rgb)
+                    except Exception:
+                        page.insert_text(fitz.Point(bl_x, bl_y), txt, fontsize=font_pt, fontname="courier", color=color_rgb)
 
     # ----- Dashed polyline drawing (manual) -----
 
