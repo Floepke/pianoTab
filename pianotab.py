@@ -29,8 +29,9 @@ Config.set('graphics', 'resizable', True)
 # Platform-specific window state configuration
 import platform as py_platform
 if py_platform.system() == 'Linux':
-    # Enable maximization for Linux since it's working safely
-    Config.set('graphics', 'window_state', 'maximized')  # Start maximized on Linux
+    # Keep config-based maximization disabled to avoid segfault
+    # Use only runtime maximization instead
+    pass
 else:
     # Keep windowed for macOS and Windows for better compatibility
     pass
