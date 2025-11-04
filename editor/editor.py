@@ -44,10 +44,10 @@ class Editor:
         
         # Grid configuration - use exact GlobalBasegrid defaults
         self.barline_color = "#000000"        # Default from GlobalBasegrid
-        self.barline_width = 2.0              # Default from GlobalBasegrid.barlineWidth
+        self.barline_width = 0.25             # Default from GlobalBasegrid.barlineWidth (mm)
         self.gridline_color = "#000000"       # Default from GlobalBasegrid.gridlineColor
-        self.gridline_width = 1.0             # Default from GlobalBasegrid.gridlineWidth
-        self.gridline_dash_pattern = [4, 4]   # Default from GlobalBasegrid.gridlineDashPattern
+        self.gridline_width = 0.125           # Default from GlobalBasegrid.gridlineWidth (mm)
+        self.gridline_dash_pattern = [2, 2]   # Default from GlobalBasegrid.gridlineDashPattern (mm)
         
         # Clef line dash pattern - use exact GlobalStave default
         self.clef_dash_pattern = [2, 2]       # Default from GlobalStave.clefDashPattern
@@ -55,6 +55,9 @@ class Editor:
         # Current view state
         self.scroll_time_offset: float = 0.0
         self.selected_notes: List[Note] = []
+        # Timeline cursor state (ticks from start; None = hidden)
+        self.cursor_time: Optional[float] = None
+        self._cursor_item_id: Optional[int] = None
         
         # Initialize layout
         self._calculate_layout()
@@ -105,16 +108,10 @@ class Editor:
         # Stave width spans the full width (no reduction)
         self.stave_width = total_width
         
-        # Calculate editor width (right edge of editor = left edge of scrollbar)
-        # Convert UI scrollbar width (px) to logical mm using current content scale.
-        # Using px_per_mm keeps this responsive to live widget size/scale changes.
-        px_per_mm = max(1e-6, getattr(self.canvas, '_px_per_mm', 0.0))
-        if px_per_mm > 0:
-            scrollbar_width_mm = self.canvas.custom_scrollbar.scrollbar_width / px_per_mm
-        else:
-            # Fallback to DPI-based conversion if scale not ready yet
-            scrollbar_width_mm = self.canvas.custom_scrollbar.scrollbar_width * getattr(self.canvas, '_mm_per_pixel', 0.264583)
-        self.editor_width = self.canvas.width_mm - scrollbar_width_mm
+        # Effective editor width equals logical canvas width in mm.
+        # When a scrollbar is visible, Canvas reduces px-per-mm so x=width_mm maps to
+        # the right boundary before the scrollbar automatically.
+        self.editor_width = self.canvas.width_mm
         
         # Update canvas quarter note spacing for musical scrolling in millimeters
         # Convert pixels to mm: pixels_per_quarter / pixels_per_mm = mm_per_quarter
@@ -223,13 +220,16 @@ class Editor:
         # Set proper drawing order: stave lines at back, then gridlines, barlines, measure numbers, notes on top
         self.canvas.raise_in_order([
             'staveThreeLines',
-            'staveTwoLines', 
+            'staveTwoLines',
             'staveClefLines',
             'gridlines',
             'barlines',
             'measureNumbers',
             'notes'
         ])
+
+        # Draw horizontal timeline cursor on top if present
+        self._draw_cursor()
         
     def _calculate_total_time(self):
         """Calculate the total time span needed for the score."""
@@ -540,6 +540,89 @@ class Editor:
             return new_note
         return None
 
+    def _get_grid_step_ticks(self) -> float:
+        """Return current grid step in ticks from grid_selector/canvas."""
+        try:
+            gs = getattr(self, 'grid_selector', None)
+            if gs is not None and hasattr(gs, 'get_grid_step'):
+                val = gs.get_grid_step()
+                if isinstance(val, (int, float)) and val > 0:
+                    return float(val)
+        except Exception:
+            pass
+        # Fallback to canvas' grid step
+        try:
+            if hasattr(self.canvas, 'get_grid_step'):
+                val = self.canvas.get_grid_step()
+                if isinstance(val, (int, float)) and val > 0:
+                    return float(val)
+        except Exception:
+            pass
+        return float(PIANOTICK_QUARTER)
+
+    def get_grid_step(self) -> float:
+        """Expose grid step for other components (canvas fallback)."""
+        return self._get_grid_step_ticks()
+
+    def update_cursor_from_mouse_mm(self, y_mm: float):
+        """Update cursor_time from mouse Y in mm with grid snapping."""
+        try:
+            raw_ticks = self.y_to_ticks(float(y_mm))
+            step = max(1e-6, self._get_grid_step_ticks())
+            snapped = math.floor(raw_ticks / step) * step
+            # Clamp within score
+            snapped = max(0.0, snapped)
+            total = float(self._get_score_length_in_ticks())
+            snapped = min(total, snapped)
+            self.cursor_time = snapped
+            self._draw_cursor()
+        except Exception as e:
+            print(f"CURSOR DEBUG: update failed: {e}")
+
+    def clear_cursor(self):
+        """Hide cursor and remove from canvas."""
+        self.cursor_time = None
+        if getattr(self, '_cursor_item_id', None):
+            try:
+                self.canvas.delete(self._cursor_item_id)
+            except Exception:
+                pass
+            self._cursor_item_id = None
+
+    def _draw_cursor(self):
+        """Draw or update the dashed horizontal cursor at cursor_time."""
+        # Remove existing
+        if getattr(self, '_cursor_item_id', None):
+            try:
+                self.canvas.delete(self._cursor_item_id)
+            except Exception:
+                pass
+            self._cursor_item_id = None
+        if self.cursor_time is None:
+            return
+        # Compute Y in mm
+        y_mm = self._time_to_y_mm(self.cursor_time)
+        # X extents: full editor view (0 to logical width)
+        x1 = 0.0
+        x2 = float(self.editor_width)
+        if x2 <= x1:
+            return
+        try:
+            self._cursor_item_id = self.canvas.add_line(
+                x1_mm=x1,
+                y1_mm=y_mm,
+                x2_mm=x2,
+                y2_mm=y_mm,
+                stroke_color="#000000",
+                stroke_width_mm=0.25,
+                stroke_dash=True,
+                stroke_dash_pattern_mm=(2.0, 2.0),
+                id=['cursorLine']
+            )
+            # Kept on top by being added after raise_in_order in render()
+        except Exception as e:
+            print(f"CURSOR DEBUG: draw failed: {e}")
+
 
 # Maintain backward compatibility and integrate with main app
 class Editor(Editor):
@@ -580,38 +663,97 @@ class Editor(Editor):
         if not self.score or not hasattr(self.score, 'properties'):
             print("DEBUG: No score.properties found, using defaults")
             return
-        
+
         properties = self.score.properties
-        
-        # Update stave line settings from properties.globalStave - use exact mm values from SCORE model
+
+        # Stave line settings (mm, match paper output)
         if hasattr(properties, 'globalStave'):
             stave = properties.globalStave
             self.stave_two_color = getattr(stave, 'twoLineColor', '#000000')
-            self.stave_three_color = getattr(stave, 'threeLineColor', '#000000') 
+            self.stave_three_color = getattr(stave, 'threeLineColor', '#000000')
             self.stave_clef_color = getattr(stave, 'clefColor', '#000000')
-            
-            # Use exact line widths from SCORE model (in mm) - these match paper output
-            self.stave_two_width = getattr(stave, 'twoLineWidth', 0.125)    # Exact default 0.125mm
-            self.stave_three_width = getattr(stave, 'threeLineWidth', 0.25) # Exact default 0.25mm  
-            self.stave_clef_width = getattr(stave, 'clefWidth', 0.125)      # Exact default 0.125mm
-            
-            # Use clef dash pattern from SCORE model
-            self.clef_dash_pattern = getattr(stave, 'clefDashPattern', [2, 2])  # Default [2, 2]mm
-            
+
+            self.stave_two_width = getattr(stave, 'twoLineWidth', 0.125)
+            self.stave_three_width = getattr(stave, 'threeLineWidth', 0.25)
+            self.stave_clef_width = getattr(stave, 'clefWidth', 0.125)
+
+            self.clef_dash_pattern = getattr(stave, 'clefDashPattern', [2, 2])
+
             print(f"DEBUG: Using SCORE line widths - two: {self.stave_two_width}mm, three: {self.stave_three_width}mm, clef: {self.stave_clef_width}mm")
             print(f"DEBUG: Using SCORE clef dash pattern: {self.clef_dash_pattern}mm")
-        
-        # Update grid settings from properties.globalBasegrid - use exact mm values
+
+        # Grid/barline settings (mm, match paper output)
         if hasattr(properties, 'globalBasegrid'):
             basegrid = properties.globalBasegrid
             self.barline_color = getattr(basegrid, 'barlineColor', '#000000')
-            self.barline_width = getattr(basegrid, 'barlineWidth', 2.0)     # Default 2.0mm
+            self.barline_width = getattr(basegrid, 'barlineWidth', 0.25)   # mm
             self.gridline_color = getattr(basegrid, 'gridlineColor', '#000000')
-            self.gridline_width = getattr(basegrid, 'gridlineWidth', 1.0)   # Default 1.0mm
-            self.gridline_dash_pattern = getattr(basegrid, 'gridlineDashPattern', [4, 4])  # Default [4, 4]mm
-            
+            self.gridline_width = getattr(basegrid, 'gridlineWidth', 0.125) # mm
+            self.gridline_dash_pattern = getattr(basegrid, 'gridlineDashPattern', [2, 2])  # mm
+
             print(f"DEBUG: Using SCORE grid widths - barline: {self.barline_width}mm, gridline: {self.gridline_width}mm")
             print(f"DEBUG: Using SCORE gridline dash pattern: {self.gridline_dash_pattern}mm")
+
+        properties = self.score.properties
+
+        # Stave line settings (mm, match paper output)
+        if hasattr(properties, 'globalStave'):
+            stave = properties.globalStave
+            self.stave_two_color = getattr(stave, 'twoLineColor', '#000000')
+            self.stave_three_color = getattr(stave, 'threeLineColor', '#000000')
+            self.stave_clef_color = getattr(stave, 'clefColor', '#000000')
+
+            self.stave_two_width = getattr(stave, 'twoLineWidth', 0.125)
+            self.stave_three_width = getattr(stave, 'threeLineWidth', 0.25)
+            self.stave_clef_width = getattr(stave, 'clefWidth', 0.125)
+
+            self.clef_dash_pattern = getattr(stave, 'clefDashPattern', [2, 2])
+
+            print(f"DEBUG: Using SCORE line widths - two: {self.stave_two_width}mm, three: {self.stave_three_width}mm, clef: {self.stave_clef_width}mm")
+            print(f"DEBUG: Using SCORE clef dash pattern: {self.clef_dash_pattern}mm")
+
+        # Grid/barline settings (mm, match paper output)
+        if hasattr(properties, 'globalBasegrid'):
+            basegrid = properties.globalBasegrid
+            self.barline_color = getattr(basegrid, 'barlineColor', '#000000')
+            self.barline_width = getattr(basegrid, 'barlineWidth', 0.25)
+            self.gridline_color = getattr(basegrid, 'gridlineColor', '#000000')
+            self.gridline_width = getattr(basegrid, 'gridlineWidth', 0.125)
+            self.gridline_dash_pattern = getattr(basegrid, 'gridlineDashPattern', [2, 2])
+
+            print(f"DEBUG: Using SCORE grid widths - barline: {self.barline_width}mm, gridline: {self.gridline_width}mm")
+            print(f"DEBUG: Using SCORE gridline dash pattern: {self.gridline_dash_pattern}mm")
+
+        # Intentionally ignore properties.globalBarLine for editor rendering:
+        # The editor must match GlobalBasegrid mm widths exactly.
+        
+    def load_score(self, score: SCORE):
+        """Load an existing SCORE into the editor and refresh the display."""
+        try:
+            # Use existing pipeline to apply the new score, zoom, and styles
+            self.set_score(score)
+            # Reset view related state
+            self.scroll_time_offset = 0.0
+            try:
+                self.cursor_time = None
+            except Exception:
+                pass
+        except Exception as e:
+            print(f"Editor: load_score error: {e}")
+
+    def new_score(self):
+        """Create a new default SCORE and display it."""
+        try:
+            score = self._create_default_score()
+            self.set_score(score)
+            # Reset view related state
+            self.scroll_time_offset = 0.0
+            try:
+                self.cursor_time = None
+            except Exception:
+                pass
+        except Exception as e:
+            print(f"Editor: new_score error: {e}")
     
     def _initial_render(self, dt):
         """Perform initial render after app has loaded."""

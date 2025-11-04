@@ -430,6 +430,15 @@ class Canvas(Widget):
         # Convert back to pixels
         snapped_scroll_px = snapped_scroll_mm * px_per_mm
 
+        # Bottom-edge snap: if near max scroll, snap exactly to max_scroll so full bottom margin is visible
+        content_height = self._content_height_px()
+        viewport_height = self._view_h
+        max_scroll_px = max(0.0, content_height - viewport_height)
+        grid_spacing_px = grid_spacing_mm * px_per_mm
+        threshold_px = max(1.0, grid_spacing_px / 2.0) if grid_spacing_px > 1e-6 else 1.0
+        if max_scroll_px > 0.0 and snapped_scroll_px >= max_scroll_px - threshold_px:
+            snapped_scroll_px = max_scroll_px
+
         print(
             f"SCROLL SNAP: {scroll_px:.1f}px -> {snapped_scroll_px:.1f}px "
             f"(px_per_mm: {px_per_mm:.3f}, anchor_used: {anchor_used_mm:.1f}mm, grid: {grid_spacing_mm:.1f}mm, step: {grid_step_ticks}t)"
@@ -948,21 +957,30 @@ class Canvas(Widget):
         return super().on_touch_up(touch)
 
     def on_mouse_motion(self, window, pos):
-        """Handle mouse motion for cursor tracking."""
+        """Handle mouse motion and forward snapped Y to editor for horizontal cursor."""
         mouse_x, mouse_y = pos
-        
-        # Check if mouse is over the canvas area (not scrollbar)
-        if (self.x <= mouse_x <= self.x + self.width - self.custom_scrollbar.scrollbar_width and
-            self.y <= mouse_y <= self.y + self.height):
-            
-            # Show cursor and update position
-            self._update_cursor_position(mouse_x - self.x)
-            if not self._cursor_visible:
-                self.show_cursor()
+
+        # Check if mouse is over the canvas drawable area (exclude custom scrollbar)
+        inside = (self.x <= mouse_x <= self.x + self.width - self.custom_scrollbar.scrollbar_width and
+                  self.y <= mouse_y <= self.y + self.height)
+
+        ed = getattr(self, 'piano_roll_editor', None)
+        if inside:
+            # Convert to mm (top-left origin)
+            mm_x, mm_y = self._px_to_mm(mouse_x, mouse_y)
+            # Forward Y in mm to the editor so it can snap to grid and draw its own horizontal cursor
+            if ed is not None and hasattr(ed, 'update_cursor_from_mouse_mm'):
+                try:
+                    ed.update_cursor_from_mouse_mm(mm_y)
+                except Exception as e:
+                    print(f"CANVAS: editor cursor update failed: {e}")
         else:
-            # Hide cursor when mouse leaves canvas area
-            if self._cursor_visible:
-                self.hide_cursor()
+            # Outside canvas area: let editor clear its cursor
+            if ed is not None and hasattr(ed, 'clear_cursor'):
+                try:
+                    ed.clear_cursor()
+                except Exception as e:
+                    print(f"CANVAS: editor cursor clear failed: {e}")
 
     # ---------- Internal: layout / transforms ----------
 
@@ -1190,7 +1208,7 @@ class Canvas(Widget):
             x_mm, y_mm = pts_mm[i], pts_mm[i + 1]
             pts_px += list(self._mm_to_px_point(x_mm, y_mm))
         g.add(Color(*item['color']))
-        width_px = max(1.0, item['w_mm'] * self._px_per_mm)
+        width_px = max(0.2, item['w_mm'] * self._px_per_mm)
         if item.get('dash'):
             on_px = max(1.0, item['dash_mm'][0] * self._px_per_mm)
             off_px = max(1.0, item['dash_mm'][1] * self._px_per_mm)
@@ -1205,7 +1223,7 @@ class Canvas(Widget):
             x_mm, y_mm = pts_mm[i], pts_mm[i + 1]
             pts_px += list(self._mm_to_px_point(x_mm, y_mm))
         g.add(Color(*item['color']))
-        width_px = max(1.0, item['w_mm'] * self._px_per_mm)
+        width_px = max(0.2, item['w_mm'] * self._px_per_mm)
         if item.get('dash'):
             on_px = max(1.0, item['dash_mm'][0] * self._px_per_mm)
             off_px = max(1.0, item['dash_mm'][1] * self._px_per_mm)
@@ -1369,7 +1387,7 @@ class Canvas(Widget):
             px_per_mm = max(1e-6, self._px_per_mm)
             # Build texture metrics similar to draw (pt -> px)
             font_px = max(1.0, (item['font_pt'] * 25.4 / 72.0) * px_per_mm)
-            lbl = CoreLabel(text=item['text'], font_name='Courier New', font_size=font_px)
+            lbl = CoreLabel(text=item['text'], font_name=self._get_courier_bold_font(), font_size=font_px)
             lbl.refresh()
             tex = lbl.texture
             if not tex:
