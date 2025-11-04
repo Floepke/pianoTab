@@ -11,8 +11,7 @@ from kivy.properties import NumericProperty, ObjectProperty, ListProperty
 from kivy.clock import Clock
 from kivy.core.window import Window
 from gui.colors import DARK, LIGHT_DARKER
-from gui.callbacks import BUTTON_CONFIG
-from functools import partial
+from typing import Dict, Tuple, Callable, Optional, Any
 from icons.icon import load_icon
 
 
@@ -58,45 +57,47 @@ class ToolSash(Widget):
     ensuring they move perfectly in sync with the sash.
     """
 
-    def __init__(self, split_view, button_keys=None, **kwargs):
+    def __init__(self, split_view, default_toolbar=None, contextual_toolbar=None, **kwargs):
         super().__init__(**kwargs)
         self.split_view = split_view
         self.dragging = False
         self.hovering = False
         self._drag_start_snap_ratio = None  # Store snap ratio at drag start to prevent flickering
 
+        # Configs
+        # default_toolbar: Dict[str, (callable|None, tooltip)]
+        # contextual_toolbar: Dict[str, Dict[str, (callable|None, tooltip)]]
+        self.default_toolbar = dict(default_toolbar or {})
+        self.contextual_toolbar = dict(contextual_toolbar or {})
+        self.current_context_key: Optional[str] = None
+        # Optional cross-linked SplitView to synchronize with (e.g., vertical<->horizontal sashes)
+        self.linked_split = None
+        # Drag coupling state
+        self._drag_origin_pos = None
+        self._partner_start_ratio = None
+
         # Draw sash background
         with self.canvas:
             self.bg_color = Color(*DARK)
             self.bg_rect = Rectangle(pos=self.pos, size=self.size)
 
-        # Create buttons directly as children from centralized config
-        self.buttons = []
-        # Determine which buttons to show:
-        # - If explicit button_keys provided, use them.
-        # - Otherwise use BUTTON_CONFIG insertion order as the single source of truth.
-        if button_keys is not None:
-            keys = list(button_keys)
-        else:
-            keys = list(BUTTON_CONFIG.keys())
-        for key in keys:
-            callback = BUTTON_CONFIG.get(key)
-
-            icon = load_icon(key)
-            if icon is not None:
-                btn = IconButton(icon_name=key)
-            else:
-                # Fallback to text button if icon is missing
-                btn = Button(text=key, size_hint=(None, None), size=(64, 64))
-
-            # Bind callback if available; else print placeholder
-            if callback is not None:
-                btn.bind(on_release=partial(self._invoke_action, callback))
-            else:
-                btn.bind(on_release=partial(self._action_missing, key))
-
+        # Build default (always visible) buttons
+        self.default_buttons = []
+        for key, val in self.default_toolbar.items():
+            cb = None
+            tip = ""
+            if isinstance(val, tuple) and len(val) >= 1:
+                cb = val[0]
+                tip = val[1] if len(val) >= 2 else ""
+            elif callable(val) or val is None:
+                cb = val
+            btn = self._make_button(key, cb)
             self.add_widget(btn)
-            self.buttons.append(btn)
+            self.default_buttons.append(btn)
+
+        # Build initial contextual buttons (may be empty until context set)
+        self.contextual_buttons = []
+        self._rebuild_contextual_buttons(self.current_context_key)
 
         # Bind sash properties to update button positions immediately
         self.bind(pos=self._update_layout, size=self._update_layout, center_x=self._update_layout)
@@ -112,15 +113,58 @@ class ToolSash(Widget):
         self.bg_rect.pos = self.pos
         self.bg_rect.size = self.size
 
-        # Position buttons vertically centered, stacked at top of sash
         btn_spacing = 10
-        top_padding = 0
-        current_y = self.top - top_padding
-        
-        for btn in self.buttons:
-            btn.center_x = self.center_x
-            btn.top = current_y
-            current_y -= (btn.height + btn_spacing)
+
+        if self.split_view.orientation == 'horizontal':
+            # Vertical sash: default at top (stacked down), contextual at bottom (stacked up)
+            top_padding = 0  # default buttons have menu bar above; no extra top padding
+            bottom_padding = btn_spacing  # contextual buttons keep distance from screen edge
+
+            # Top group: default buttons stacked downward from top
+            current_y = self.top - top_padding
+            for btn in self.default_buttons:
+                btn.center_x = self.center_x
+                btn.top = current_y
+                current_y -= (btn.height + btn_spacing)
+
+            # Bottom group: contextual buttons stacked upward from bottom
+            current_bottom = self.y + bottom_padding
+            for btn in self.contextual_buttons:
+                btn.center_x = self.center_x
+                btn.y = current_bottom
+                current_bottom += (btn.height + btn_spacing)
+        else:
+            # Horizontal sash: arrange buttons horizontally with 5px padding/spacing
+            # Also enforce 5px vertical padding by scaling buttons to fit sash height - 10px
+            left_padding = 5
+            right_padding = 5
+            spacing = 5
+
+            # Compute target button size to keep 5px top/bottom padding
+            target_h = max(0, self.height - 10)
+
+            # Left group: contextual buttons left-to-right
+            current_x = self.x + left_padding
+            for btn in self.contextual_buttons:
+                # Make the button square and vertically padded inside the sash
+                try:
+                    btn.size = (target_h, target_h)
+                except Exception:
+                    btn.height = target_h
+                btn.center_y = self.center_y
+                btn.x = current_x
+                current_x += (btn.width + spacing)
+
+            # Right group: default buttons right-to-left (if any)
+            current_right = self.right - right_padding
+            for btn in self.default_buttons:
+                try:
+                    btn.size = (target_h, target_h)
+                except Exception:
+                    btn.height = target_h
+                btn.center_y = self.center_y
+                btn.right = current_right
+                current_right -= (btn.width + spacing)
 
     # Centralized action invocation helpers
     def _invoke_action(self, cb, *_args):
@@ -131,6 +175,81 @@ class ToolSash(Widget):
 
     def _action_missing(self, key, *_args):
         print(f"No action configured for '{key}'")
+
+    # Helpers and public API for contextual toolbar
+
+    def _make_button(self, key: str, cb: Optional[Callable[[], None]]):
+        icon = load_icon(key)
+        if icon is not None:
+            btn = IconButton(icon_name=key)
+        else:
+            btn = Button(text=key, size_hint=(None, None), size=(64, 64))
+        if cb is not None:
+            # Bind to invoke callback
+            btn.bind(on_release=lambda *_: self._invoke_action(cb))
+        else:
+            btn.bind(on_release=lambda *_: self._action_missing(key))
+        return btn
+
+    def set_configs(self, default_toolbar: Optional[Dict[str, Any]] = None,
+                    contextual_toolbar: Optional[Dict[str, Dict[str, Any]]] = None):
+        """Update toolbar configs and rebuild buttons."""
+        if default_toolbar is not None:
+            self.default_toolbar = dict(default_toolbar)
+            # Rebuild default buttons
+            for b in self.default_buttons:
+                if b.parent is self:
+                    self.remove_widget(b)
+            self.default_buttons = []
+            for key, val in self.default_toolbar.items():
+                cb = None
+                if isinstance(val, tuple) and len(val) >= 1:
+                    cb = val[0]
+                elif callable(val) or val is None:
+                    cb = val
+                btn = self._make_button(key, cb)
+                self.add_widget(btn)
+                self.default_buttons.append(btn)
+
+        if contextual_toolbar is not None:
+            self.contextual_toolbar = dict(contextual_toolbar)
+
+        # Rebuild contextual group for current context
+        self._rebuild_contextual_buttons(self.current_context_key)
+        self._update_layout()
+
+    def set_context_key(self, key: Optional[str]):
+        """Set the active contextual key (e.g., 'note') to show its buttons at the sash bottom."""
+        if key == self.current_context_key:
+            return
+        self.current_context_key = key
+        self._rebuild_contextual_buttons(key)
+        self._update_layout()
+
+    def set_linked_split(self, partner_split):
+        """Link this sash's SplitView to another SplitView for cross-axis synchronization."""
+        self.linked_split = partner_split
+
+    def _rebuild_contextual_buttons(self, key: Optional[str]):
+        # Remove existing contextual buttons
+        for b in self.contextual_buttons:
+            if b.parent is self:
+                self.remove_widget(b)
+        self.contextual_buttons = []
+
+        if not key:
+            return
+
+        cfg = self.contextual_toolbar.get(key, {})
+        for btn_key, val in cfg.items():
+            cb = None
+            if isinstance(val, tuple) and len(val) >= 1:
+                cb = val[0]
+            elif callable(val) or val is None:
+                cb = val
+            btn = self._make_button(btn_key, cb)
+            self.add_widget(btn)
+            self.contextual_buttons.append(btn)
 
     def on_mouse_pos(self, window, pos):
         # Avoid cursor flicker while dragging
@@ -145,7 +264,7 @@ class ToolSash(Widget):
         # Hover logic - check if over any button
         is_hovering = self.collide_point(*self.to_widget(*pos))
         over_button = False
-        for btn in self.buttons:
+        for btn in (self.default_buttons + self.contextual_buttons):
             if btn.collide_point(*btn.to_widget(*pos)):
                 over_button = True
                 break
@@ -164,7 +283,7 @@ class ToolSash(Widget):
             return False
 
         # Let buttons handle touches first
-        for btn in self.buttons:
+        for btn in (self.default_buttons + self.contextual_buttons):
             tp = btn.to_widget(*touch.pos)
             if btn.collide_point(*tp):
                 if btn.on_touch_down(touch):
@@ -176,6 +295,16 @@ class ToolSash(Widget):
             self.dragging = True
             # Store the current snap ratio to prevent flickering during drag
             self._drag_start_snap_ratio = self.split_view.snap_ratio
+            # Initialize cross-link drag coupling state
+            try:
+                self._drag_origin_pos = tuple(touch.pos)
+            except Exception:
+                self._drag_origin_pos = None
+            try:
+                partner = getattr(self, 'linked_split', None)
+                self._partner_start_ratio = float(partner.split_ratio) if partner is not None else None
+            except Exception:
+                self._partner_start_ratio = None
             touch.grab(self)
             Window.set_system_cursor('size_we' if self.split_view.orientation == 'horizontal' else 'size_ns')
             return True
@@ -183,7 +312,66 @@ class ToolSash(Widget):
 
     def on_touch_move(self, touch):
         if touch.grab_current is self and self.dragging:
+            # Update the active split from the real touch position
             self.split_view.update_split(touch.pos)
+
+            # Cross-link partner split using the other axis of the mouse movement:
+            # - Dragging horizontal sash (orientation == 'vertical'): use mouse Y to drive partner's X.
+            # - Dragging vertical sash (orientation == 'horizontal'): use mouse X to drive partner's Y.
+            partner = getattr(self, 'linked_split', None)
+            if partner is not None:
+                try:
+                    # Delta-coupled cross-axis sync:
+                    # - Dragging vertical sash (orientation == 'horizontal'): use mouse Y delta to drive partner (vertical)
+                    # - Dragging horizontal sash (orientation == 'vertical'): use mouse X delta to drive partner (horizontal)
+                    origin = self._drag_origin_pos or touch.pos
+                    dx = float(touch.pos[0]) - float(origin[0])
+                    dy = float(touch.pos[1]) - float(origin[1])
+
+                    # Partner ratio at drag start (prevents jumps)
+                    try:
+                        base_r = float(self._partner_start_ratio) if self._partner_start_ratio is not None else float(partner.split_ratio)
+                    except Exception:
+                        base_r = float(partner.split_ratio)
+
+                    # Compute new ratio using the other axis delta normalized by the PARTNER's dimension
+                    if self.split_view.orientation == 'horizontal':
+                        # We are dragging the vertical sash; drive the partner using Y delta
+                        if partner.orientation == 'vertical':
+                            delta_r = dy / max(1.0, float(partner.height))
+                            # In vertical split, ratio decreases as Y increases -> invert
+                            new_r = base_r - delta_r
+                        else:
+                            # Fallback: if partner is horizontal, use X delta
+                            delta_r = dx / max(1.0, float(partner.width))
+                            new_r = base_r + delta_r
+                    else:
+                        # We are dragging the horizontal sash; drive the partner using X delta
+                        if partner.orientation == 'horizontal':
+                            delta_r = dx / max(1.0, float(partner.width))
+                            new_r = base_r + delta_r
+                        else:
+                            # Fallback: if partner is vertical, use Y delta with inversion
+                            delta_r = dy / max(1.0, float(partner.height))
+                            new_r = base_r - delta_r
+
+                    # Clamp to partner's min sizes
+                    if partner.orientation == 'horizontal':
+                        min_r = float(partner.min_left_size) / max(1.0, float(partner.width))
+                        max_r = 1.0 - (float(partner.min_right_size) / max(1.0, float(partner.width)))
+                        new_r = max(min_r, min(max_r, new_r))
+                        target_x = float(partner.x) + new_r * float(partner.width)
+                        partner.update_split((target_x, partner.center_y))
+                    else:
+                        min_r = float(partner.min_right_size) / max(1.0, float(partner.height))
+                        max_r = 1.0 - (float(partner.min_left_size) / max(1.0, float(partner.height)))
+                        new_r = max(min_r, min(max_r, new_r))
+                        target_y = float(partner.y) + (1.0 - new_r) * float(partner.height)
+                        partner.update_split((partner.center_x, target_y))
+                except Exception as _exc:
+                    # Keep UI resilient even if partner isn't ready
+                    pass
+
             # Force immediate sync so toolbar snaps in the same frame
             self._update_layout()
             return True
@@ -193,6 +381,9 @@ class ToolSash(Widget):
         if touch.grab_current is self:
             self.dragging = False
             self._drag_start_snap_ratio = None  # Clear stored snap ratio
+            # Clear cross-link drag coupling state
+            self._drag_origin_pos = None
+            self._partner_start_ratio = None
             touch.ungrab(self)
             Window.set_system_cursor('arrow')
             # One more sync in case final position snapped
@@ -326,18 +517,22 @@ class SplitView(Widget):
             total_height = self.height
             top_height = total_height * self.split_ratio - self.sash_width / 2
             bottom_height = total_height * (1 - self.split_ratio) - self.sash_width / 2
+
+            # Clamp to avoid negative sizes when panels collapse
+            top_h = max(0, top_height)
+            bottom_h = max(0, bottom_height)
             
             # Position and size top container
-            self.left_container.pos = (self.x, self.y + bottom_height + self.sash_width)
-            self.left_container.size = (self.width, max(0, top_height))
+            self.left_container.pos = (self.x, self.y + bottom_h + self.sash_width)
+            self.left_container.size = (self.width, top_h)
             
             # Position and size sash
-            self.sash.pos = (self.x, self.y + bottom_height)
+            self.sash.pos = (self.x, self.y + bottom_h)
             self.sash.size = (self.width, self.sash_width)
             
             # Position and size bottom container
             self.right_container.pos = self.pos
-            self.right_container.size = (self.width, max(0, bottom_height))
+            self.right_container.size = (self.width, bottom_h)
             
             # Update child widgets
             if self.left_widget:
@@ -355,9 +550,9 @@ class SplitView(Widget):
             relative_x = touch_pos[0] - self.x
             new_ratio = relative_x / self.width
             
-            # Clamp to respect minimum sizes
-            min_ratio = self.min_left_size / self.width
-            max_ratio = 1.0 - (self.min_right_size / self.width)
+            # Clamp to respect minimum sizes (account for half sash width)
+            min_ratio = (self.min_left_size + self.sash_width / 2.0) / max(1.0, self.width)
+            max_ratio = 1.0 - (self.min_right_size + self.sash_width / 2.0) / max(1.0, self.width)
             new_ratio = max(min_ratio, min(max_ratio, new_ratio))
             
             # Use stored snap ratio during dragging to prevent flickering
@@ -384,9 +579,10 @@ class SplitView(Widget):
             relative_y = touch_pos[1] - self.y
             new_ratio = 1.0 - (relative_y / self.height)
             
-            # Clamp to respect minimum sizes
-            min_ratio = self.min_right_size / self.height
-            max_ratio = 1.0 - (self.min_left_size / self.height)
+            # Clamp to respect minimum sizes (account for half sash height)
+            # top >= min_left_size and bottom >= min_right_size
+            min_ratio = (self.min_left_size + self.sash_width / 2.0) / max(1.0, self.height)
+            max_ratio = 1.0 - (self.min_right_size + self.sash_width / 2.0) / max(1.0, self.height)
             new_ratio = max(min_ratio, min(max_ratio, new_ratio))
             
             # Use stored snap ratio during dragging to prevent flickering

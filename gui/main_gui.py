@@ -27,7 +27,7 @@ from gui.split_view import SplitView
 from gui.grid_selector import GridSelector
 from gui.tool_selector import ToolSelector
 from gui.menu_bar import MenuBar
-from gui.callbacks import create_menu_config
+from gui.callbacks import create_menu_config, create_default_toolbar_config, create_contextual_toolbar_config
 from gui.colors import DARK, DARK_LIGHTER, LIGHT_DARKER, LIGHT
 from utils.canvas import Canvas
 from utils.pymupdfexport import PyMuPDFCanvas
@@ -158,13 +158,40 @@ class PrintPreviewWidget(Widget):
         self.paper_rect.size = (paper_width, paper_height)
 
 
+class PropertiesPanelWidget(Widget):
+    """
+    Bottom properties panel placeholder.
+    Will later display/edit settings organized in tabs.
+    """
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        with self.canvas.before:
+            self.bg_color = Color(*DARK_LIGHTER)
+            self.bg_rect = Rectangle(pos=self.pos, size=self.size)
+        self.bind(pos=self._update_bg, size=self._update_bg)
+
+        # Simple placeholder label
+        self.label = Label(
+            text='Properties Panel\n(coming soon)',
+            color=LIGHT,
+            font_size='18sp',
+            halign='center'
+        )
+        self.add_widget(self.label)
+
+    def _update_bg(self, *args):
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
+        self.label.center = self.center
+
+
 class SidePanelWidget(ScrollView):
     """
     Left side panel widget - a simple scrollable vertical layout.
     Contains grid selector and tool selector.
     """
     
-    def __init__(self, grid_callback=None, **kwargs):
+    def __init__(self, grid_callback=None, tool_callback=None, **kwargs):
         super().__init__(
             size_hint=(1, 1),
             do_scroll_x=False,
@@ -177,6 +204,7 @@ class SidePanelWidget(ScrollView):
         )
         
         self.grid_callback = grid_callback
+        self.tool_callback = tool_callback
         
         # Simple vertical layout
         self.layout = BoxLayout(
@@ -197,7 +225,13 @@ class SidePanelWidget(ScrollView):
         self.layout.add_widget(self.tool_selector)
     
     def on_tool_selected(self, tool_name):
-        """Handle tool selection."""
+        """Handle tool selection and notify main GUI."""
+        if self.tool_callback:
+            try:
+                self.tool_callback(tool_name)
+            except Exception:
+                # Silent guard for UI callback
+                pass
         print(f'Tool selected: {tool_name}')
     
     def on_grid_changed(self, grid_step):
@@ -223,18 +257,25 @@ class PianoTabGUI(BoxLayout):
         self.side_panel = None
         self.editor_area = None
         self.print_preview = None
-        
-        # Bind button callbacks to this instance
-        self._setup_button_callbacks()
-        
+        self.properties_panel = None
+        self.editor_properties_split = None
+         
         self.setup_layout()
     
-    def _setup_button_callbacks(self):
-        """Bind toolbar button callbacks to this GUI instance from a single config source."""
-        from gui.callbacks import BUTTON_CONFIG, create_button_config
-        # Replace the global BUTTON_CONFIG with the instance-bound config
-        BUTTON_CONFIG.clear()
-        BUTTON_CONFIG.update(create_button_config(self))
+    def _normalize_tool_key(self, name: str) -> str:
+        """Normalize ToolSelector name to contextual-toolbar key (e.g., 'Note' -> 'note')."""
+        return name.lower().replace('-', '').replace(' ', '').replace('_', '')
+
+    def on_tool_selected(self, tool_name):
+        """Forward tool selection to the sashes to update contextual buttons."""
+        key = self._normalize_tool_key(tool_name)
+        # Only update contextual toolbar on the horizontal sash (editor|properties)
+        # Horizontal sash between editor (top) and properties panel (bottom) - contextual left aligned
+        if hasattr(self, 'editor_properties_split') and self.editor_properties_split and hasattr(self.editor_properties_split, 'sash'):
+            try:
+                self.editor_properties_split.sash.set_context_key(key)
+            except Exception:
+                pass
     
     def setup_layout(self):
         """Create the main layout structure with menu bar and resizable panels."""
@@ -248,7 +289,7 @@ class PianoTabGUI(BoxLayout):
         self.main_layout = BoxLayout(orientation='horizontal', spacing=0)
         
         # Left side panel with fixed width
-        self.side_panel = SidePanelWidget(size_hint_x=None, width=400, grid_callback=self.on_grid_step_changed)
+        self.side_panel = SidePanelWidget(size_hint_x=None, width=400, grid_callback=self.on_grid_step_changed, tool_callback=self.on_tool_selected)
         self.main_layout.add_widget(self.side_panel)
         
         # Right side: Editor-Preview split view
@@ -260,20 +301,68 @@ class PianoTabGUI(BoxLayout):
             min_left_size=20,  # Minimum pixels for editor panel to prevent sash overlap
             min_right_size=40   # Minimum pixels for preview panel
         )
+        # Configure sash toolbars
+        default_toolbar = create_default_toolbar_config(self)
+        contextual_toolbar = create_contextual_toolbar_config(self)
+        self.editor_preview_split.sash.set_configs(
+            default_toolbar=default_toolbar,
+            contextual_toolbar={}  # remove contextual toolbar on the vertical sash
+        )
+        # No contextual toolbar on the vertical sash (editor|preview)
         
-        # Editor area (left side of right panel) - use our mm-based Canvas
-        self.editor_area = Canvas(width_mm=210.0, height_mm=297.0,
-                                    background_color=(1, 1, 1, 1),
-                                    border_color=DARK,
-                                    border_width_px=1.0)
-        self.editor_preview_split.set_left(self.editor_area)
-        
-        # Print preview area (right side of right panel) - also Canvas
-        self.print_preview = Canvas(width_mm=210.0, height_mm=297.0,
-                                      background_color=(1, 1, 1, 1),
-                                      border_color=DARK_LIGHTER,
-                                      border_width_px=1.0)
+        # Editor area (top of inner split) - use our mm-based Canvas
+        self.editor_area = Canvas(
+            width_mm=210.0, height_mm=297.0,
+            background_color=(1, 1, 1, 1),
+            border_color=DARK,
+            border_width_px=1.0
+        )
+
+        # Properties panel (bottom of inner split)
+        self.properties_panel = PropertiesPanelWidget()
+
+        # Inner vertical-orientation split (horizontal sash) between editor (top) and properties (bottom)
+        self.editor_properties_split = SplitView(
+            orientation='vertical',
+            sash_width=64,
+            split_ratio=0.85,   # Editor takes ~85% height initially
+            sash_color=DARK,
+            min_left_size=80,   # Min top height
+            min_right_size=0    # Min bottom (properties) height can collapse to 0
+        )
+        # Configure inner sash toolbars: contextual buttons shown left-aligned; no default buttons
+        self.editor_properties_split.sash.set_configs(
+            default_toolbar={},
+            contextual_toolbar=contextual_toolbar
+        )
+        # Initialize contextual toolbar state on inner sash
+        try:
+            initial_tool = self.side_panel.tool_selector.get_tool()
+            self.editor_properties_split.sash.set_context_key(self._normalize_tool_key(initial_tool))
+        except Exception:
+            pass
+
+        # Attach widgets to inner split
+        self.editor_properties_split.set_left(self.editor_area)        # top
+        self.editor_properties_split.set_right(self.properties_panel)  # bottom
+
+        # Outer split: left side is the inner (editor|properties) split
+        self.editor_preview_split.set_left(self.editor_properties_split)
+
+        # Print preview area (right side of outer split) - also Canvas
+        self.print_preview = Canvas(
+            width_mm=210.0, height_mm=297.0,
+            background_color=(1, 1, 1, 1),
+            border_color=DARK_LIGHTER,
+            border_width_px=1.0
+        )
         self.editor_preview_split.set_right(self.print_preview)
+        # Cross-link sashes for synchronized dragging (X<->Y)
+        try:
+            self.editor_preview_split.sash.set_linked_split(self.editor_properties_split)
+            self.editor_properties_split.sash.set_linked_split(self.editor_preview_split)
+        except Exception:
+            pass
         
         # Add editor-preview split to main layout
         self.main_layout.add_widget(self.editor_preview_split)

@@ -26,6 +26,11 @@ MenuItemValue = Union[Callable[[], None], Tuple[Callable[[], None], str], None, 
 MenuConfig = Dict[str, MenuItemValue]
 ButtonConfig = Dict[str, Callable[[], None]]
 
+# Typed configs for sash toolbar buttons
+ButtonWithTip = Tuple[Callable[[], None] | None, str]
+ButtonConfigWithTips = Dict[str, ButtonWithTip]
+ContextualToolbarConfig = Dict[str, ButtonConfigWithTips]
+
 
 class AppCallbacks(Protocol):
     """Interface for callbacks the GUI exposes. Used for IntelliSense.
@@ -100,38 +105,39 @@ def create_menu_config(app_instance: AppCallbacks) -> MenuConfig:
     }
 
 
-def create_button_config(app_instance: AppCallbacks) -> ButtonConfig:
+# (Removed legacy create_button_config and centralized BUTTON_CONFIG.
+#  Use create_default_toolbar_config/create_contextual_toolbar_config instead.)
+
+
+def create_default_toolbar_config(app_instance: AppCallbacks) -> ButtonConfigWithTips:
     """
-    Create toolbar button configuration bound to application instance methods.
-    
-    Args:
-        app_instance: The main application/GUI instance that provides callback methods
-        
-    Returns:
-        Dictionary mapping button keys (icon names) to their callbacks
-        
-    Notes:
-        - Keys double as icon names (looked up in icons_data.ICONS)
-        - If icon doesn't exist, key is used as button text
-        - Values are callables invoked when button is pressed
-        
-    Example:
-        {
-            'note2left': app.move_note_to_left_hand,
-            'note2right': app.move_note_to_right_hand,
-            'note': app.add_note
-        }
+    Build the always-visible toolbar (top of sash).
+    Keys are icon names; values are (callable|None, tooltip).
     """
     return {
-        # Sash toolbar buttons (between editor and preview)
-    "note2left": partial(callback_note_to_left, app_instance),
-    "note2right": partial(callback_note_to_right, app_instance),
-        "noteLeft": None,
-        "noteRight": None,
-        "previous": None,
-        "next": None,
-        "MyTest": partial(callback_my_test, app_instance),
+        "previous": (None, "Previous item"),
+        "next": (None, "Next item"),
+        "MyTest": (partial(callback_my_test, app_instance), "Run render + PDF test"),
     }
+
+
+def create_contextual_toolbar_config(app_instance: AppCallbacks) -> ContextualToolbarConfig:
+    """
+    Build the contextual toolbar map.
+    Top-level key is the normalized ToolSelector value (e.g. 'note').
+    Inner dict maps icon name -> (callable|None, tooltip).
+    """
+    return {
+        "note": {
+            "noteLeft": (partial(callback_note_to_left, app_instance), "Move selected note to left hand"),
+            "noteRight": (partial(callback_note_to_right, app_instance), "Move selected note to right hand"),
+        }
+    }
+
+
+# Mutable, app-bound config stores (populated by GUI on startup)
+DEFAULT_TOOLBAR_BUTTON_CONFIG: ButtonConfigWithTips = {}
+CONTEXTUAL_TOOLBAR_CONFIG: ContextualToolbarConfig = {}
 
 
 # Placeholder implementations for demonstration
@@ -150,16 +156,17 @@ def _not_implemented(action: str) -> Callable[[], None]:
     return _cb
 
 
-# Single source of truth for toolbar buttons:
-BUTTON_CONFIG: ButtonConfig = {}
-# Order of toolbar buttons follows insertion order of BUTTON_CONFIG as returned by
-# create_button_config(app_instance). No separate default list is used.
+# Legacy BUTTON_CONFIG removed. New toolbar system uses:
+# - DEFAULT_TOOLBAR_BUTTON_CONFIG (always visible at top of sash)
+# - CONTEXTUAL_TOOLBAR_CONFIG (per-tool buttons shown at bottom of sash)
 
 
 __all__ = [
     "create_menu_config",
-    "create_button_config",
-    "BUTTON_CONFIG",
+    "create_default_toolbar_config",
+    "create_contextual_toolbar_config",
+    "DEFAULT_TOOLBAR_BUTTON_CONFIG",
+    "CONTEXTUAL_TOOLBAR_CONFIG",
     "MenuConfig",
     "ButtonConfig",
     "AppCallbacks",
