@@ -776,12 +776,10 @@ class PropertyTreeEditor(BoxLayout):
             value=value,
             is_float=False,
             step=1.0,
-            on_commit=lambda v: self._commit_value(path, int(v), rebuild=False),
+            on_commit=lambda v: self._commit_value(path, int(v)),
             input_bg_color=self._row_bg_color(),
             input_fg_color=self._row_text_color(),
         )
-        # Ensure normalization writes back into the spin's TextInput after commit
-        spin._on_commit = lambda v: self._commit_value(path, int(v), rebuild=False, normalize_target=spin.input)
         right.add_widget(spin)
         self._finalize_row(row)
 
@@ -791,12 +789,10 @@ class PropertyTreeEditor(BoxLayout):
             value=value,
             is_float=True,
             step=0.05,
-            on_commit=lambda v: self._commit_value(path, float(v), rebuild=False),
+            on_commit=lambda v: self._commit_value(path, float(v)),
             input_bg_color=self._row_bg_color(),
             input_fg_color=self._row_text_color(),
         )
-        # Ensure normalization writes back into the spin's TextInput after commit
-        spin._on_commit = lambda v: self._commit_value(path, float(v), rebuild=False, normalize_target=spin.input)
         right.add_widget(spin)
         self._finalize_row(row)
 
@@ -857,7 +853,10 @@ class PropertyTreeEditor(BoxLayout):
                 parsed = [float(v) if isinstance(v, int) else v for v in parsed]
             return parsed
 
-        self._bind_textinput_commit(ti, path, lambda: _parse_list_text_to_values(ti.text))
+        ti.bind(
+            on_text_validate=lambda *_: self._commit_value(path, _parse_list_text_to_values(ti.text)),
+            focus=lambda inst, f: (not f) and self._commit_value(path, _parse_list_text_to_values(ti.text))
+        )
         right.add_widget(ti)
 
         br = Label(text="]", color=self._row_text_color(), size_hint_x=None, width=dp(10), halign="center", valign="middle")
@@ -866,21 +865,6 @@ class PropertyTreeEditor(BoxLayout):
 
         self._finalize_row(row)
 
-        # Explanation row (smaller text)
-        tc = self._row_text_color()
-        expl = BoxLayout(orientation="horizontal", size_hint_y=None, height=self.STRIPE_HEIGHT)
-        # left column placeholder to align with editors
-        expl.add_widget(Widget(size_hint_x=None, width=self.LEFT_COL_WIDTH))
-        msg = Label(
-            text="Numbers separated by space, e.g. [256.0 512. 768.0]",
-            color=tc,
-            halign="left",
-            valign="middle",
-            font_size="12sp",
-        )
-        msg.bind(size=msg.setter("text_size"))
-        expl.add_widget(msg)
-        self._finalize_row(expl)
 
     def _build_list_object_row(self, key: str, lst: List[Any], path: Tuple[Union[str, int], ...], level: int):
         tc = self._row_text_color()
@@ -1067,67 +1051,24 @@ class PropertyTreeEditor(BoxLayout):
         # Restore scroll on next frame to keep anchor stable
         Clock.schedule_once(lambda dt: self._restore_scroll_after_rebuild(prev_px), 0)
 
-    def _commit_value(self, path: Tuple[Union[str, int], ...], new_value: Any, *, rebuild: bool = False, normalize_target: Optional[TextInput] = None):
-        """Write the new value into the bound SCORE object along the attribute/index path.
-        When rebuild is False (default), the UI is not rebuilt to keep active TextInputs stable."""
+    def _commit_value(self, path: Tuple[Union[str, int], ...], new_value: Any):
+        """Write the new value into the bound SCORE object and rebuild the tree (full refresh)."""
         if self._score is None or not path:
             return
-
-        # Read current value for no-op check
-        try:
-            obj = self._score
-            for step in path[:-1]:
-                obj = obj[step] if isinstance(step, int) else getattr(obj, step)
-            last = path[-1]
-            old_value = obj[last] if isinstance(last, int) else getattr(obj, last)
-        except Exception:
-            old_value = None
-
-        def _equal(a, b) -> bool:
-            try:
-                if isinstance(a, (int, float)) and isinstance(b, (int, float)):
-                    return abs(float(a) - float(b)) <= 1e-9
-                if isinstance(a, list) and isinstance(b, list) and len(a) == len(b):
-                    for x, y in zip(a, b):
-                        if isinstance(x, (int, float)) or isinstance(y, (int, float)):
-                            if abs(float(x) - float(y)) > 1e-9:
-                                return False
-                        else:
-                            if x != y:
-                                return False
-                    return True
-                return a == b
-            except Exception:
-                return False
-
-        if _equal(old_value, new_value):
-            # Nothing changed; avoid churn
-            return
-
         try:
             self._write_at_path(self._score, path, new_value)
         except Exception:
             return
-
-        # Normalize UI field text in-place if provided
-        if normalize_target is not None:
-            try:
-                normalize_target.text = self._format_value_for_text(new_value)
-            except Exception:
-                pass
-
         if callable(self.on_change):
             try:
                 self.on_change(self._score)
             except Exception:
                 pass
-
-        if rebuild:
-            # Structural changes: rebuild and refresh like a sash move
-            self._rebuild()
-            self._update_background()
-            self._update_view_and_graphics()
-            Clock.schedule_once(lambda dt: self._update_view_and_graphics(), 0)
+        # Full rebuild and sash-like refresh to keep background aligned
+        self._rebuild()
+        self._update_background()
+        self._update_view_and_graphics()
+        Clock.schedule_once(lambda dt: self._update_view_and_graphics(), 0)
 
     def _write_at_path(self, root: Any, path: Tuple[Union[str, int], ...], value: Any):
         """Traverse dataclass/list attributes by attr/index path and set the value."""
