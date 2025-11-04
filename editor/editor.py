@@ -14,7 +14,7 @@ from utils.CONSTANTS import (
     ticks_to_quarters, quarters_to_ticks, is_black_key, has_be_gap
 )
 
-class PianoRollEditor:
+class Editor:
     """
     Vertical Piano Roll Editor based on the original Tkinter design.
     
@@ -31,9 +31,8 @@ class PianoRollEditor:
         self.score: SCORE = score if score is not None else self._create_default_score()
         
         # Initialize dimensions from canvas
-        # Piano roll configuration using shared constants
-        self.pixels_per_quarter: float = self._get_zoom_from_score()  # Read from SCORE model
-        self.zoom_factor: float = 1.0
+        # Zoom: single source of truth is SCORE.properties.editorZoomPixelsQuarter (px per quarter)
+        self.pixels_per_quarter: float = self._get_zoom_from_score()
         
         # Stave line configuration - use exact GlobalStave defaults from globalProperties.py
         self.stave_two_color = "#000000"      # Default from GlobalStave 
@@ -59,18 +58,27 @@ class PianoRollEditor:
         
         # Initialize layout
         self._calculate_layout()
+    # Defer zoom refresh until the canvas attaches us and scale is known.
     
     def _create_default_score(self) -> SCORE:
-        """Create a default score with a single stave and proper base grid setup."""
+        """Create a default score with a single stave and exactly one base grid."""
         score = SCORE()
         
-        # SCORE already creates one default stave, so we don't need to add another
-        # Just configure the existing stave name if needed
+        # Ensure single known stave name
         if score.stave:
             score.stave[0].name = 'Piano Single'
         
-        # Add some default base grid (4/4 time signature, 4 measures for cleaner start)
-        score.new_basegrid(numerator=4, denominator=4, measureAmount=4)
+        # SCORE.__post_init__ already ensures a default BaseGrid exists.
+        # Avoid doubling the time length: normalize to exactly ONE baseGrid and set desired signature/length.
+        if score.baseGrid:
+            bg = score.baseGrid[0]
+            bg.numerator = 4
+            bg.denominator = 4
+            bg.measureAmount = 4
+            # Keep gridTimes as provided by SCORE defaults
+            score.baseGrid = [bg]
+        else:
+            score.new_basegrid(numerator=4, denominator=4, measureAmount=4)
         
         return score
     
@@ -98,14 +106,23 @@ class PianoRollEditor:
         self.stave_width = total_width
         
         # Calculate editor width (right edge of editor = left edge of scrollbar)
-        scrollbar_width_mm = self.canvas.custom_scrollbar.scrollbar_width * self.canvas._mm_per_pixel
+        # Convert UI scrollbar width (px) to logical mm using current content scale.
+        # Using px_per_mm keeps this responsive to live widget size/scale changes.
+        px_per_mm = max(1e-6, getattr(self.canvas, '_px_per_mm', 0.0))
+        if px_per_mm > 0:
+            scrollbar_width_mm = self.canvas.custom_scrollbar.scrollbar_width / px_per_mm
+        else:
+            # Fallback to DPI-based conversion if scale not ready yet
+            scrollbar_width_mm = self.canvas.custom_scrollbar.scrollbar_width * getattr(self.canvas, '_mm_per_pixel', 0.264583)
         self.editor_width = self.canvas.width_mm - scrollbar_width_mm
         
-        # Update canvas quarter note spacing for musical scrolling
-        # Convert pixels to mm: pixels_per_quarter / pixels_per_mm = quarter_note_mm
-        if hasattr(self.canvas, '_px_per_mm') and self.canvas._px_per_mm > 0:
-            quarter_note_mm = (self.pixels_per_quarter * self.zoom_factor) / self.canvas._px_per_mm
-            self.canvas.set_quarter_note_spacing_mm(quarter_note_mm)
+        # Update canvas quarter note spacing for musical scrolling in millimeters
+        # Convert pixels to mm: pixels_per_quarter / pixels_per_mm = mm_per_quarter
+        # Derive mm-per-quarter using nominal px/mm based on full widget width
+        # This decouples quarter spacing from scrollbar presence, preventing height inflation.
+        px_per_mm_nominal = max(1e-6, float(self.canvas.width) / max(1e-6, float(self.canvas.width_mm)))
+        quarter_note_mm = float(self.pixels_per_quarter) / px_per_mm_nominal
+        self.canvas.set_quarter_note_spacing_mm(quarter_note_mm)
             
             # Debug: Check consistency with editor's time calculation (disabled)
             # pixels_per_quarter_mm_editor = self.pixels_per_quarter * 0.264583 * self.zoom_factor
@@ -140,17 +157,22 @@ class PianoRollEditor:
         return self.editor_margin
     
     def _time_to_y_mm(self, time_ticks: float) -> float:
-        """Convert time in ticks to Y coordinate in millimeters."""
-        # Convert your pixels_per_quarter to mm (assuming 96 DPI)
-        pixels_per_quarter_mm = self.pixels_per_quarter * 0.264583 * self.zoom_factor
-        time_quarters = ticks_to_quarters(time_ticks)
-        return self.editor_margin + (time_quarters * pixels_per_quarter_mm) - (self.scroll_time_offset * pixels_per_quarter_mm)
+        """Convert time in ticks to Y coordinate in millimeters (top-left origin)."""
+        mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
+        if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
+            # Fallback derive from score zoom and current canvas scale
+            px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
+            mm_per_quarter = (self.pixels_per_quarter) / max(1e-6, px_per_mm)
+        ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
+        time_quarters = time_ticks / max(1e-6, ql)
+        return self.editor_margin + (time_quarters * mm_per_quarter) - (self.scroll_time_offset * mm_per_quarter)
     
     def _get_score_length_in_ticks(self) -> float:
         """Calculate total score length in ticks based on your algorithm."""
         total_ticks = 0.0
         for grid in self.score.baseGrid:
-            measure_ticks = (PIANOTICK_QUARTER * 4) * (grid.numerator / grid.denominator)
+            ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
+            measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
             total_ticks += measure_ticks * grid.measureAmount
         return total_ticks
     
@@ -164,17 +186,30 @@ class PianoRollEditor:
         # Calculate required dimensions
         piano_width = (self.width - 2 * self.editor_margin)
         total_time = self._calculate_total_time()
-        piano_height = self._time_to_y_mm(total_time)
+        # Content height must not depend on scroll offset; compute using mm/quarter directly
+        mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
+        if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
+            px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
+            mm_per_quarter = (self.pixels_per_quarter) / max(1e-6, px_per_mm)
+        ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
+        content_height_mm = (total_time / max(1e-6, ql)) * mm_per_quarter
+        total_height_mm = content_height_mm + (2.0 * self.editor_margin)  # top + bottom margin equal to editor_margin
         
         print(f"DEBUG: Canvas size: {self.width}mm x {self.height}mm")
         print(f"DEBUG: Piano width: {piano_width}mm (margin: {self.editor_margin}mm)")
-        print(f"DEBUG: Calculated height needed: {piano_height}mm")
+        print(f"DEBUG: Calculated content height: {content_height_mm}mm")
+        print(f"DEBUG: Total logical page height (with margins): {total_height_mm}mm")
         print(f"DEBUG: Total time in ticks: {total_time}")
         
-        # Update canvas size if needed
-        if piano_height > self.height:
-            print(f"DEBUG: Expanding canvas height from {self.height}mm to {piano_height + 20}mm")
-            self.canvas.set_size_mm(self.width, piano_height + 20, reset_scroll=True)
+        # Reconcile canvas height to desired content height (shrink or grow).
+        # Use tolerance to avoid thrashing on tiny deltas; preserve scroll position.
+        desired_height_mm = float(total_height_mm)
+        current_height_mm = float(self.canvas.height_mm)
+        if abs(desired_height_mm - current_height_mm) > 0.1:
+            action = "Expanding" if desired_height_mm > current_height_mm else "Shrinking"
+            print(f"DEBUG: {action} canvas height from {current_height_mm}mm to {desired_height_mm}mm")
+            # Keep scroll; Canvas clamps if out-of-bounds. Avoid reset to prevent jumpiness.
+            self.canvas.set_size_mm(self.canvas.width_mm, desired_height_mm, reset_scroll=False)
         
         # Draw stave lines (piano keys)
         stave_lines = self._draw_stave()
@@ -203,15 +238,23 @@ class PianoRollEditor:
         
         total_ticks = 0.0
         for grid in self.score.baseGrid:
-            measure_ticks = (PIANOTICK_QUARTER * 4) * (grid.numerator / grid.denominator)
+            ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
+            measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
             total_ticks += measure_ticks * grid.measureAmount
         
         return total_ticks
     
     def _draw_stave(self):
         """Draw the 88-key stave with your specific line patterns."""
-        stave_height = ticks_to_quarters(self._get_score_length_in_ticks()) * self.pixels_per_quarter * 0.264583 * self.zoom_factor
-        print(f"   Stave height: {stave_height}mm (score length: {self._get_score_length_in_ticks()} ticks)")
+        total_ticks = self._get_score_length_in_ticks()
+        mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
+        if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
+            px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
+            mm_per_quarter = (self.pixels_per_quarter) / max(1e-6, px_per_mm)
+        # Stave height independent of scroll offset
+        ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
+        stave_height = (total_ticks / max(1e-6, ql)) * mm_per_quarter
+        print(f"   Stave height: {stave_height}mm (score length: {total_ticks} ticks)")
         
         lines_drawn = 0
         key = 2  # Start from key 2 as in your algorithm
@@ -263,7 +306,8 @@ class PianoRollEditor:
         total_ticks = 0.0
         
         for grid in self.score.baseGrid:
-            measure_ticks = (PIANOTICK_QUARTER * 4) * (grid.numerator / grid.denominator)
+            ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
+            measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
             for _ in range(grid.measureAmount):
                 y_pos = self._time_to_y_mm(total_ticks)
                 barline_positions.append((y_pos, len(barline_positions) + 1))  # (position, measure_number)
@@ -296,7 +340,8 @@ class PianoRollEditor:
         # Calculate and draw gridlines (your get_editor_gridline_positions equivalent)
         total_ticks = 0.0
         for grid in self.score.baseGrid:
-            measure_ticks = (PIANOTICK_QUARTER * 4) * (grid.numerator / grid.denominator)
+            ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
+            measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
             subdivision_ticks = measure_ticks / grid.numerator
             
             for _ in range(grid.measureAmount):
@@ -327,73 +372,92 @@ class PianoRollEditor:
                 id=['barlines', 'endBarline']
             )
     
-    def _draw_notes(self):
-        """Draw notes from the SCORE model."""
-        for stave_idx, stave in enumerate(self.score.stave):
-            for note in stave.event.note:
-                self._draw_single_note(note, stave_idx)
-    
-    def _draw_single_note(self, note: Note, stave_idx: int):
-        """Draw a single note using your coordinate system."""
-        # Convert MIDI pitch to key number using constants
-        key_number = midi_to_key_number(note.pitch)
-        
-        if 1 <= key_number <= PIANO_KEY_COUNT:
-            x_pos = self.key_to_x_position(key_number)
-            y_pos = self._time_to_y_mm(note.time)
-            
-            # Note dimensions
-            note_width = self.semitone_width * 0.8  # Slightly smaller than key width
-            note_height = ticks_to_quarters(note.duration) * self.pixels_per_quarter * 0.264583 * self.zoom_factor
-            
-            # Note color (use your model's color system)
-            note_color = note.color if hasattr(note, 'color') and note.color else "#4080FF"
-            
-            # Only draw if visible
-            if (0 <= y_pos <= self.canvas.height_mm + self.editor_margin and
-                self.editor_margin <= x_pos <= self.editor_margin + self.stave_width):
-                
-                self.canvas.add_rectangle(
-                    x1_mm=x_pos - note_width/2, y1_mm=y_pos,
-                    x2_mm=x_pos + note_width/2, y2_mm=y_pos + note_height,
-                    fill=True,
-                    fill_color=note_color,
-                    outline=True,
-                    outline_color="#000000",
-                    outline_width_mm=0.05,
-                    id=['notes', f"note_{stave_idx}_{note.id}"]
-                )
-    
     # Zoom and interaction methods (simplified for initial implementation)
     def zoom_in(self, factor: float = 1.2):
-        """Zoom in on the time axis."""
-        self.zoom_factor *= factor
-        self._update_score_zoom()
-        self._calculate_layout()  # Update canvas quarter note spacing
-        self.render()
+        """Increase SCORE.properties.editorZoomPixelsQuarter by factor (px per quarter)."""
+        try:
+            current = self._get_zoom_from_score()
+            new_ppq = max(1.0, current * float(factor))
+            self.pixels_per_quarter = new_ppq
+            self._update_score_zoom()
+            self._calculate_layout()
+            self.render()
+        except Exception as e:
+            print(f"DEBUG: zoom_in failed: {e}")
     
     def zoom_out(self, factor: float = 1.2):
-        """Zoom out on the time axis."""
-        self.zoom_factor /= factor
-        self._update_score_zoom()
-        self._calculate_layout()  # Update canvas quarter note spacing
-        self.render()
+        """Decrease SCORE.properties.editorZoomPixelsQuarter by factor (px per quarter)."""
+        try:
+            current = self._get_zoom_from_score()
+            new_ppq = max(1.0, current / float(factor))
+            self.pixels_per_quarter = new_ppq
+            self._update_score_zoom()
+            self._calculate_layout()
+            self.render()
+        except Exception as e:
+            print(f"DEBUG: zoom_out failed: {e}")
     
     def set_zoom_pixels_per_quarter(self, pixels: float):
-        """Set the zoom level directly in pixels per quarter note."""
-        self.pixels_per_quarter = float(pixels)
-        self.zoom_factor = 1.0  # Reset zoom factor when setting absolute value
-        self._update_score_zoom()
-        self._calculate_layout()  # Update canvas quarter note spacing
-        self.render()
+        """Set the zoom level directly (px per quarter) and update SCORE + layout."""
+        try:
+            self.pixels_per_quarter = max(1.0, float(pixels))
+            self._update_score_zoom()
+            self._calculate_layout()
+            self.render()
+        except Exception as e:
+            print(f"DEBUG: set_zoom_pixels_per_quarter failed: {e}")
+
+    def zoom_refresh(self):
+        """Re-apply current zoom without changing SCORE's editorZoomPixelsQuarter.
+
+        This performs the same processing pipeline as zoom_in/zoom_out but keeps
+        the SCORE.properties.editorZoomPixelsQuarter value unchanged. Useful when
+        the canvas scale (px-per-mm) changes or after (re)attaching the editor.
+        Ensures Canvas view/scale have finished updating before re-rendering so
+        widget size changes are reflected correctly.
+        """
+        try:
+            cv = self.canvas
+
+            # Defer until Canvas has applied latest size/scale; retry briefly if not ready.
+            def _attempt(_dt, attempts: int = 0, last_px_per_mm: float = None):
+                try:
+                    px_per_mm = float(getattr(cv, '_px_per_mm', 0.0))
+                    view_w = int(getattr(cv, '_view_w', 0))
+                    view_h = int(getattr(cv, '_view_h', 0))
+
+                    # Ready when we have non-zero scale and a sized viewport.
+                    ready = px_per_mm > 0.0 and view_w > 0 and view_h > 0
+                    # If scale is still changing between frames, wait one more frame.
+                    scale_changed = (last_px_per_mm is not None) and (abs(px_per_mm - last_px_per_mm) > 1e-6)
+
+                    if (not ready or scale_changed) and attempts < 20:
+                        Clock.schedule_once(lambda dt: _attempt(dt, attempts + 1, px_per_mm), 0)
+                        # Only bail out early if not ready; if only scale_changed, allow settle next frame
+                        if not ready:
+                            return
+
+                    # Keep internal state in sync with SCORE without persisting any change
+                    current = self._get_zoom_from_score()
+                    self.pixels_per_quarter = float(current)
+
+                    # Recompute layout with current canvas scale and re-render content height
+                    self._calculate_layout()
+                    self.render()
+                except Exception as inner_e:
+                    print(f"DEBUG: zoom_refresh inner failed: {inner_e}")
+
+            # Kick off on next frame to let any pending canvas layout settle
+            Clock.schedule_once(lambda dt: _attempt(dt, 0, float(getattr(cv, '_px_per_mm', 0.0))), 0)
+        except Exception as e:
+            print(f"DEBUG: zoom_refresh failed: {e}")
     
     def _update_score_zoom(self):
-        """Update the editorZoomPixelsQuarter value in the SCORE model."""
+        """Persist current pixels_per_quarter to SCORE.properties.editorZoomPixelsQuarter."""
         if (hasattr(self.score, 'properties') and 
             hasattr(self.score.properties, 'editorZoomPixelsQuarter')):
-            effective_zoom = self.pixels_per_quarter * self.zoom_factor
-            self.score.properties.editorZoomPixelsQuarter = effective_zoom
-            print(f"DEBUG: Updated SCORE editorZoomPixelsQuarter to: {effective_zoom} pixels")
+            self.score.properties.editorZoomPixelsQuarter = float(self.pixels_per_quarter)
+            print(f"DEBUG: Updated SCORE editorZoomPixelsQuarter to: {self.pixels_per_quarter} pixels")
     
     def scroll_to_time(self, time_ticks: float):
         """Scroll to a specific time position (in ticks)."""
@@ -420,10 +484,14 @@ class PianoRollEditor:
         return 1
     
     def y_to_ticks(self, y_mm: float) -> float:
-        """Convert Y coordinate to time in ticks."""
-        pixels_per_quarter_mm = self.pixels_per_quarter * 0.264583 * self.zoom_factor
-        time_quarters = (y_mm - self.editor_margin) / pixels_per_quarter_mm + self.scroll_time_offset
-        return quarters_to_ticks(time_quarters)
+        """Convert Y coordinate to time in ticks (inverse of _time_to_y_mm)."""
+        mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
+        if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
+            px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
+            mm_per_quarter = (self.pixels_per_quarter) / max(1e-6, px_per_mm)
+        time_quarters = (y_mm - self.editor_margin) / mm_per_quarter + self.scroll_time_offset
+        ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
+        return time_quarters * ql
     
     # Interaction support
     def on_item_click(self, item_id: int, touch_pos_mm: Tuple[float, float]) -> bool:
@@ -474,7 +542,7 @@ class PianoRollEditor:
 
 
 # Maintain backward compatibility and integrate with main app
-class Editor(PianoRollEditor):
+class Editor(Editor):
     """
     Main Editor class that integrates PianoRollEditor with the PianoTab application.
     

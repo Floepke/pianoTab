@@ -284,6 +284,9 @@ class Canvas(Widget):
         # Quarter note spacing in mm for musical scrolling
         self._quarter_note_spacing_mm: float = 10.0  # Default fallback value
 
+        # Editor feedback loop guard (set True when editor triggers canvas resizing)
+        self._updating_from_editor: bool = False
+
         # Grid-based cursor snapping
         self._grid_step_ticks: float = 256.0  # Default to quarter note (256 ticks)
         self._cursor_visible: bool = False
@@ -333,7 +336,17 @@ class Canvas(Widget):
     def set_piano_roll_editor(self, editor):
         """Set the piano roll editor reference for accessing score data."""
         self.piano_roll_editor = editor
-        # Update scroll step calculation when editor is set
+        # As soon as the editor is wired, refresh zoom so the canvas' current
+        # px-per-mm is reflected in the editor's mm-per-quarter spacing immediately.
+        try:
+            if editor is not None and hasattr(editor, 'zoom_refresh'):
+                editor.zoom_refresh()
+            elif editor is not None and hasattr(editor, '_calculate_layout'):
+                editor._calculate_layout()
+        except Exception as e:
+            print(f"CANVAS: failed to sync editor layout on attach: {e}")
+
+        # Update scrollbar layout now that content sizing may have changed
         if hasattr(self, 'custom_scrollbar') and self.custom_scrollbar:
             self.custom_scrollbar.update_layout()
 
@@ -365,11 +378,10 @@ class Canvas(Widget):
     def _snap_scroll_to_grid(self, scroll_px: float) -> float:
         """Snap scroll position to align with visual grid in the editor based on current grid step.
         
-    The anchor point is at editor_margin - one quarter spacing (in mm),
-        then snap in increments of the current grid step size.
-        
-        Special behavior: The first scroll down always snaps to the first grid position
-        based on the current grid step (quarter, half, eighth, etc.).
+        Anchoring behavior:
+        - Near the top (within the editor margin), allow snapping relative to 0.0 so the
+          scroll can reach exactly 0 (full top margin visible).
+        - Otherwise use anchor = editor_margin - one quarter spacing, snapping in grid steps.
         """
         # Get editor margin (mm) and quarter note length (ticks)
         editor_margin_mm = 0.0  # Default fallback
@@ -400,17 +412,27 @@ class Canvas(Widget):
         # Convert scroll position to mm (using current scale)
         scroll_mm = scroll_px / px_per_mm
 
-        # Normal snapping: Calculate offset from anchor and snap to current grid step
-        offset_from_anchor = scroll_mm - anchor_mm
-        snapped_offset = round(offset_from_anchor / grid_spacing_mm) * grid_spacing_mm
-        snapped_scroll_mm = anchor_mm + snapped_offset
+        # Choose snapping strategy:
+        # - If we're within the top margin area, prefer snapping relative to 0.0 so 0 is reachable.
+        # - Otherwise, snap relative to the anchor (editor_margin - quarter_spacing).
+        if grid_spacing_mm <= 1e-9:
+            snapped_scroll_mm = max(0.0, scroll_mm)
+            anchor_used_mm = 0.0
+        elif scroll_mm <= editor_margin_mm:
+            snapped_scroll_mm = max(0.0, round(scroll_mm / grid_spacing_mm) * grid_spacing_mm)
+            anchor_used_mm = 0.0
+        else:
+            offset_from_anchor = scroll_mm - anchor_mm
+            snapped_offset = round(offset_from_anchor / grid_spacing_mm) * grid_spacing_mm
+            snapped_scroll_mm = anchor_mm + snapped_offset
+            anchor_used_mm = anchor_mm
 
         # Convert back to pixels
         snapped_scroll_px = snapped_scroll_mm * px_per_mm
 
         print(
             f"SCROLL SNAP: {scroll_px:.1f}px -> {snapped_scroll_px:.1f}px "
-            f"(px_per_mm: {px_per_mm:.3f}, anchor: {anchor_mm:.1f}mm, grid: {grid_spacing_mm:.1f}mm, step: {grid_step_ticks}t)"
+            f"(px_per_mm: {px_per_mm:.3f}, anchor_used: {anchor_used_mm:.1f}mm, grid: {grid_spacing_mm:.1f}mm, step: {grid_step_ticks}t)"
         )
 
         return snapped_scroll_px
@@ -824,12 +846,21 @@ class Canvas(Widget):
         """Change the logical canvas size (in mm) and relayout/redraw.
 
         If reset_scroll is True, vertical scroll offset resets to 0.
+
+        Marks updates that originate from the Editor so _update_layout_and_redraw
+        won't immediately trigger another zoom_refresh and create a feedback loop.
         """
         self.width_mm = float(width_mm)
         self.height_mm = float(height_mm)
         if reset_scroll:
             self._scroll_px = 0.0
-        self._update_layout_and_redraw()
+
+        # Prevent feedback loop when Editor.render() resizes the canvas
+        self._updating_from_editor = True
+        try:
+            self._update_layout_and_redraw()
+        finally:
+            self._updating_from_editor = False
 
     def set_scale_to_width(self, enabled: bool):
         """Enable/disable scale-to-width + vertical scrolling behavior."""
@@ -1010,10 +1041,21 @@ class Canvas(Widget):
             self._scroll_px = 0.0
 
         # Inform editor about new scale so it can recompute mm-per-quarter from its zoom
+        # and, when appropriate, re-render to update content height based on new scale.
         try:
             ed = getattr(self, 'piano_roll_editor', None)
-            if ed is not None and hasattr(ed, '_calculate_layout'):
-                ed._calculate_layout()
+            if ed is not None:
+                if getattr(self, '_updating_from_editor', False):
+                    # Called due to Editor-driven canvas resize; only recalc layout to keep in sync.
+                    if hasattr(ed, '_calculate_layout'):
+                        ed._calculate_layout()
+                else:
+                    # External layout/scale change (window resize, split view, etc):
+                    # schedule a zoom_refresh so Editor recomputes layout AND content height.
+                    if hasattr(ed, 'zoom_refresh'):
+                        Clock.schedule_once(lambda dt: ed.zoom_refresh(), 0)
+                    elif hasattr(ed, '_calculate_layout'):
+                        Clock.schedule_once(lambda dt: ed._calculate_layout(), 0)
         except Exception as e:
             print(f"CANVAS: editor layout update error: {e}")
 

@@ -109,11 +109,89 @@ class PianoTab(App):
         # Let GUI delegate its menu actions to the manager
         if hasattr(self.gui, 'set_file_manager'):
             self.gui.set_file_manager(self.file_manager)
+
+        # Run a zoom refresh once the GUI/canvas is laid out so SCORE ppq applies with real scale.
+        try:
+            Clock.schedule_once(self._zoom_refresh_after_gui_ready, 0)
+        except Exception as e:
+            Logger.warning(f'PianoTab: Could not schedule zoom refresh: {e}')
+
+        # Test: set scroll to time 0, then after 2 seconds to 1024.0 (second barline)
+        try:
+            Clock.schedule_once(self._test_scroll_sequence, 0.8)
+            Logger.info('PianoTab: Scheduled test scroll sequence (0.0 then 1024.0)')
+        except Exception as e:
+            Logger.warning(f'PianoTab: Could not schedule test scroll sequence: {e}')
+
+    def _zoom_refresh_after_gui_ready(self, dt, attempts: int = 0):
+        """Ensure editor.zoom_refresh runs after canvas is sized and scaled.
+
+        Retries briefly if layout isn't ready yet.
+        """
+        try:
+            cv = self.gui.get_editor_widget() if self.gui else None
+            if not cv or cv.width <= 0 or cv.height <= 0 or getattr(cv, '_px_per_mm', 0) <= 0:
+                if attempts < 20:
+                    Clock.schedule_once(lambda _dt: self._zoom_refresh_after_gui_ready(_dt, attempts + 1), 0.05)
+                else:
+                    Logger.warning('PianoTab: zoom_refresh skipped (canvas not ready after retries)')
+                return
+            if self.editor is not None:
+                self.editor.zoom_refresh()
+                Logger.info('PianoTab: Performed zoom_refresh after GUI ready')
+        except Exception as e:
+            Logger.warning(f'PianoTab: zoom_refresh after GUI failed: {e}')
     
     def _setup_bindings(self):
         """Setup event bindings between components."""
-        # Example: bind keyboard shortcuts, menu actions, etc.
-        pass
+        # Bind global keyboard shortcuts for zooming
+        try:
+            Window.bind(on_key_down=self._on_key_down)
+        except Exception:
+            pass
+
+    def _on_key_down(self, window, key, scancode, codepoint, modifiers):
+        """Handle global key presses for zooming.
+
+        Binds the following keys:
+        - '=' or '+' -> zoom in
+        - '-' or '_' -> zoom out
+        """
+        try:
+            # Normalize codepoint; fall back to ASCII from key if needed
+            ch = codepoint or ''
+            # Some layouts may not provide codepoint; ignore in that case
+            if not ch:
+                return False
+            if ch in ('=', '+'):
+                if self.editor is not None:
+                    self.editor.zoom_in(1.2)
+                    return True
+            elif ch in ('-', '_'):
+                if self.editor is not None:
+                    self.editor.zoom_out(1.2)
+                    return True
+        except Exception:
+            pass
+        return False
+
+    def _test_scroll_sequence(self, dt):
+        """Test: scroll to time 0 now, then to 1024.0 two seconds later."""
+        try:
+            if self.editor is not None:
+                Logger.info('PianoTab: TEST - Scrolling to time 0.0')
+                self.editor.scroll_to_time(0.0)
+            Clock.schedule_once(self._scroll_to_second_barline, 2.0)
+        except Exception as e:
+            Logger.warning(f'PianoTab: TEST - Failed initial scroll to 0.0: {e}')
+
+    def _scroll_to_second_barline(self, dt):
+        try:
+            if self.editor is not None:
+                Logger.info('PianoTab: TEST - Scrolling to time 1024.0 (second barline)')
+                self.editor.scroll_to_time(1024.0)
+        except Exception as e:
+            Logger.warning(f'PianoTab: TEST - Failed scroll to 1024.0: {e}')
 
     def _safe_maximize_linux(self, dt):
         """Safely maximize window on Linux with error handling."""
