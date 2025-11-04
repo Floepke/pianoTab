@@ -413,7 +413,7 @@ class SplitView(Widget):
     min_right_size = NumericProperty(0)  # Minimum pixels for right panel (0 = can be completely hidden)
     
     # Snap-to-fit properties
-    snap_threshold = NumericProperty(100)  # Pixels within which to snap
+    snap_threshold = NumericProperty(100)  # Pixels within which to snap (also used for near-zero snaps)
     snap_ratio = NumericProperty(None, allownone=True)  # Target ratio for snapping (calculated from paper dimensions)
     
     def __init__(self, orientation='horizontal', **kwargs):
@@ -521,6 +521,13 @@ class SplitView(Widget):
             # Clamp to avoid negative sizes when panels collapse
             top_h = max(0, top_height)
             bottom_h = max(0, bottom_height)
+
+            # Snap very small bottom heights to 0 to avoid residual strip from rounding/padding
+            epsilon = 2.0
+            if bottom_h <= epsilon:
+                bottom_h = 0
+                # Ensure top fills exactly (total - sash), avoiding 1-2px gaps
+                top_h = max(0, total_height - self.sash_width)
             
             # Position and size top container
             self.left_container.pos = (self.x, self.y + bottom_h + self.sash_width)
@@ -542,6 +549,15 @@ class SplitView(Widget):
             if self.right_widget:
                 self.right_widget.pos = self.right_container.pos
                 self.right_widget.size = self.right_container.size
+                # Explicitly hide/show the bottom widget when collapsed/expanded to avoid residual text
+                try:
+                    collapsed = bottom_h <= 0.5
+                    # Disable interactions and hide drawing when collapsed
+                    self.right_widget.disabled = collapsed
+                    # Opacity helps suppress any child drawing that might ignore container bounds
+                    self.right_widget.opacity = 0.0 if collapsed else 1.0
+                except Exception:
+                    pass
     
     def update_split(self, touch_pos):
         """Update split ratio based on touch position with snap-to-fit functionality."""
@@ -554,6 +570,18 @@ class SplitView(Widget):
             min_ratio = (self.min_left_size + self.sash_width / 2.0) / max(1.0, self.width)
             max_ratio = 1.0 - (self.min_right_size + self.sash_width / 2.0) / max(1.0, self.width)
             new_ratio = max(min_ratio, min(max_ratio, new_ratio))
+            
+            # Snap-to-zero for near-edge widths using the same snap_threshold
+            try:
+                left_w = self.width * new_ratio - self.sash_width / 2.0
+                right_w = self.width * (1.0 - new_ratio) - self.sash_width / 2.0
+                th = float(self.snap_threshold)
+                if left_w <= th:
+                    new_ratio = min_ratio
+                elif right_w <= th:
+                    new_ratio = max_ratio
+            except Exception:
+                pass
             
             # Use stored snap ratio during dragging to prevent flickering
             snap_ratio_to_use = None
@@ -584,6 +612,18 @@ class SplitView(Widget):
             min_ratio = (self.min_left_size + self.sash_width / 2.0) / max(1.0, self.height)
             max_ratio = 1.0 - (self.min_right_size + self.sash_width / 2.0) / max(1.0, self.height)
             new_ratio = max(min_ratio, min(max_ratio, new_ratio))
+            
+            # Snap-to-zero for near-edge heights using the same snap_threshold
+            try:
+                top_h = self.height * new_ratio - self.sash_width / 2.0
+                bottom_h = self.height * (1.0 - new_ratio) - self.sash_width / 2.0
+                th = float(self.snap_threshold)
+                if top_h <= th:
+                    new_ratio = min_ratio
+                elif bottom_h <= th:
+                    new_ratio = max_ratio
+            except Exception:
+                pass
             
             # Use stored snap ratio during dragging to prevent flickering
             snap_ratio_to_use = None

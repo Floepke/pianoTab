@@ -59,9 +59,9 @@ class GlobalSlur:
 @dataclass_json
 @dataclass
 class GlobalText:
-    fontSize: int = 12
-    family: str = 'Courier New'
+    size: int = 12
     color: str = '#000000'
+    visible: int = field(default=1, metadata=config(field_name='visible?'))
 
 @dataclass_json
 @dataclass
@@ -76,9 +76,20 @@ class GlobalBasegrid:
     gridlineColor: str = '#000000'
     gridlineWidth: float = .125
     gridlineDashPattern: List[float] = field(default_factory=lambda: [2, 2])
+    gridlineVisible: int = field(default=1, metadata=config(field_name='gridlineVisible?'))
     barlineColor: str = '#000000'
     barlineWidth: float = .25
+    barlineVisible: int = field(default=1, metadata=config(field_name='barlineVisible?'))
+
+@dataclass_json
+@dataclass
+class GlobalMeasureNumbering:
+    color: str = '#000000'
     fontSize: int = 12
+    visible: int = field(default=1, metadata=config(field_name='measureNumberingVisible?'))
+    inStepsOf: int = field(default=1, metadata=config(field_name='inStepsOf'))
+    skipCount: list[int] = field(default_factory=list)
+
 
 @dataclass_json
 @dataclass

@@ -289,7 +289,7 @@ class PianoTabGUI(BoxLayout):
         self.main_layout = BoxLayout(orientation='horizontal', spacing=0)
         
         # Left side panel with fixed width
-        self.side_panel = SidePanelWidget(size_hint_x=None, width=400, grid_callback=self.on_grid_step_changed, tool_callback=self.on_tool_selected)
+        self.side_panel = SidePanelWidget(size_hint_x=None, width=150, grid_callback=self.on_grid_step_changed, tool_callback=self.on_tool_selected)
         self.main_layout.add_widget(self.side_panel)
         
         # Right side: Editor-Preview split view

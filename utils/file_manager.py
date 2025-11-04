@@ -182,6 +182,12 @@ class FileManager:
         """Create a new empty score."""
         def _do_new():
             self.editor.new_score()
+            # Reflect new SCORE in the property tree editor
+            try:
+                if hasattr(self.gui, 'set_properties_score'):
+                    self.gui.set_properties_score(self.editor.score)
+            except Exception:
+                pass
             self.current_path = None
             self.dirty = False
             self._info("New score created")
@@ -193,6 +199,12 @@ class FileManager:
             try:
                 score = SCORE.load(filepath)
                 self.editor.load_score(score)
+                # Reflect loaded SCORE in the property tree editor
+                try:
+                    if hasattr(self.gui, 'set_properties_score'):
+                        self.gui.set_properties_score(self.editor.score)
+                except Exception:
+                    pass
                 self.current_path = filepath
                 self._last_dir = os.path.dirname(filepath)
                 self.dirty = False

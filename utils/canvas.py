@@ -48,43 +48,53 @@ class CustomScrollbar(Widget):
         Window.bind(mouse_pos=self.on_mouse_pos)
         
         # Size and position properties
-        self.size_hint = (None, 1)
+        self.size_hint = (None, None)
         self.width = self.scrollbar_width
-        
+         
         # Update layout when canvas properties change
         self.canvas_widget.bind(size=self.update_layout, pos=self.update_layout)
         
     def update_layout(self, *args):
         """Update scrollbar position and thumb size based on canvas state."""
-        if not self.canvas_widget.scale_to_width:
-            # Hide scrollbar when not in scale_to_width mode
-            self.opacity = 0
-            return
+        # Keep scrollbar visible even when not in scale_to_width mode
             
-        # Position scrollbar on the right side of the canvas
-        self.x = self.canvas_widget.x + self.canvas_widget.width - self.scrollbar_width
-        self.y = self.canvas_widget.y
-        self.height = self.canvas_widget.height
+        # Position scrollbar adjacent to the canvas view rect (non-overlapping; reserve width in view)
+        vx = int(self.canvas_widget._view_x)
+        vy = int(self.canvas_widget._view_y)
+        vw = int(self.canvas_widget._view_w)
+        vh = int(self.canvas_widget._view_h)
+        self.x = vx + vw
+        self.y = vy
+        self.height = vh
         
         # Update track
         self.track_rect.pos = (self.x, self.y)
         self.track_rect.size = (self.scrollbar_width, self.height)
         
         # Calculate thumb dimensions and position
-        content_height = self.canvas_widget._content_height_px()
-        viewport_height = self.canvas_widget._view_h
-        
-        if content_height <= viewport_height:
-            # No scrolling needed
+        content_height = int(self.canvas_widget._content_height_px())
+        viewport_height = int(self.canvas_widget._view_h)
+
+        # Guard against zero/negative sizes (e.g., panel collapsed to 0 or view not laid out yet)
+        if viewport_height <= 0 or content_height <= 0:
+            # Hide scrollbar safely to avoid ZeroDivisionError and invalid geometry
             self.opacity = 0
+            self.track_rect.pos = (self.x, self.y)
+            self.track_rect.size = (0, 0)
+            self.thumb_rect.pos = (self.x, self.y)
+            self.thumb_rect.size = (0, 0)
             return
-        else:
-            self.opacity = 1
+        
+        # Always visible when geometry is valid; compute thumb even if content fits
+        scrollable = content_height > viewport_height
+        self.opacity = 1
             
         # Thumb height proportional to viewport/content ratio with vertical margins
         available_track_height = self.height - 10  # Reserve 5px margin top and bottom
-        thumb_height = max(self.thumb_min_height, 
+        thumb_height = max(self.thumb_min_height,
                           (viewport_height / content_height) * available_track_height)
+        # Clamp to track height so it never exceeds
+        thumb_height = min(available_track_height, thumb_height)
         
         # Thumb position based on scroll offset with vertical margin
         max_scroll = content_height - viewport_height
@@ -100,17 +110,22 @@ class CustomScrollbar(Widget):
         """Handle mouse hover for visual feedback."""
         if self.dragging or self.opacity == 0:
             return
-            
+
+        # Determine if scrolling is possible
+        content_height = self.canvas_widget._content_height_px()
+        viewport_height = self.canvas_widget._view_h
+        scrollable = self.canvas_widget.scale_to_width and (content_height > viewport_height)
+             
         # Check if mouse is over the entire scrollbar area (full width)
         mouse_x, mouse_y = pos
-        is_over_scrollbar = (self.x <= mouse_x <= self.x + self.scrollbar_width and 
+        is_over_scrollbar = (self.x <= mouse_x <= self.x + self.scrollbar_width and
                             self.y <= mouse_y <= self.y + self.height)
-        
+         
         if is_over_scrollbar and not self.hovering:
             self.hovering = True
-            self.thumb_color_instr.rgba = self.thumb_hover_color
-            Window.set_system_cursor('hand')
-        elif not is_over_scrollbar and self.hovering:
+            self.thumb_color_instr.rgba = self.thumb_hover_color if scrollable else self.thumb_color
+            Window.set_system_cursor('hand' if scrollable else 'arrow')
+        elif (not is_over_scrollbar or not scrollable) and self.hovering:
             self.hovering = False
             self.thumb_color_instr.rgba = self.thumb_color
             Window.set_system_cursor('arrow')
@@ -119,7 +134,13 @@ class CustomScrollbar(Widget):
         """Handle touch down for scrollbar dragging."""
         if self.opacity == 0:
             return False
-            
+        # Inert when no scrolling is possible
+        content_height = self.canvas_widget._content_height_px()
+        viewport_height = self.canvas_widget._view_h
+        scrollable = self.canvas_widget.scale_to_width and (content_height > viewport_height)
+        if not scrollable:
+            return False
+             
         # Check if touch is within scrollbar area
         if not self.collide_point(*touch.pos):
             return False
@@ -960,9 +981,10 @@ class Canvas(Widget):
         """Handle mouse motion and forward snapped Y to editor for horizontal cursor."""
         mouse_x, mouse_y = pos
 
-        # Check if mouse is over the canvas drawable area (exclude custom scrollbar)
-        inside = (self.x <= mouse_x <= self.x + self.width - self.custom_scrollbar.scrollbar_width and
-                  self.y <= mouse_y <= self.y + self.height)
+        # Check if mouse is over the canvas drawable view area
+        vx, vy, vw, vh = self._view_x, self._view_y, self._view_w, self._view_h
+        inside = (vx <= mouse_x <= vx + vw and
+                  vy <= mouse_y <= vy + vh)
 
         ed = getattr(self, 'piano_roll_editor', None)
         if inside:
@@ -1007,9 +1029,9 @@ class Canvas(Widget):
                 self._px_per_mm = px_per_mm_without_scrollbar
                 available_width = self.width  # No scrollbar needed
             else:
-                # Content doesn't fit, so we'll need a scrollbar - recalculate with scrollbar space
+                # Content doesn't fit; reserve space for a non-overlapping scrollbar
                 if hasattr(self, 'custom_scrollbar'):
-                    available_width -= self.custom_scrollbar.scrollbar_width
+                    available_width -= getattr(self.custom_scrollbar, 'scrollbar_width', 40)
                 self._px_per_mm = max(1e-6, available_width / self.width_mm)
             
             view_w = int(round(available_width))

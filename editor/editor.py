@@ -69,7 +69,7 @@ class Editor:
         
         # Ensure single known stave name
         if score.stave:
-            score.stave[0].name = 'Piano Single'
+            score.stave[0].name = 'Single Piano Stave'
         
         # SCORE.__post_init__ already ensures a default BaseGrid exists.
         # Avoid doubling the time length: normalize to exactly ONE baseGrid and set desired signature/length.
@@ -213,9 +213,6 @@ class Editor:
         
         # Draw barlines and grid
         barlines = self._draw_barlines_and_grid()
-        
-        # Draw notes
-        notes_drawn = self._draw_notes()
         
         # Set proper drawing order: stave lines at back, then gridlines, barlines, measure numbers, notes on top
         self.canvas.raise_in_order([

@@ -45,7 +45,7 @@ from kivy.core.window import Window
 from kivy.clock import Clock
 from kivy.logger import Logger
 from kivy.utils import platform
-from gui.main_gui import PianoTabGUI
+from gui.gui import GUI
 from gui.colors import DARK
 from editor.editor import Editor
 from file.SCORE import SCORE
@@ -74,7 +74,7 @@ class PianoTab(App):
         Window.clearcolor = DARK
         
         # Create and return GUI (UI only)
-        self.gui = PianoTabGUI()
+        self.gui = GUI()
         return self.gui
     
     def on_start(self):
@@ -109,6 +109,18 @@ class PianoTab(App):
         # Let GUI delegate its menu actions to the manager
         if hasattr(self.gui, 'set_file_manager'):
             self.gui.set_file_manager(self.file_manager)
+
+        # Wire PropertyTreeEditor to current SCORE and bind change callback
+        try:
+            if hasattr(self.gui, 'bind_properties_change'):
+                self.gui.bind_properties_change(self._on_properties_changed)
+            if hasattr(self.gui, 'set_properties_score') and self.editor is not None:
+                # Immediate bind
+                self.gui.set_properties_score(self.editor.score)
+                # Also schedule on next frame to guarantee GUI is fully laid out
+                Clock.schedule_once(lambda dt: self.gui.set_properties_score(self.editor.score), 0)
+        except Exception:
+            pass
 
         # Run a zoom refresh once the GUI/canvas is laid out so SCORE ppq applies with real scale.
         try:
@@ -147,6 +159,19 @@ class PianoTab(App):
         # Bind global keyboard shortcuts for zooming
         try:
             Window.bind(on_key_down=self._on_key_down)
+        except Exception:
+            pass
+
+    def _on_properties_changed(self, score):
+        """
+        Invoked by PropertyTreeEditor after edits.
+        Refresh the editor view to reflect updated SCORE properties and mark as dirty.
+        """
+        try:
+            if self.editor is not None:
+                self.editor.refresh_display()
+            if self.file_manager is not None:
+                self.file_manager.mark_dirty()
         except Exception:
             pass
 
