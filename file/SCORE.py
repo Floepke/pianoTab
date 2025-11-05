@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, is_dataclass
 from dataclasses_json import dataclass_json
 from typing import List, Literal, Optional
 import json
@@ -71,6 +71,11 @@ class SCORE:
         
         # Sync staveRange objects in all lineBreaks to match number of staves
         self._sync_stave_ranges()
+        # Normalize any fields that use a '?' JSON alias to booleans in Python
+        try:
+            self._coerce_bool_alias_fields()
+        except Exception:
+            pass
 
     def _next_id(self) -> int:
         """Get the next unique ID for this score."""
@@ -346,7 +351,12 @@ class SCORE:
         '''Save SCORE instance to JSON file.'''
         with open(filename, 'w', encoding='utf-8') as f:
             # Write human-readable JSON with indentation
-            json.dump(self.to_dict(), f, ensure_ascii=True, indent=4)
+            # Ensure all alias-'?' fields are serialized as JSON booleans true/false
+            try:
+                data = self._to_dict_with_bool_aliases()
+            except Exception:
+                data = self.to_dict()
+            json.dump(data, f, ensure_ascii=True, indent=4)
     
     @classmethod
     def load(cls, filename: str) -> 'SCORE':
@@ -369,6 +379,11 @@ class SCORE:
         score = cls.from_dict(fixed_data)
         score.renumber_id()
         score._reattach_score_references()
+        # Normalize any 0/1 values for '?' aliases to Python booleans
+        try:
+            score._coerce_bool_alias_fields()
+        except Exception:
+            pass
         return score
     
     def _reattach_score_references(self):
@@ -405,6 +420,122 @@ class SCORE:
             
             for section in stave.event.section:
                 section.score = self
+
+    # ------------------ Boolean alias normalization ------------------
+
+    @staticmethod
+    def _json_field_name(f) -> str:
+        """Best effort to get the JSON alias for a dataclass field; falls back to the Python name."""
+        try:
+            meta = getattr(f, "metadata", None) or {}
+            cfg = meta.get("dataclasses_json", None)
+            if cfg is not None:
+                if isinstance(cfg, dict):
+                    name = cfg.get("field_name", None)
+                    if isinstance(name, str) and name:
+                        return name
+                    # Try marshmallow field data_key
+                    mm = cfg.get("mm_field", None)
+                    try:
+                        data_key = getattr(mm, "data_key", None)
+                        if isinstance(data_key, str) and data_key:
+                            return data_key
+                    except Exception:
+                        pass
+                else:
+                    name = getattr(cfg, "field_name", None)
+                    if isinstance(name, str) and name:
+                        return name
+                    try:
+                        mm = getattr(cfg, "mm_field", None)
+                        data_key = getattr(mm, "data_key", None)
+                        if isinstance(data_key, str) and data_key:
+                            return data_key
+                    except Exception:
+                        pass
+                # Fallback: parse string repr for data_key/field_name
+                try:
+                    s = str(cfg)
+                    import re as _re
+                    m = _re.search(r"data_key=['\"]([^'\"]+)['\"]", s)
+                    if m:
+                        return m.group(1)
+                    m2 = _re.search(r"field_name=['\"]([^'\"]+)['\"]", s)
+                    if m2:
+                        return m2.group(1)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        return f.name
+
+    def _coerce_bool_alias_fields(self) -> None:
+        """Traverse the SCORE object and coerce any fields whose JSON alias ends with '?' to Python bools.
+        This keeps the in-memory model using True/False consistently, regardless of legacy 0/1 values.
+        """
+        def _walk(obj):
+            if is_dataclass(obj):
+                for f in fields(obj):
+                    try:
+                        val = getattr(obj, f.name)
+                    except Exception:
+                        continue
+                    # Recurse into containers first
+                    if is_dataclass(val) or isinstance(val, (list, dict)):
+                        _walk(val)
+                        continue
+                    # Coerce scalar if alias ends with '?'
+                    try:
+                        jn = self._json_field_name(f)
+                        is_bool_intended = isinstance(jn, str) and jn.endswith("?")
+                        # Heuristic fallback: fields commonly used as visibility toggles
+                        if not is_bool_intended and (f.name == "visible" or f.name.endswith("Visible")):
+                            is_bool_intended = True
+                        if is_bool_intended:
+                            if val is None:
+                                continue
+                            # Only coerce ints/bools; never coerce floats/strings
+                            if isinstance(val, bool):
+                                setattr(obj, f.name, val)
+                            elif isinstance(val, int) and not isinstance(val, bool):
+                                setattr(obj, f.name, bool(val))
+                    except Exception:
+                        continue
+                return
+            if isinstance(obj, list):
+                for it in obj:
+                    _walk(it)
+                return
+            if isinstance(obj, dict):
+                for it in obj.values():
+                    _walk(it)
+                return
+            # scalars: nothing to do
+        _walk(self)
+
+    def _to_dict_with_bool_aliases(self) -> dict:
+        """Return a dict suitable for JSON dump where any key ending with '?' has boolean values."""
+        base = self.to_dict()
+
+        def _convert(x):
+            if isinstance(x, dict):
+                out = {}
+                for k, v in x.items():
+                    cv = _convert(v)
+                    if isinstance(k, str) and k.endswith("?"):
+                        # Force to bool for primitives; leave containers unchanged (shouldn't happen for bool fields)
+                        if isinstance(cv, (bool, int, float)):
+                            out[k] = bool(cv)
+                        else:
+                            out[k] = cv
+                    else:
+                        out[k] = cv
+                return out
+            if isinstance(x, list):
+                return [_convert(i) for i in x]
+            return x
+
+        return _convert(base)
 
 
 # Auto-generate all event factory methods (new_note, new_grace_note, etc.)

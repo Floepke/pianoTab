@@ -351,6 +351,12 @@ class PropertyTreeEditor(BoxLayout):
     def __init__(self, **kwargs):
         super().__init__(orientation="vertical", size_hint=(1, 1), **kwargs)
 
+        # Unified left indent for column content (in dp):
+        # - spacing between left column and divider
+        # - spacing from divider to start of value widgets
+        # - header right-column spacer before the 'Value' label
+        self.indent_px = -10
+
         # Container to overlay ScrollView and custom scrollbar (avoids ScrollView 1-child limit)
         self.container = FloatLayout(size_hint=(1, 1))
         self.add_widget(self.container)
@@ -538,7 +544,7 @@ class PropertyTreeEditor(BoxLayout):
             return
         self._col_group.clear()
         # Horizontal spacing between the left column and the divider
-        row_spacing = dp(2.5)
+        row_spacing = dp(self.indent_px)
         try:
             pad_left = float(self.layout.padding[0]) if isinstance(self.layout.padding, (list, tuple)) else 0.0
         except Exception:
@@ -709,13 +715,15 @@ class PropertyTreeEditor(BoxLayout):
 
         # Left fixed column without indent
         left = BoxLayout(orientation="horizontal", size_hint_x=None, width=self.left_col_width, spacing=dp(6))
+        # Small adjustable spacer before the header label
+        left.add_widget(Widget(size_hint_x=None, width=dp(self.indent_px)))
         k = Label(text="[b]File Tree[/b]", markup=True, color=tc, size_hint_x=1, halign="left", valign="middle")
         k.bind(size=k.setter("text_size"))
         left.add_widget(k)
 
         # Right column with the same initial spacer used for values
         right = BoxLayout(orientation="horizontal", size_hint_x=1, spacing=dp(6))
-        right.add_widget(Widget(size_hint_x=None, width=dp(2.5)))
+        right.add_widget(Widget(size_hint_x=None, width=dp(self.indent_px)))
         v = Label(text="[b]Value[/b]", markup=True, color=tc, halign="left", valign="middle")
         v.bind(size=v.setter("text_size"))
         right.add_widget(v)
@@ -739,6 +747,8 @@ class PropertyTreeEditor(BoxLayout):
         fallback = "−" if opened else "+"
         btn = self._icon_button(icon_name, fallback, lambda *_: self._toggle_node(path))
         left.add_widget(btn)
+        # small adjustable spacer before the title label/button
+        left.add_widget(Widget(size_hint_x=None, width=dp(self.indent_px)))
         # title button (transparent, toggles)
         lbl_btn = Button(
             text=str(title),
@@ -800,10 +810,14 @@ class PropertyTreeEditor(BoxLayout):
             return
 
         if isinstance(value, list):
-            if self._list_is_numeric(value):
-                self._build_number_list_row(key_label, value, path, level)
-            else:
+            # Event.* lists are lists of objects; never use numeric list editor even if empty
+            if isinstance(parent, Event):
                 self._build_list_object_row(key_label, value, path, level)
+            else:
+                if self._list_is_numeric(value):
+                    self._build_number_list_row(key_label, value, path, level)
+                else:
+                    self._build_list_object_row(key_label, value, path, level)
             return
 
         if isinstance(value, str):
@@ -813,9 +827,20 @@ class PropertyTreeEditor(BoxLayout):
                 self._build_string_row(key_label, value, path, level)
             return
 
-        if isinstance(value, (int, float)) and self._key_json_name_ends_with_qmark(parent, attr_name):
-            self._build_bool_row(key_label, int(value), path, level)
-            return
+        # Detect boolean-alias fields (alias endswith '?').
+        # Only render as checkbox if the underlying value is bool or int (not float).
+        try:
+            alias_is_bool = False
+            if isinstance(attr_name, str):
+                alias_is_bool = self._key_json_name_ends_with_qmark(parent, attr_name)
+                # Fallback: if JSON label itself ends with '?' (extra safety)
+                if not alias_is_bool and isinstance(key_label, str) and key_label.endswith("?"):
+                    alias_is_bool = True
+            if alias_is_bool and (isinstance(value, bool) or (isinstance(value, int) and not isinstance(value, bool))):
+                self._build_bool_row(key_label, bool(value), path, level)
+                return
+        except Exception:
+            pass
 
         if isinstance(value, int):
             self._build_int_row(key_label, value, path, level)
@@ -847,13 +872,15 @@ class PropertyTreeEditor(BoxLayout):
                 icon_widget = None
             if icon_widget is not None:
                 left.add_widget(icon_widget)
+        # Small adjustable spacer before the key label
+        left.add_widget(Widget(size_hint_x=None, width=dp(self.indent_px)))
         k = Label(text=f"{key_text}:", color=tc, size_hint_x=1, halign="left", valign="middle")
         k.bind(size=k.setter("text_size"))
         left.add_widget(k)
 
         right = BoxLayout(orientation="horizontal", size_hint_x=1, spacing=dp(6))
         # Add left spacer to move value start slightly to the right (better readability vs divider)
-        right.add_widget(Widget(size_hint_x=None, width=dp(5)))
+        right.add_widget(Widget(size_hint_x=None, width=dp(self.indent_px)))
 
         row.add_widget(left)
         row.add_widget(right)
@@ -923,10 +950,11 @@ class PropertyTreeEditor(BoxLayout):
         row.bind(on_touch_down=lambda inst, touch: self._on_row_edit_touch(inst, touch, path, 'float', value))
         self._finalize_row(row)
 
-    def _build_bool_row(self, key: str, value01: int, path: Tuple[Union[str, int], ...], level: int):
+    def _build_bool_row(self, key: str, value_bool: bool, path: Tuple[Union[str, int], ...], level: int):
         row, right = self._make_kv_row(key_text=key, level=level, icon_name="property")
-        cb = CheckBox(active=bool(value01), size_hint=(None, None), size=(dp(22), dp(22)))
-        cb.bind(active=lambda inst, a: self._commit_value(path, 1 if a else 0))
+        cb = CheckBox(active=bool(value_bool), size_hint=(None, None), size=(dp(22), dp(22)))
+        # Commit boolean True/False directly so JSON writes "true/false" and Python model keeps bools
+        cb.bind(active=lambda inst, a: self._commit_value(path, bool(a)))
         right.add_widget(cb)
         self._finalize_row(row)
 
@@ -1053,9 +1081,26 @@ class PropertyTreeEditor(BoxLayout):
         left.add_widget(Widget(size_hint_x=None, width=self.INDENT * level))
         opened = self._is_open(header_path)
         arrow = "<" if not opened else ">"
-        btn = self._icon_button("sub" if opened else "add", "−" if opened else "+", lambda *_: self._toggle_node(header_path))
+        btn = self._icon_button("sub" if opened else "add", "-" if opened else "+", lambda *_: self._toggle_node(header_path))
         left.add_widget(btn)
 
+        # If this is an Event.* list, show the corresponding tool icon before the title
+        event_icon_name = None
+        try:
+            if isinstance(key, str) and (key in getattr(Event, "__dataclass_fields__", {})):
+                event_icon_name = self._event_icon_name_for_key(key)
+        except Exception:
+            event_icon_name = None
+        if event_icon_name:
+            try:
+                icon_w = self._icon_button(event_icon_name, "·", lambda *_: None)
+            except Exception:
+                icon_w = None
+            if icon_w is not None:
+                left.add_widget(icon_w)
+
+        # small adjustable spacer before the list title button
+        left.add_widget(Widget(size_hint_x=None, width=dp(self.indent_px)))
         title_btn = Button(
             text=f"{key} (list)",
             background_normal="",
@@ -1069,35 +1114,8 @@ class PropertyTreeEditor(BoxLayout):
         title_btn.bind(on_press=lambda *_: self._toggle_node(header_path))
         left.add_widget(title_btn)
 
-        # Right column for controls (+/−) aligned to the right
+        # Right column (no +/− controls in value column for Event.* lists)
         right = BoxLayout(orientation="horizontal", size_hint_x=1, spacing=dp(6))
-        # If this is an Event.* list, add transparent − / + buttons on the right
-        is_event_list = isinstance(key, str) and (key in getattr(Event, "__dataclass_fields__", {}))
-        if is_event_list:
-            stave_idx = self._path_to_stave_index(path)
-            right.add_widget(Widget(size_hint_x=1))
-            minus_btn = Button(
-                    text="-",
-                    size_hint_x=None,
-                    width=dp(28),
-                    background_normal="",
-                    background_down="",
-                    background_color=TRANSPARENT,
-                    color=tc,
-                )
-            minus_btn.bind(on_press=lambda *_: self._event_remove_last(lst))
-            plus_btn = Button(
-                text="+",
-                size_hint_x=None,
-                width=dp(28),
-                background_normal="",
-                background_down="",
-                background_color=TRANSPARENT,
-                color=tc,
-            )
-            plus_btn.bind(on_press=lambda *_: self._event_add(key, stave_idx))
-            right.add_widget(minus_btn)
-            right.add_widget(plus_btn)
 
         row.add_widget(left)
         row.add_widget(right)
@@ -1120,7 +1138,8 @@ class PropertyTreeEditor(BoxLayout):
         if not isinstance(lst, list):
             return False
         if not lst:
-            return True
+            # Empty lists are ambiguous; treat as numeric only when not under Event
+            return False
         return all(_is_number(x) for x in lst)
 
     def _json_field_name(self, f) -> str:
@@ -1128,9 +1147,43 @@ class PropertyTreeEditor(BoxLayout):
             meta = getattr(f, "metadata", None) or {}
             cfg = meta.get("dataclasses_json", None)
             if cfg is not None:
-                name = getattr(cfg, "field_name", None)
-                if isinstance(name, str) and name:
-                    return name
+                # dataclasses_json.config stores a dict under 'dataclasses_json'
+                if isinstance(cfg, dict):
+                    name = cfg.get("field_name", None)
+                    if isinstance(name, str) and name:
+                        return name
+                    # Sometimes alias lives on marshmallow field
+                    mm = cfg.get("mm_field", None)
+                    try:
+                        data_key = getattr(mm, "data_key", None)
+                        if isinstance(data_key, str) and data_key:
+                            return data_key
+                    except Exception:
+                        pass
+                else:
+                    # Some versions may provide an object-like accessor
+                    name = getattr(cfg, "field_name", None)
+                    if isinstance(name, str) and name:
+                        return name
+                    try:
+                        mm = getattr(cfg, "mm_field", None)
+                        data_key = getattr(mm, "data_key", None)
+                        if isinstance(data_key, str) and data_key:
+                            return data_key
+                    except Exception:
+                        pass
+                # As a last resort, inspect the string repr to find data_key/field_name
+                try:
+                    s = str(cfg)
+                    import re as _re
+                    m = _re.search(r"data_key=['\"]([^'\"]+)['\"]", s)
+                    if m:
+                        return m.group(1)
+                    m2 = _re.search(r"field_name=['\"]([^'\"]+)['\"]", s)
+                    if m2:
+                        return m2.group(1)
+                except Exception:
+                    pass
         except Exception:
             pass
         return f.name
@@ -1144,7 +1197,11 @@ class PropertyTreeEditor(BoxLayout):
             for f in fields(parent_obj):
                 if f.name == attr_name:
                     jn = self._json_field_name(f)
-                    return isinstance(jn, str) and jn.endswith("?")
+                    if isinstance(jn, str) and jn.endswith("?"):
+                        return True
+                    # Heuristic fallback: treat common visibility fields as booleans
+                    if f.name == "visible" or f.name.endswith("Visible"):
+                        return True
         except Exception:
             return False
         return False
@@ -1157,6 +1214,24 @@ class PropertyTreeEditor(BoxLayout):
         except Exception:
             pass
         return 0
+
+    def _event_icon_name_for_key(self, key: str) -> Optional[str]:
+        """Map Event.* list keys to tool selector icon names.
+        Falls back to None if no matching icon is available.
+        """
+        mapping = {
+            "note": "note",
+            "graceNote": "gracenote",
+            "countLine": "countline",
+            "beam": "beam",
+            "text": "text",
+            "slur": "slur",
+            "tempo": "tempo",
+            "startRepeat": "repeats",
+            "endRepeat": "repeats",
+            # section might not have an icon; return None
+        }
+        return mapping.get(key, None)
 
     # ---------- Icon helpers ----------
 
