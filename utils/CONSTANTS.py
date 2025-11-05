@@ -38,7 +38,7 @@ MIDI_PITCH_MAX = 108
 """Maximum MIDI pitch number (key 88)."""
 
 # Default visual settings
-DEFAULT_PIXELS_PER_QUARTER = 50.0
+DEFAULT_PIXELS_PER_QUARTER = 100.0
 """Default zoom level in pixels per quarter note when no score setting is available."""
 
 # Key layout calculation constants

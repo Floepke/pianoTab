@@ -26,31 +26,32 @@ class Editor:
     - Pitch flows horizontally with your custom spacing
     """
     
-    def __init__(self, editor_canvas: Canvas, score: Optional[SCORE] = None):
+    def __init__(self, editor_canvas: Canvas, score: SCORE = None):
         self.canvas: Canvas = editor_canvas  # Fixed: use consistent attribute name
-        self.score: SCORE = score if score is not None else self._create_default_score()
+        self.score: SCORE = score if score is not None else self._create_default_score_template()
         
         # Initialize dimensions from canvas
         # Zoom: single source of truth is SCORE.properties.editorZoomPixelsQuarter (px per quarter)
-        self.pixels_per_quarter: float = self._get_zoom_from_score()
+        # Start with a safe default; _apply_settings_from_score will sync from SCORE
+        self.pixels_per_quarter = float(DEFAULT_PIXELS_PER_QUARTER)
         
-        # Stave line configuration - use exact GlobalStave defaults from globalProperties.py
-        self.stave_two_color = "#000000"      # Default from GlobalStave 
-        self.stave_three_color = "#000000"    # Default from GlobalStave
-        self.stave_clef_color = "#000000"     # Default from GlobalStave
-        self.stave_two_width = 0.125          # Exact default from GlobalStave.twoLineWidth
-        self.stave_three_width = 0.25         # Exact default from GlobalStave.threeLineWidth
-        self.stave_clef_width = 0.125         # Exact default from GlobalStave.clefWidth
-        
-        # Grid configuration - use exact GlobalBasegrid defaults
-        self.barline_color = "#000000"        # Default from GlobalBasegrid
-        self.barline_width = 0.25             # Default from GlobalBasegrid.barlineWidth (mm)
-        self.gridline_color = "#000000"       # Default from GlobalBasegrid.gridlineColor
-        self.gridline_width = 0.125           # Default from GlobalBasegrid.gridlineWidth (mm)
-        self.gridline_dash_pattern = [2, 2]   # Default from GlobalBasegrid.gridlineDashPattern (mm)
-        
-        # Clef line dash pattern - use exact GlobalStave default
-        self.clef_dash_pattern = [2, 2]       # Default from GlobalStave.clefDashPattern
+        # Stave & grid configuration defaults (overridden by SCORE properties below)
+        self.stave_two_color = "#000000"
+        self.stave_three_color = "#000000"
+        self.stave_clef_color = "#000000"
+        self.stave_two_width = 0.125
+        self.stave_three_width = 0.25
+        self.stave_clef_width = 0.125
+
+        self.barline_color = "#000000"
+        self.barline_width = 0.25
+        self.gridline_color = "#000000"
+        self.gridline_width = 0.125
+        self.gridline_dash_pattern = [2, 2]
+        self.clef_dash_pattern = [2, 2]
+
+        # Immediately apply preferences (incl. zoom) from SCORE model to avoid mismatch
+        self._apply_settings_from_score()
         
         # Current view state
         self.scroll_time_offset: float = 0.0
@@ -61,9 +62,55 @@ class Editor:
         
         # Initialize layout
         self._calculate_layout()
+
+    def _apply_settings_from_score(self):
+        """Synchronize editor state from SCORE.properties.
+
+        - Zoom (editorZoomPixelsQuarter)
+        - Stave visuals (globalStave)
+        - Grid/barline visuals (globalBasegrid)
+        Called in __init__ and whenever SCORE/properties change so drawing uses the
+        SCORE's values from the start. Fallbacks use safe defaults when properties are missing.
+        """
+        if not self.score or not hasattr(self.score, 'properties'):
+            return
+
+        properties = self.score.properties
+
+        # Zoom (px per quarter)
+        if hasattr(properties, 'editorZoomPixelsQuarter') and properties.editorZoomPixelsQuarter:
+            try:
+                self.pixels_per_quarter = float(properties.editorZoomPixelsQuarter)
+                print(f"DEBUG: Using SCORE editorZoomPixelsQuarter: {self.pixels_per_quarter} pixels")
+            except Exception:
+                # Keep current/default on parse error
+                pass
+
+        # Stave (line widths, colors, dash pattern)
+        if hasattr(properties, 'globalStave') and properties.globalStave is not None:
+            stave = properties.globalStave
+            self.stave_two_color = getattr(stave, 'twoLineColor', self.stave_two_color)
+            self.stave_three_color = getattr(stave, 'threeLineColor', self.stave_three_color)
+            self.stave_clef_color = getattr(stave, 'clefColor', self.stave_clef_color)
+
+            self.stave_two_width = getattr(stave, 'twoLineWidth', self.stave_two_width)
+            self.stave_three_width = getattr(stave, 'threeLineWidth', self.stave_three_width)
+            self.stave_clef_width = getattr(stave, 'clefWidth', self.stave_clef_width)
+
+            self.clef_dash_pattern = getattr(stave, 'clefDashPattern', self.clef_dash_pattern)
+
+        # Grid (bar/grid line widths, colors, dash)
+        if hasattr(properties, 'globalBasegrid') and properties.globalBasegrid is not None:
+            basegrid = properties.globalBasegrid
+            self.barline_color = getattr(basegrid, 'barlineColor', self.barline_color)
+            self.barline_width = getattr(basegrid, 'barlineWidth', self.barline_width)
+            self.gridline_color = getattr(basegrid, 'gridlineColor', self.gridline_color)
+            self.gridline_width = getattr(basegrid, 'gridlineWidth', self.gridline_width)
+            self.gridline_dash_pattern = getattr(basegrid, 'gridlineDashPattern', self.gridline_dash_pattern)
+
     # Defer zoom refresh until the canvas attaches us and scale is known.
     
-    def _create_default_score(self) -> SCORE:
+    def _create_default_score_template(self) -> SCORE:
         """Create a default score with a single stave and exactly one base grid."""
         score = SCORE()
         
@@ -77,24 +124,24 @@ class Editor:
             bg = score.baseGrid[0]
             bg.numerator = 4
             bg.denominator = 4
-            bg.measureAmount = 4
+            bg.measureAmount = 32
             # Keep gridTimes as provided by SCORE defaults
             score.baseGrid = [bg]
         else:
-            score.new_basegrid(numerator=4, denominator=4, measureAmount=4)
-        
+            score.new_basegrid(numerator=4, denominator=4, measureAmount=32)
+
+        # create linebreaks in groups of 4 measures
+        score.new_linebreak(time=1024*4)
+        score.new_linebreak(time=1024*8)
+        score.new_linebreak(time=1024*12)
+        score.new_linebreak(time=1024*16)
+        score.new_linebreak(time=1024*20)
+        score.new_linebreak(time=1024*24)
+        score.new_linebreak(time=1024*28)
+
         return score
     
-    def _get_zoom_from_score(self) -> float:
-        """Read editorZoomPixelsQuarter from SCORE model, with fallback to default."""
-        if (hasattr(self.score, 'properties') and 
-            hasattr(self.score.properties, 'editorZoomPixelsQuarter')):
-            zoom_value = self.score.properties.editorZoomPixelsQuarter
-            print(f"DEBUG: Using SCORE editorZoomPixelsQuarter: {zoom_value} pixels")
-            return float(zoom_value)
-        else:
-            print(f"DEBUG: No editorZoomPixelsQuarter found in SCORE, using default: {DEFAULT_PIXELS_PER_QUARTER} pixels")
-            return DEFAULT_PIXELS_PER_QUARTER
+    # Defer zoom refresh until the canvas attaches us and scale is known.
     
     def _calculate_layout(self):
         """Calculate layout dimensions based on your Tkinter design."""
@@ -120,12 +167,6 @@ class Editor:
         px_per_mm_nominal = max(1e-6, float(self.canvas.width) / max(1e-6, float(self.canvas.width_mm)))
         quarter_note_mm = float(self.pixels_per_quarter) / px_per_mm_nominal
         self.canvas.set_quarter_note_spacing_mm(quarter_note_mm)
-            
-            # Debug: Check consistency with editor's time calculation (disabled)
-            # pixels_per_quarter_mm_editor = self.pixels_per_quarter * 0.264583 * self.zoom_factor
-            # print(f"DEBUG: Quarter note spacing - Canvas: {quarter_note_mm:.2f}mm, Editor: {pixels_per_quarter_mm_editor:.2f}mm")
-            # print(f"DEBUG: pixels_per_quarter: {self.pixels_per_quarter}, zoom_factor: {self.zoom_factor}")
-            # print(f"DEBUG: canvas._px_per_mm: {self.canvas._px_per_mm:.3f}, hardcoded: {1/0.264583:.3f}")
     
     @property
     def width(self) -> float:
@@ -182,7 +223,7 @@ class Editor:
         
         # Calculate required dimensions
         piano_width = (self.width - 2 * self.editor_margin)
-        total_time = self._calculate_total_time()
+        total_time = self._get_score_length_in_ticks()
         # Content height must not depend on scroll offset; compute using mm/quarter directly
         mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
         if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
@@ -228,18 +269,7 @@ class Editor:
         # Draw horizontal timeline cursor on top if present
         self._draw_cursor()
         
-    def _calculate_total_time(self):
-        """Calculate the total time span needed for the score."""
-        if not self.score.baseGrid:
-            return quarters_to_ticks(4.0)  # Default to 4 quarter notes if no grid
-        
-        total_ticks = 0.0
-        for grid in self.score.baseGrid:
-            ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
-            measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
-            total_ticks += measure_ticks * grid.measureAmount
-        
-        return total_ticks
+    
     
     def _draw_stave(self):
         """Draw the 88-key stave with your specific line patterns."""
@@ -373,7 +403,7 @@ class Editor:
     def zoom_in(self, factor: float = 1.2):
         """Increase SCORE.properties.editorZoomPixelsQuarter by factor (px per quarter)."""
         try:
-            current = self._get_zoom_from_score()
+            current = float(self.pixels_per_quarter)
             new_ppq = max(1.0, current * float(factor))
             self.pixels_per_quarter = new_ppq
             self._update_score_zoom()
@@ -385,7 +415,7 @@ class Editor:
     def zoom_out(self, factor: float = 1.2):
         """Decrease SCORE.properties.editorZoomPixelsQuarter by factor (px per quarter)."""
         try:
-            current = self._get_zoom_from_score()
+            current = float(self.pixels_per_quarter)
             new_ppq = max(1.0, current / float(factor))
             self.pixels_per_quarter = new_ppq
             self._update_score_zoom()
@@ -435,8 +465,13 @@ class Editor:
                             return
 
                     # Keep internal state in sync with SCORE without persisting any change
-                    current = self._get_zoom_from_score()
-                    self.pixels_per_quarter = float(current)
+                    # Keep internal state in sync with SCORE without persisting any change
+                    try:
+                        props = getattr(self.score, 'properties', None)
+                        if props is not None and hasattr(props, 'editorZoomPixelsQuarter'):
+                            self.pixels_per_quarter = float(props.editorZoomPixelsQuarter)
+                    except Exception:
+                        pass
 
                     # Recompute layout with current canvas scale and re-render content height
                     self._calculate_layout()
@@ -649,80 +684,19 @@ class Editor(Editor):
     def set_score(self, score: SCORE):
         """Set a new score and update the display."""
         self.score = score
-        self.pixels_per_quarter = self._get_zoom_from_score()  # Update zoom from new score
-        self._update_line_settings_from_score()
+        # Sync all visuals and zoom from new score
+        self._apply_settings_from_score()
         self.render()
         if self.on_modified:
             self.on_modified()
     
     def _update_line_settings_from_score(self):
-        """Update line thickness and colors from the SCORE's properties to match paper output exactly."""
-        if not self.score or not hasattr(self.score, 'properties'):
-            print("DEBUG: No score.properties found, using defaults")
-            return
+        """Update settings from SCORE; kept for backward-compatibility.
 
-        properties = self.score.properties
-
-        # Stave line settings (mm, match paper output)
-        if hasattr(properties, 'globalStave'):
-            stave = properties.globalStave
-            self.stave_two_color = getattr(stave, 'twoLineColor', '#000000')
-            self.stave_three_color = getattr(stave, 'threeLineColor', '#000000')
-            self.stave_clef_color = getattr(stave, 'clefColor', '#000000')
-
-            self.stave_two_width = getattr(stave, 'twoLineWidth', 0.125)
-            self.stave_three_width = getattr(stave, 'threeLineWidth', 0.25)
-            self.stave_clef_width = getattr(stave, 'clefWidth', 0.125)
-
-            self.clef_dash_pattern = getattr(stave, 'clefDashPattern', [2, 2])
-
-            print(f"DEBUG: Using SCORE line widths - two: {self.stave_two_width}mm, three: {self.stave_three_width}mm, clef: {self.stave_clef_width}mm")
-            print(f"DEBUG: Using SCORE clef dash pattern: {self.clef_dash_pattern}mm")
-
-        # Grid/barline settings (mm, match paper output)
-        if hasattr(properties, 'globalBasegrid'):
-            basegrid = properties.globalBasegrid
-            self.barline_color = getattr(basegrid, 'barlineColor', '#000000')
-            self.barline_width = getattr(basegrid, 'barlineWidth', 0.25)   # mm
-            self.gridline_color = getattr(basegrid, 'gridlineColor', '#000000')
-            self.gridline_width = getattr(basegrid, 'gridlineWidth', 0.125) # mm
-            self.gridline_dash_pattern = getattr(basegrid, 'gridlineDashPattern', [2, 2])  # mm
-
-            print(f"DEBUG: Using SCORE grid widths - barline: {self.barline_width}mm, gridline: {self.gridline_width}mm")
-            print(f"DEBUG: Using SCORE gridline dash pattern: {self.gridline_dash_pattern}mm")
-
-        properties = self.score.properties
-
-        # Stave line settings (mm, match paper output)
-        if hasattr(properties, 'globalStave'):
-            stave = properties.globalStave
-            self.stave_two_color = getattr(stave, 'twoLineColor', '#000000')
-            self.stave_three_color = getattr(stave, 'threeLineColor', '#000000')
-            self.stave_clef_color = getattr(stave, 'clefColor', '#000000')
-
-            self.stave_two_width = getattr(stave, 'twoLineWidth', 0.125)
-            self.stave_three_width = getattr(stave, 'threeLineWidth', 0.25)
-            self.stave_clef_width = getattr(stave, 'clefWidth', 0.125)
-
-            self.clef_dash_pattern = getattr(stave, 'clefDashPattern', [2, 2])
-
-            print(f"DEBUG: Using SCORE line widths - two: {self.stave_two_width}mm, three: {self.stave_three_width}mm, clef: {self.stave_clef_width}mm")
-            print(f"DEBUG: Using SCORE clef dash pattern: {self.clef_dash_pattern}mm")
-
-        # Grid/barline settings (mm, match paper output)
-        if hasattr(properties, 'globalBasegrid'):
-            basegrid = properties.globalBasegrid
-            self.barline_color = getattr(basegrid, 'barlineColor', '#000000')
-            self.barline_width = getattr(basegrid, 'barlineWidth', 0.25)
-            self.gridline_color = getattr(basegrid, 'gridlineColor', '#000000')
-            self.gridline_width = getattr(basegrid, 'gridlineWidth', 0.125)
-            self.gridline_dash_pattern = getattr(basegrid, 'gridlineDashPattern', [2, 2])
-
-            print(f"DEBUG: Using SCORE grid widths - barline: {self.barline_width}mm, gridline: {self.gridline_width}mm")
-            print(f"DEBUG: Using SCORE gridline dash pattern: {self.gridline_dash_pattern}mm")
-
-        # Intentionally ignore properties.globalBarLine for editor rendering:
-        # The editor must match GlobalBasegrid mm widths exactly.
+        Delegates to _apply_settings_from_score() which now syncs both zoom and
+        visual line settings from the model to ensure the editor matches paper output.
+        """
+        self._apply_settings_from_score()
         
     def load_score(self, score: SCORE):
         """Load an existing SCORE into the editor and refresh the display."""
@@ -741,7 +715,7 @@ class Editor(Editor):
     def new_score(self):
         """Create a new default SCORE and display it."""
         try:
-            score = self._create_default_score()
+            score = self._create_default_score_template()
             self.set_score(score)
             # Reset view related state
             self.scroll_time_offset = 0.0
@@ -795,5 +769,5 @@ class Editor(Editor):
     
     def refresh_display(self):
         """Refresh the display after score changes."""
-        self._update_line_settings_from_score()
+        self._apply_settings_from_score()
         self.render()

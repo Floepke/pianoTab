@@ -19,8 +19,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from kivy.config import Config
 
 # Configure Kivy before importing other Kivy modules
-Config.set('graphics', 'width', '1200')
-Config.set('graphics', 'height', '700')
+Config.set('graphics', 'width', '3840')
+Config.set('graphics', 'height', '2160')
 Config.set('graphics', 'minimum_width', '800')
 Config.set('graphics', 'minimum_height', '600')
 Config.set('graphics', 'resizable', True)

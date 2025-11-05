@@ -14,12 +14,17 @@ from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.textinput import TextInput
 
 from gui.colors import DARK, DARK_LIGHTER, LIGHT
+from kivy.core.window import Window
 from file.SCORE import SCORE
 from typing import Any
 
 
 DEFAULT_EXT = ".piano"
 FILE_FILTERS = ["*.piano"]
+
+# Max size for Load/Save popups (tweak here to fine-tune on large screens like 4K)
+LOAD_SAVE_MAX_WIDTH = 1400
+LOAD_SAVE_MAX_HEIGHT = 900
 
 
 class LoadDialog(BoxLayout):
@@ -227,10 +232,14 @@ class FileManager:
                 load_callback=_do_open,
                 cancel_callback=self._dismiss_popup
             )
+            # Size capped for very large screens while remaining responsive
+            target_w = min(int(Window.width * 0.9), LOAD_SAVE_MAX_WIDTH)
+            target_h = min(int(Window.height * 0.9), LOAD_SAVE_MAX_HEIGHT)
             self._popup = Popup(
                 title="Load File",
                 content=content,
-                size_hint=(0.9, 0.9),
+                size_hint=(None, None),
+                size=(target_w, target_h),
                 auto_dismiss=False
             )
             self._popup.open()
@@ -267,10 +276,14 @@ class FileManager:
             save_callback=_do_save,
             cancel_callback=self._dismiss_popup
         )
+        # Size capped for very large screens while remaining responsive
+        target_w = min(int(Window.width * 0.9), LOAD_SAVE_MAX_WIDTH)
+        target_h = min(int(Window.height * 0.9), LOAD_SAVE_MAX_HEIGHT)
         self._popup = Popup(
             title="Save File As",
             content=content,
-            size_hint=(0.9, 0.9),
+            size_hint=(None, None),
+            size=(target_w, target_h),
             auto_dismiss=False
         )
         self._popup.open()
@@ -282,6 +295,14 @@ class FileManager:
     def mark_dirty(self):
         """Mark the current file as having unsaved changes."""
         self.dirty = True
+
+    # Convenience: single place to access the current SCORE
+    def get_score(self) -> Optional[SCORE]:
+        """Return the currently loaded SCORE model (or None)."""
+        try:
+            return getattr(self.editor, 'score', None)
+        except Exception:
+            return None
 
     def _save_to_path(self, path: str):
         """Actually save the score to the given path."""
@@ -386,10 +407,14 @@ class FileManager:
                     save_callback=_do_save,
                     cancel_callback=self._dismiss_popup
                 )
+                # Size capped for very large screens while remaining responsive
+                target_w = min(int(Window.width * 0.9), LOAD_SAVE_MAX_WIDTH)
+                target_h = min(int(Window.height * 0.9), LOAD_SAVE_MAX_HEIGHT)
                 self._popup = Popup(
                     title="Save File As",
                     content=content,
-                    size_hint=(0.9, 0.9),
+                    size_hint=(None, None),
+                    size=(target_w, target_h),
                     auto_dismiss=False
                 )
                 self._popup.open()
