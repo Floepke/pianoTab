@@ -27,7 +27,7 @@ def main():
     angles = [0, 15, 30, 45, 60, 75, 90, 120, 150]
     y = 15
     for ang in angles:
-        cv.add_text(f"Angle {ang}", 20, y, 16, angle_deg=ang, anchor='top_left', color='#000000')
+        cv.add_text(f'Angle {ang}', 20, y, 16, angle_deg=ang, anchor='top_left', color='#000000')
         y += 12
 
     cv.save_pdf(out_path)

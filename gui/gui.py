@@ -1,4 +1,4 @@
-"""
+'''
 New modular GUI scaffold for pianoTAB.
 
 - MainMenu(): wraps the existing MenuBar using the current callbacks config
@@ -21,7 +21,7 @@ Layout:
 Cross-link:
 - CenterSplit (vertical) is cross-linked with MidRightSplit (horizontal)
   via ToolSash.set_linked_split so dragging either sash can delta-couple both axes.
-"""
+'''
 
 from __future__ import annotations
 
@@ -49,19 +49,19 @@ SIDE_PANEL_WIDTH_PX = 350
 
 
 class MainMenu(MenuBar):
-    """
+    '''
     Wrapper around the existing MenuBar. The GUI root should pass in the current
     menu configuration using the central callbacks configuration.
-    """
+    '''
     def __init__(self, menu_config: Optional[dict] = None, **kwargs):
         super().__init__(menu_config=menu_config or {}, **kwargs)
 
 
 class SidePanel(ScrollView):
-    """
+    '''
     Fixed-width side panel with GridSelector and ToolSelector.
     Intended width: 150 px (size_hint_x=None, width=150 on attach).
-    """
+    '''
     def __init__(self, grid_callback: Optional[Callable[[float], None]] = None,
                  tool_callback: Optional[Callable[[str], None]] = None,
                  **kwargs):
@@ -119,9 +119,9 @@ class SidePanel(ScrollView):
 
 
 class Editor(BoxLayout):
-    """
+    '''
     Editor wrapper hosting the mm-based Canvas.
-    """
+    '''
     def __init__(self, **kwargs):
         super().__init__(orientation='vertical', **kwargs)
         with self.canvas.before:
@@ -145,9 +145,9 @@ class Editor(BoxLayout):
 
 
 class PrintView(BoxLayout):
-    """
+    '''
     Print preview wrapper hosting a Canvas (typically keep_aspect True).
-    """
+    '''
     def __init__(self, **kwargs):
         super().__init__(orientation='vertical', **kwargs)
         with self.canvas.before:
@@ -171,10 +171,10 @@ class PrintView(BoxLayout):
 
 
 class TreeViewEditor(BoxLayout):
-    """
+    '''
     Temporary stub for the property tree editor area (bottom panel).
     Replace later with a real PropertyTreeEditor implementation.
-    """
+    '''
     def __init__(self, **kwargs):
         super().__init__(orientation='vertical', **kwargs)
         with self.canvas.before:
@@ -196,12 +196,12 @@ class TreeViewEditor(BoxLayout):
 
 
 class GUI(BoxLayout):
-    """
+    '''
     New GUI root container assembling:
       - MainMenu() on top
       - Nested SplitView structure underneath to emulate 3 panels horizontally,
         with the center panel itself split vertically.
-    """
+    '''
     def __init__(self, **kwargs):
         super().__init__(orientation='vertical', **kwargs)
 
@@ -306,9 +306,9 @@ class GUI(BoxLayout):
         self.mid_right_split.bind(size=lambda *_: self._setup_preview_snap_ratio())
 
     def _enforce_fixed_left_width(self, *_):
-        """
+        '''
         Keep the OUTER split left area equal to self.side_panel.width (sash=0 prevents user resizing).
-        """
+        '''
         try:
             total_w = float(self.outer_split.width)
             if total_w <= 0:
@@ -333,12 +333,12 @@ class GUI(BoxLayout):
             pass
 
     def _setup_preview_snap_ratio(self, *_):
-        """
+        '''
         Calculate and set the snap ratio on the mid-right split so the right panel
         (print preview) snaps to the exact width where an A4 page fits fully:
           right_width == right_height / (height_mm / width_mm).
         Uses a snap threshold of 40 px on the vertical sash.
-        """
+        '''
         sp = getattr(self, 'mid_right_split', None)
         if not sp:
             return
@@ -457,10 +457,10 @@ class GUI(BoxLayout):
 
 
 __all__ = [
-    "GUI",
-    "MainMenu",
-    "SidePanel",
-    "Editor",
-    "PrintView",
-    "TreeViewEditor",
+    'GUI',
+    'MainMenu',
+    'SidePanel',
+    'Editor',
+    'PrintView',
+    'TreeViewEditor',
 ]

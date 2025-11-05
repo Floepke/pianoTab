@@ -105,7 +105,7 @@ Create a simple test to verify everything works:
 
 ```python
 #!/usr/bin/env python3
-"""Test new accidental field."""
+'''Test new accidental field.'''
 
 from file.SCORE import SCORE
 
@@ -126,7 +126,7 @@ assert loaded.stave[0].event.note[0].accidental == '♯'
 assert loaded.stave[0].event.note[1].accidental == '♭'
 assert loaded.stave[0].event.note[2].accidental == None
 
-print("✓ New field works correctly!")
+print('✓ New field works correctly!')
 ```
 
 ---
@@ -137,17 +137,17 @@ Create a test that loads an OLD JSON file (without your new field):
 
 ```python
 #!/usr/bin/env python3
-"""Test loading old file without new field."""
+'''Test loading old file without new field.'''
 
 from file.SCORE import SCORE
 import json
 
 # Create old-format JSON (without 'accidental' field)
 old_data = {
-    "stave": [{
-        "event": {
-            "note": [
-                {"id": 1, "time": 0, "pitch": 60}  # No 'acc' field
+    'stave': [{
+        'event': {
+            'note': [
+                {'id': 1, 'time': 0, 'pitch': 60}  # No 'acc' field
             ]
         }
     }]
@@ -161,7 +161,7 @@ loaded = SCORE.load('tests/test_old_format.pianoTAB')
 
 # Verify default was applied
 assert loaded.stave[0].event.note[0].accidental == None
-print("✓ Backward compatibility works!")
+print('✓ Backward compatibility works!')
 ```
 
 The validation system will print:
@@ -217,17 +217,17 @@ _accidentalColor: Optional[str] = field(default=None, metadata=config(field_name
 # Property: accidentalColor
 @property
 def accidentalColor(self) -> str:
-    """Get accidental color - inherits from globalNote.accidentalColor if None."""
+    '''Get accidental color - inherits from globalNote.accidentalColor if None.'''
     if self._accidentalColor is not None:
         return self._accidentalColor
     if self.score is None:
-        print("Warning: Note has no score reference for property inheritance.")
+        print('Warning: Note has no score reference for property inheritance.')
         return '#FF0000'  # Fallback if no score reference
     return self.score.properties.globalNote.accidentalColor
 
 @accidentalColor.setter
 def accidentalColor(self, value: Optional[str]):
-    """Set accidental color - use None to reset to inheritance."""
+    '''Set accidental color - use None to reset to inheritance.'''
     self._accidentalColor = value
 ```
 
@@ -285,14 +285,14 @@ myLongFieldName: str = field(default='value', metadata=config(field_name='short'
 
 ## Troubleshooting
 
-### "Missing field warning appears but I added the field!"
+### 'Missing field warning appears but I added the field!'
 
 **Check**:
 1. Did you use `field()` with `metadata=config(field_name='...')`?
 2. Does the JSON name match what's in the file?
 3. Did you restart Python after changing the code?
 
-### "Old files fail to load"
+### 'Old files fail to load'
 
 **Solution**: Make sure your field has a default value:
 ```python
@@ -303,7 +303,7 @@ myField: int = 0
 myField: int
 ```
 
-### "Field appears in JSON with wrong name"
+### 'Field appears in JSON with wrong name'
 
 **Check** the `field_name` in metadata:
 ```python

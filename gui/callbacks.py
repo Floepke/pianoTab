@@ -1,13 +1,13 @@
-"""
+'''
 Central, typed callbacks for all UI actions (menu + toolbar), with IntelliSense.
 
 Goals achieved in this refactor:
-- Strongly-typed "app" surface using a Protocol, so callback bodies have
+- Strongly-typed 'app' surface using a Protocol, so callback bodies have
     IntelliSense for app methods (on_new, on_save_as, etc.).
 - One single place to steer all buttons and menu items to organized callback_*
     functions at the bottom of this file.
 - Menu and toolbar configs expose zero-arg callables via functools.partial,
-    binding the "app" instance once while keeping clean, typed callback bodies.
+    binding the 'app' instance once while keeping clean, typed callback bodies.
 
 Configuration value forms remain compatible with MenuBar expectations:
 - dict value: dropdown menu (submenu)
@@ -15,7 +15,7 @@ Configuration value forms remain compatible with MenuBar expectations:
 - (callable, str): menu item with tooltip/shortcut hint
 - None: disabled item
 - '---' key: separator (menu-only)
-"""
+'''
 
 from functools import partial
 from typing import Callable, Dict, Tuple, Union, Protocol
@@ -33,11 +33,11 @@ ContextualToolbarConfig = Dict[str, ButtonConfigWithTips]
 
 
 class AppCallbacks(Protocol):
-    """Interface for callbacks the GUI exposes. Used for IntelliSense.
+    '''Interface for callbacks the GUI exposes. Used for IntelliSense.
 
     The main pianoTAB GUI should implement these methods. Keeping this in one
     Protocol gives strong typing without tight coupling.
-    """
+    '''
 
     # File menu
     def on_new(self) -> None: ...
@@ -59,7 +59,7 @@ class AppCallbacks(Protocol):
 
 
 def create_menu_config(app_instance: AppCallbacks) -> MenuConfig:
-    """
+    '''
     Create menu bar configuration bound to application instance methods.
     
     Args:
@@ -78,7 +78,7 @@ def create_menu_config(app_instance: AppCallbacks) -> MenuConfig:
             },
             'Help': app.on_help  # Direct button (no dropdown)
         }
-    """
+    '''
     return {
         'File': {
             'New': partial(callback_new, app_instance),
@@ -110,27 +110,27 @@ def create_menu_config(app_instance: AppCallbacks) -> MenuConfig:
 
 
 def create_default_toolbar_config(app_instance: AppCallbacks) -> ButtonConfigWithTips:
-    """
+    '''
     Build the always-visible toolbar (top of sash).
     Keys are icon names; values are (callable|None, tooltip).
-    """
+    '''
     return {
-        "previous": (None, "Previous item"),
-        "next": (None, "Next item"),
-        "MyTest": (partial(callback_my_test, app_instance), "Run render + PDF test"),
+        'previous': (None, 'Previous item'),
+        'next': (None, 'Next item'),
+        'MyTest': (partial(callback_my_test, app_instance), 'Run render + PDF test'),
     }
 
 
 def create_contextual_toolbar_config(app_instance: AppCallbacks) -> ContextualToolbarConfig:
-    """
+    '''
     Build the contextual toolbar map.
     Top-level key is the normalized ToolSelector value (e.g. 'note').
     Inner dict maps icon name -> (callable|None, tooltip).
-    """
+    '''
     return {
-        "note": {
-            "noteLeft": (partial(callback_note_to_left, app_instance), "Move selected note to left hand"),
-            "noteRight": (partial(callback_note_to_right, app_instance), "Move selected note to right hand"),
+        'note': {
+            'noteLeft': (partial(callback_note_to_left, app_instance), 'Move selected note to left hand'),
+            'noteRight': (partial(callback_note_to_right, app_instance), 'Move selected note to right hand'),
         }
     }
 
@@ -142,7 +142,7 @@ CONTEXTUAL_TOOLBAR_CONFIG: ContextualToolbarConfig = {}
 
 # Placeholder implementations for demonstration
 def _not_implemented(action: str) -> Callable[[], None]:
-    """
+    '''
     Create a placeholder callback for unimplemented actions.
     
     Args:
@@ -150,9 +150,9 @@ def _not_implemented(action: str) -> Callable[[], None]:
         
     Returns:
         A callable that prints a not-implemented message
-    """
+    '''
     def _cb():
-        print(f"Action '{action}' not implemented")
+        print(f'Action "{action}" not implemented')
     return _cb
 
 
@@ -162,14 +162,14 @@ def _not_implemented(action: str) -> Callable[[], None]:
 
 
 __all__ = [
-    "create_menu_config",
-    "create_default_toolbar_config",
-    "create_contextual_toolbar_config",
-    "DEFAULT_TOOLBAR_BUTTON_CONFIG",
-    "CONTEXTUAL_TOOLBAR_CONFIG",
-    "MenuConfig",
-    "ButtonConfig",
-    "AppCallbacks",
+    'create_menu_config',
+    'create_default_toolbar_config',
+    'create_contextual_toolbar_config',
+    'DEFAULT_TOOLBAR_BUTTON_CONFIG',
+    'CONTEXTUAL_TOOLBAR_CONFIG',
+    'MenuConfig',
+    'ButtonConfig',
+    'AppCallbacks',
 ]
 
 
@@ -178,11 +178,11 @@ __all__ = [
 # -------------------------
 
 def _invoke(app: object, method_names: tuple[str, ...], fallback: Callable[[object], None] | None = None) -> None:
-    """Call the first available method on app by name, else run fallback.
+    '''Call the first available method on app by name, else run fallback.
 
     This keeps callbacks resilient even if some methods were removed on the app
     side. It also centralizes wiring here, as requested.
-    """
+    '''
     for name in method_names:
         fn = getattr(app, name, None)
         if callable(fn):
@@ -192,66 +192,66 @@ def _invoke(app: object, method_names: tuple[str, ...], fallback: Callable[[obje
         fallback(app)
     else:
         # Last-resort informational message
-        print(f"Action '{method_names[0]}' not implemented on app")
+        print(f'Action "{method_names[0]}" not implemented on app')
 
 def callback_new(app: AppCallbacks) -> None:
-    _invoke(app, ("on_new",), lambda _a: _not_implemented("New")())
+    _invoke(app, ('on_new',), lambda _a: _not_implemented('New')())
 
 
 def callback_load(app: AppCallbacks) -> None:
-    _invoke(app, ("on_load",), lambda _a: _not_implemented("Load...")())
+    _invoke(app, ('on_load',), lambda _a: _not_implemented('Load...')())
 
 
 def callback_save(app: AppCallbacks) -> None:
-    _invoke(app, ("on_save",), lambda _a: _not_implemented("Save")())
+    _invoke(app, ('on_save',), lambda _a: _not_implemented('Save')())
 
 
 def callback_save_as(app: AppCallbacks) -> None:
-    _invoke(app, ("on_save_as",), lambda _a: _not_implemented("Save as...")())
+    _invoke(app, ('on_save_as',), lambda _a: _not_implemented('Save as...')())
 
 
 def callback_export_pdf(app: AppCallbacks) -> None:
     # Prefer app's implementation; otherwise print the local test message
-    _invoke(app, ("on_export_pdf",), lambda _a: print('Export pdf triggered'))
+    _invoke(app, ('on_export_pdf',), lambda _a: print('Export pdf triggered'))
 
 
 def callback_exit(app: AppCallbacks) -> None:
-    _invoke(app, ("on_exit",), lambda _a: _not_implemented("Exit")())
+    _invoke(app, ('on_exit',), lambda _a: _not_implemented('Exit')())
 
 
 def callback_draw_thinnest_line(app: AppCallbacks) -> None:
-    _invoke(app, ("on_draw_thinnest_line",), lambda _a: _not_implemented("Draw thinnest line (Editor)")())
+    _invoke(app, ('on_draw_thinnest_line',), lambda _a: _not_implemented('Draw thinnest line (Editor)')())
 
 
 def callback_about(app: AppCallbacks) -> None:
-    _invoke(app, ("on_about",), lambda _a: _not_implemented("About")())
+    _invoke(app, ('on_about',), lambda _a: _not_implemented('About')())
 
 
 def callback_note_to_left(app: AppCallbacks) -> None:
     # Support either legacy or new naming on the app side
-    _invoke(app, ("on_selected_note_to_left", "on_note_to_left"), lambda _a: _not_implemented("Note to left")())
+    _invoke(app, ('on_selected_note_to_left', 'on_note_to_left'), lambda _a: _not_implemented('Note to left')())
 
 
 def callback_note_to_right(app: AppCallbacks) -> None:
     # Support either legacy or new naming on the app side
-    _invoke(app, ("on_selected_note_to_right", "on_note_to_right"), lambda _a: _not_implemented("Note to right")())
+    _invoke(app, ('on_selected_note_to_right', 'on_note_to_right'), lambda _a: _not_implemented('Note to right')())
 
 
 def callback_my_test(app: AppCallbacks) -> None:
-    """Draw a mm-grid and text samples on the print preview, then export a PDF copy.
+    '''Draw a mm-grid and text samples on the print preview, then export a PDF copy.
 
     - Uses the app.print_preview Canvas if present.
     - Creates a PyMuPDFCanvas of the same size, mirrors the same drawing, and saves to tests/output/text_grid_test.pdf
-    """
+    '''
     # Attempt to find a print preview canvas on the app
     cv = getattr(app, 'print_preview', None)
     if cv is None:
-        print("No print_preview canvas on app; cannot run MyTest")
+        print('No print_preview canvas on app; cannot run MyTest')
         return
     try:
         from utils.pymupdfexport import PyMuPDFCanvas
     except Exception as e:
-        print(f"PyMuPDF not available: {e}")
+        print(f'PyMuPDF not available: {e}')
         pdf_cv = None
     else:
         pdf_cv = PyMuPDFCanvas(width_mm=getattr(cv, 'width_mm', 210.0), height_mm=getattr(cv, 'height_mm', 297.0), pdf_mode=True)
@@ -277,12 +277,12 @@ def callback_my_test(app: AppCallbacks) -> None:
         out_path = os.path.join(out_dir, 'text_grid_test.pdf')
         saved = pdf_cv.save_pdf(out_path)
         if saved:
-            print(f"Saved PDF test to: {saved}")
+            print(f'Saved PDF test to: {saved}')
         pdf_cv.close_pdf()
 
 
 def _draw_text_grid_and_samples(c) -> None:
-    """Draw a 10mm grid and several text samples onto a Canvas-like object 'c'."""
+    '''Draw a 10mm grid and several text samples onto a Canvas-like object 'c'.'''
     # Grid parameters
     w_mm = float(getattr(c, 'width_mm', 210.0))
     h_mm = float(getattr(c, 'height_mm', 297.0))
@@ -331,11 +331,11 @@ def _draw_text_grid_and_samples(c) -> None:
     rx, ry_start = w_mm * 0.15, h_mm * 0.55
     for idx, ang in enumerate((0, 15, 30, 45, 60, 75, 90, 120, 150)):
         ry = ry_start + idx * 10.0
-        c.add_text(f"rot {ang}° tl", rx, ry, 12, ang, 'top_left', '#000000')
+        c.add_text(f'rot {ang}° tl', rx, ry, 12, ang, 'top_left', '#000000')
         _draw_anchor_dot(c, rx, ry, '#000000')
 
 
 def _draw_anchor_dot(c, x_mm: float, y_mm: float, color_hex: str):
-    """Draw a small filled dot centered at (x_mm, y_mm)."""
+    '''Draw a small filled dot centered at (x_mm, y_mm).'''
     r = 0.4  # mm
     c.add_oval(x_mm - r, y_mm - r, x_mm + r, y_mm + r, fill=True, fill_color=color_hex, outline=False)

@@ -13,10 +13,10 @@ from gui.colors import LIGHT, LIGHT_DARKER, DARK_LIGHTER, DARK, ACCENT_COLOR
 
 
 class CustomScrollbar(Widget):
-    """
+    '''
     Custom scrollbar widget for the Canvas that looks consistent across all platforms.
     Positioned on the right side of the Canvas, twice as wide as the sash width.
-    """
+    '''
     
     def __init__(self, canvas_widget, **kwargs):
         super().__init__(**kwargs)
@@ -55,7 +55,7 @@ class CustomScrollbar(Widget):
         self.canvas_widget.bind(size=self.update_layout, pos=self.update_layout)
         
     def update_layout(self, *args):
-        """Update scrollbar position and thumb size based on canvas state."""
+        '''Update scrollbar position and thumb size based on canvas state.'''
         # Keep scrollbar visible even when not in scale_to_width mode
             
         # Position scrollbar adjacent to the canvas view rect (non-overlapping; reserve width in view)
@@ -107,7 +107,7 @@ class CustomScrollbar(Widget):
         self.thumb_rect.size = (self.scrollbar_width - 10, thumb_height)  # 5px margin on each side
         
     def on_mouse_pos(self, window, pos):
-        """Handle mouse hover for visual feedback."""
+        '''Handle mouse hover for visual feedback.'''
         if self.dragging or self.opacity == 0:
             return
 
@@ -131,7 +131,7 @@ class CustomScrollbar(Widget):
             Window.set_system_cursor('arrow')
             
     def on_touch_down(self, touch):
-        """Handle touch down for scrollbar dragging."""
+        '''Handle touch down for scrollbar dragging.'''
         if self.opacity == 0:
             return False
         # Inert when no scrolling is possible
@@ -171,14 +171,14 @@ class CustomScrollbar(Widget):
             return True
             
     def on_touch_move(self, touch):
-        """Handle thumb dragging."""
+        '''Handle thumb dragging.'''
         if touch.grab_current is self and self.dragging:
             self._drag_to_position(touch.pos[1])
             return True
         return False
         
     def on_touch_up(self, touch):
-        """Handle touch up - stop dragging."""
+        '''Handle touch up - stop dragging.'''
         if touch.grab_current is self:
             self.dragging = False
             touch.ungrab(self)
@@ -191,7 +191,7 @@ class CustomScrollbar(Widget):
         return False
         
     def _jump_to_position(self, touch_y):
-        """Jump scroll position to where user clicked on track."""
+        '''Jump scroll position to where user clicked on track.'''
         # Calculate which part of the track was clicked
         relative_y = touch_y - self.y
         ratio = relative_y / self.height
@@ -211,7 +211,7 @@ class CustomScrollbar(Widget):
         self.update_layout()
         
     def _drag_to_position(self, touch_y):
-        """Update scroll position based on thumb drag."""
+        '''Update scroll position based on thumb drag.'''
         # Calculate new thumb position to maintain the same relative offset
         new_thumb_y = touch_y - self.drag_offset
         
@@ -246,7 +246,7 @@ class CustomScrollbar(Widget):
 
 
 class Canvas(Widget):
-    """
+    '''
     Tkinter-like Canvas for Kivy using millimeters and top-left origin.
 
     - Drawable area in mm: width_mm x height_mm
@@ -261,7 +261,7 @@ class Canvas(Widget):
 
     Events:
     - bind(on_item_click=callback) -> callback(self, item_id, touch, pos_mm)
-    """
+    '''
 
     __events__ = ('on_item_click',)
 
@@ -355,7 +355,7 @@ class Canvas(Widget):
         self._update_layout_and_redraw()
 
     def set_piano_roll_editor(self, editor):
-        """Set the piano roll editor reference for accessing score data."""
+        '''Set the piano roll editor reference for accessing score data.'''
         self.piano_roll_editor = editor
         # As soon as the editor is wired, refresh zoom so the canvas' current
         # px-per-mm is reflected in the editor's mm-per-quarter spacing immediately.
@@ -365,7 +365,7 @@ class Canvas(Widget):
             elif editor is not None and hasattr(editor, '_calculate_layout'):
                 editor._calculate_layout()
         except Exception as e:
-            print(f"CANVAS: failed to sync editor layout on attach: {e}")
+            print(f'CANVAS: failed to sync editor layout on attach: {e}')
 
         # Update scrollbar layout now that content sizing may have changed
         if hasattr(self, 'custom_scrollbar') and self.custom_scrollbar:
@@ -374,10 +374,10 @@ class Canvas(Widget):
     # ---------- Grid step source (editor -> grid_selector) ----------
 
     def _get_grid_step_ticks(self) -> float:
-        """Return current grid step in ticks from editor.grid_selector when available.
+        '''Return current grid step in ticks from editor.grid_selector when available.
 
         Falls back to Canvas._grid_step_ticks when editor or grid_selector is not present.
-        """
+        '''
         try:
             ed = getattr(self, 'piano_roll_editor', None)
             if ed is not None:
@@ -393,17 +393,17 @@ class Canvas(Widget):
                     if isinstance(ticks, (int, float)) and ticks > 0:
                         return float(ticks)
         except Exception as e:
-            print(f"GRID DEBUG: failed to read grid step from editor: {e}")
+            print(f'GRID DEBUG: failed to read grid step from editor: {e}')
         return float(getattr(self, '_grid_step_ticks', 256.0))
 
     def _snap_scroll_to_grid(self, scroll_px: float) -> float:
-        """Snap scroll position to align with visual grid in the editor based on current grid step.
+        '''Snap scroll position to align with visual grid in the editor based on current grid step.
         
         Anchoring behavior:
         - Near the top (within the editor margin), allow snapping relative to 0.0 so the
           scroll can reach exactly 0 (full top margin visible).
         - Otherwise use anchor = editor_margin - one quarter spacing, snapping in grid steps.
-        """
+        '''
         # Get editor margin (mm) and quarter note length (ticks)
         editor_margin_mm = 0.0  # Default fallback
         quarter_note_length = 256.0  # Default
@@ -461,34 +461,34 @@ class Canvas(Widget):
             snapped_scroll_px = max_scroll_px
 
         print(
-            f"SCROLL SNAP: {scroll_px:.1f}px -> {snapped_scroll_px:.1f}px "
-            f"(px_per_mm: {px_per_mm:.3f}, anchor_used: {anchor_used_mm:.1f}mm, grid: {grid_spacing_mm:.1f}mm, step: {grid_step_ticks}t)"
+            f'SCROLL SNAP: {scroll_px:.1f}px -> {snapped_scroll_px:.1f}px '
+            f'(px_per_mm: {px_per_mm:.3f}, anchor_used: {anchor_used_mm:.1f}mm, grid: {grid_spacing_mm:.1f}mm, step: {grid_step_ticks}t)'
         )
 
         return snapped_scroll_px
 
     def update_scroll_step(self):
-        """Update scroll step calculation when score data changes (e.g., quarterNoteLength)."""
+        '''Update scroll step calculation when score data changes (e.g., quarterNoteLength).'''
         if hasattr(self, 'custom_scrollbar') and self.custom_scrollbar:
             self.custom_scrollbar.update_layout()
-            print(f"SCROLL STEP UPDATED: Grid step {self._grid_step_ticks} -> {self._calculate_grid_step_pixels():.1f} pixels")
+            print(f'SCROLL STEP UPDATED: Grid step {self._grid_step_ticks} -> {self._calculate_grid_step_pixels():.1f} pixels')
 
     # ---------- Internal: font resolution ----------
 
     def _get_courier_bold_font(self) -> str:
-        """Return a reliable monospace font name/path for CoreLabel.
+        '''Return a reliable monospace font name/path for CoreLabel.
 
         Uses the embedded font manager to get a font that works
         across different systems without requiring specific fonts.
-        """
+        '''
         return get_embedded_monospace_font()
 
     def _calculate_mm_per_pixel(self) -> float:
-        """Calculate millimeters per pixel based on system DPI.
+        '''Calculate millimeters per pixel based on system DPI.
         
         Returns:
             float: Millimeters per pixel conversion factor
-        """
+        '''
         try:
             # Get system DPI from Kivy Window
             dpi = Window.dpi
@@ -503,23 +503,23 @@ class Canvas(Widget):
                 else:  # Linux and others
                     dpi = 96.0  # Common Linux default
                     
-            print(f"CANVAS DPI: Using {dpi} DPI for pixel-to-mm conversion")
+            print(f'CANVAS DPI: Using {dpi} DPI for pixel-to-mm conversion')
             
             # Convert DPI to mm/pixel: 1 inch = 25.4 mm
             mm_per_pixel = 25.4 / dpi
-            print(f"CANVAS DPI: {mm_per_pixel:.6f} mm/pixel conversion factor")
+            print(f'CANVAS DPI: {mm_per_pixel:.6f} mm/pixel conversion factor')
             
             return mm_per_pixel
             
         except Exception as e:
-            print(f"CANVAS DPI: Error calculating DPI, using 96 DPI fallback: {e}")
+            print(f'CANVAS DPI: Error calculating DPI, using 96 DPI fallback: {e}')
             # Fallback to 96 DPI (0.264583 mm/pixel)
             return 25.4 / 96.0
 
     # ---------- Public API (Tkinter-like) ----------
 
     def clear(self):
-        """Remove all items."""
+        '''Remove all items.'''
         self._items_group.clear()
         self._items.clear()
         self._id.clear()
@@ -533,16 +533,16 @@ class Canvas(Widget):
         y2_mm: float,
         *,
         fill: bool = False,
-        fill_color: str = "#000000",
+        fill_color: str = '#000000',
         outline: bool = True,
-        outline_color: str = "#000000",
+        outline_color: str = '#000000',
         outline_width_mm: float = 0.25,
         id: Optional[Iterable[str]] = None,
     ) -> int:
-        """Add a rectangle by two corners (top-left and bottom-right) in mm.
+        '''Add a rectangle by two corners (top-left and bottom-right) in mm.
 
         Colors are hex strings like '#RRGGBB' (alpha assumed 1.0).
-        """
+        '''
         item_id = self._new_item_id()
         group = InstructionGroup()
         self._items_group.add(group)
@@ -580,16 +580,16 @@ class Canvas(Widget):
         y2_mm: float,
         *,
         fill: bool = False,
-        fill_color: str = "#000000",
+        fill_color: str = '#000000',
         outline: bool = True,
-        outline_color: str = "#000000",
+        outline_color: str = '#000000',
         outline_width_mm: float = 0.25,
         id: Optional[Iterable[str]] = None,
     ) -> int:
-        """Add an oval (ellipse) inscribed in the rectangle defined by two corners in mm.
+        '''Add an oval (ellipse) inscribed in the rectangle defined by two corners in mm.
 
         Colors are hex strings like '#RRGGBB' (alpha assumed 1.0).
-        """
+        '''
         item_id = self._new_item_id()
         group = InstructionGroup()
         self._items_group.add(group)
@@ -625,16 +625,16 @@ class Canvas(Widget):
         x2_mm: float,
         y2_mm: float,
         *,
-        stroke_color: str = "#000000",
+        stroke_color: str = '#000000',
         stroke_width_mm: float = 0.25,
         stroke_dash: bool = False,
         stroke_dash_pattern_mm: Tuple[float, float] = (2.0, 2.0),
         id: Optional[Iterable[str]] = None,
     ) -> int:
-        """Add a straight line segment between two points in mm.
+        '''Add a straight line segment between two points in mm.
 
         Colors are hex strings like '#RRGGBB'. Dash pattern is in mm.
-        """
+        '''
         item_id = self._new_item_id()
         group = InstructionGroup()
         self._items_group.add(group)
@@ -660,19 +660,19 @@ class Canvas(Widget):
         self,
         points_mm: Iterable[float],
         *,
-        color: str = "#000000",
+        color: str = '#000000',
         width_mm: float = 0.25,
         dash: bool = False,
         dash_pattern_mm: Tuple[float, float] = (2.0, 2.0),
         id: Optional[Iterable[str]] = None,
     ) -> int:
-        """Add a polyline/path defined by a list of mm points [x0,y0,x1,y1,...].
+        '''Add a polyline/path defined by a list of mm points [x0,y0,x1,y1,...].
 
         Raises ValueError if points list length is odd or < 4.
-        """
+        '''
         pts = list(map(float, points_mm))
         if len(pts) < 4 or len(pts) % 2 != 0:
-            raise ValueError("add_path requires an even-length list with at least two points")
+            raise ValueError('add_path requires an even-length list with at least two points')
         item_id = self._new_item_id()
         group = InstructionGroup()
         self._items_group.add(group)
@@ -697,19 +697,19 @@ class Canvas(Widget):
         points_mm: Iterable[float],
         *,
         fill: bool = False,
-        fill_color: str = "#000000",
+        fill_color: str = '#000000',
         outline: bool = True,
-        outline_color: str = "#000000",
+        outline_color: str = '#000000',
         outline_width_mm: float = 0.25,
         id: Optional[Iterable[str]] = None,
     ) -> int:
-        """
+        '''
         Add a polygon. Points in mm [x0,y0, x1,y1, ...].
         Fill uses a triangle fan (suitable for convex polygons).
-        """
+        '''
         pts = list(map(float, points_mm))
         if len(pts) < 6:
-            raise ValueError("add_polygon requires at least 3 points")
+            raise ValueError('add_polygon requires at least 3 points')
         item_id = self._new_item_id()
         group = InstructionGroup()
         self._items_group.add(group)
@@ -737,11 +737,11 @@ class Canvas(Widget):
         y_mm: float,
         font_size_pt: float,
         angle_deg: float = 0.0,
-        anchor: str = "top_left",
-        color: str = "#000000",
+        anchor: str = 'top_left',
+        color: str = '#000000',
         id: Optional[Iterable[str]] = None,
     ) -> int:
-        """Add a text label.
+        '''Add a text label.
 
         Parameters
         - text: string content
@@ -757,7 +757,7 @@ class Canvas(Widget):
         Notes
         - Font is fixed to 'Courier New' in pianoTAB. you can only use one good readable font.
         - Hit-testing uses the un-rotated bounding box (rotation ignored for clicks).
-        """
+        '''
         item_id = self._new_item_id()
         group = InstructionGroup()
         self._items_group.add(group)
@@ -782,7 +782,7 @@ class Canvas(Widget):
     # ----- id/IDs -----
 
     def find_by_id(self, item_id: int) -> Optional[Dict[str, Any]]:
-        """Return the stored item dict by id."""
+        '''Return the stored item dict by id.'''
         return self._items.get(item_id)
 
     def add_tag(self, item_id: int, tag: str):
@@ -802,13 +802,13 @@ class Canvas(Widget):
         return sorted(self._id.get(tag, set()))
 
     def delete_by_tag(self, tag: str):
-        """Delete all items with the specified tag."""
+        '''Delete all items with the specified tag.'''
         item_ids = list(self._id.get(tag, set()))
         for item_id in item_ids:
             self.delete(item_id)
 
     def raise_in_order(self, tags: List[str]):
-        """Reorder items so that items with the specified tags are drawn in the given order.
+        '''Reorder items so that items with the specified tags are drawn in the given order.
         
         Items with tags earlier in the list will be drawn first (behind).
         Items with tags later in the list will be drawn last (on top).
@@ -821,7 +821,7 @@ class Canvas(Widget):
             canvas.raise_in_order(['staveThreeLines', 'staveTwoLines', 'staveClefLines'])
             # staveThreeLines will be drawn first (at the back)
             # staveClefLines will be drawn last (on top)
-        """
+        '''
         # Build a new draw order
         new_order = []
         used_ids = set()
@@ -849,7 +849,7 @@ class Canvas(Widget):
                 self._items_group.add(self._items[item_id]['group'])
 
     def delete(self, item_id: int):
-        """Delete an item by id."""
+        '''Delete an item by id.'''
         item = self._items.pop(item_id, None)
         if not item:
             return
@@ -873,13 +873,13 @@ class Canvas(Widget):
         self._border_line.width = width_px
 
     def set_size_mm(self, width_mm: float, height_mm: float, *, reset_scroll: bool = False):
-        """Change the logical canvas size (in mm) and relayout/redraw.
+        '''Change the logical canvas size (in mm) and relayout/redraw.
 
         If reset_scroll is True, vertical scroll offset resets to 0.
 
         Marks updates that originate from the Editor so _update_layout_and_redraw
         won't immediately trigger another zoom_refresh and create a feedback loop.
-        """
+        '''
         self.width_mm = float(width_mm)
         self.height_mm = float(height_mm)
         if reset_scroll:
@@ -893,7 +893,7 @@ class Canvas(Widget):
             self._updating_from_editor = False
 
     def set_scale_to_width(self, enabled: bool):
-        """Enable/disable scale-to-width + vertical scrolling behavior."""
+        '''Enable/disable scale-to-width + vertical scrolling behavior.'''
         self.scale_to_width = bool(enabled)
         if not self.scale_to_width:
             # Reset scroll when disabling
@@ -904,13 +904,13 @@ class Canvas(Widget):
             self.custom_scrollbar.update_layout()
 
     def set_quarter_note_spacing_mm(self, spacing_mm: float):
-        """Set the quarter note spacing in mm for musical scrolling."""
+        '''Set the quarter note spacing in mm for musical scrolling.'''
         self._quarter_note_spacing_mm = float(spacing_mm)
 
     # ----- Events -----
 
     def on_item_click(self, item_id: Optional[int], touch, pos_mm: Tuple[float, float]):
-        """Default handler (no-op). Bind to this event to handle clicks."""
+        '''Default handler (no-op). Bind to this event to handle clicks.'''
         pass
 
     def on_touch_down(self, touch):
@@ -978,7 +978,7 @@ class Canvas(Widget):
         return super().on_touch_up(touch)
 
     def on_mouse_motion(self, window, pos):
-        """Handle mouse motion and forward snapped Y to editor for horizontal cursor."""
+        '''Handle mouse motion and forward snapped Y to editor for horizontal cursor.'''
         mouse_x, mouse_y = pos
 
         # Check if mouse is over the canvas drawable view area
@@ -995,14 +995,14 @@ class Canvas(Widget):
                 try:
                     ed.update_cursor_from_mouse_mm(mm_y)
                 except Exception as e:
-                    print(f"CANVAS: editor cursor update failed: {e}")
+                    print(f'CANVAS: editor cursor update failed: {e}')
         else:
             # Outside canvas area: let editor clear its cursor
             if ed is not None and hasattr(ed, 'clear_cursor'):
                 try:
                     ed.clear_cursor()
                 except Exception as e:
-                    print(f"CANVAS: editor cursor clear failed: {e}")
+                    print(f'CANVAS: editor cursor clear failed: {e}')
 
     # ---------- Internal: layout / transforms ----------
 
@@ -1097,7 +1097,7 @@ class Canvas(Widget):
                     elif hasattr(ed, '_calculate_layout'):
                         Clock.schedule_once(lambda dt: ed._calculate_layout(), 0)
         except Exception as e:
-            print(f"CANVAS: editor layout update error: {e}")
+            print(f'CANVAS: editor layout update error: {e}')
 
         # Update scissor and background rect
         self._scissor.x = int(self._view_x)
@@ -1121,7 +1121,7 @@ class Canvas(Widget):
         self._redraw_all()
 
     def _mm_to_px_point(self, x_mm: float, y_mm_top: float) -> Tuple[float, float]:
-        """Convert a top-left mm point to Kivy bottom-left px point."""
+        '''Convert a top-left mm point to Kivy bottom-left px point.'''
         x_px = self._view_x + x_mm * self._px_per_mm
         # Anchor at viewport top, positive scroll moves content up (showing lower parts)
         anchor_px = self._view_y + self._view_h + (self._scroll_px if self.scale_to_width else 0.0)
@@ -1129,7 +1129,7 @@ class Canvas(Widget):
         return x_px, y_px
 
     def _px_to_mm(self, x_px: float, y_px: float) -> Tuple[float, float]:
-        """Convert a Kivy px point to top-left mm coordinates."""
+        '''Convert a Kivy px point to top-left mm coordinates.'''
         mm_x = (x_px - self._view_x) / self._px_per_mm
         anchor_px = self._view_y + self._view_h + (self._scroll_px if self.scale_to_width else 0.0)
         mm_y = (anchor_px - y_px) / self._px_per_mm
@@ -1159,11 +1159,11 @@ class Canvas(Widget):
             self._redraw_item(item_id)
 
     def _content_height_px(self) -> int:
-        """Height in pixels of the logical content at current scale."""
+        '''Height in pixels of the logical content at current scale.'''
         return int(round(max(0.0, self.height_mm * self._px_per_mm)))
 
     def _update_border(self):
-        """Update border color/width and rectangle position according to current layout and scroll."""
+        '''Update border color/width and rectangle position according to current layout and scroll.'''
         self._border_color_instr.rgba = self.border_color
         self._border_line.width = self.border_width_px
         if self.scale_to_width:
@@ -1427,13 +1427,13 @@ class Canvas(Widget):
 
     @staticmethod
     def _anchor_offsets(anchor: str, w_px: float, h_px: float) -> Tuple[float, float]:
-        """Return bottom-left offsets (dx, dy) from the given anchor to the text box.
+        '''Return bottom-left offsets (dx, dy) from the given anchor to the text box.
 
         Anchor names (case-insensitive):
         - 'top_left'|'tl', 'top'|'tc', 'top_right'|'tr'
         - 'left'|'cl', 'center'|'cc', 'right'|'cr'
         - 'bottom_left'|'bl', 'bottom'|'bc', 'bottom_right'|'br'
-        """
+        '''
         a = (anchor or 'top_left').strip().lower()
         mapping = {
             'top_left': (0.0, -h_px), 'tl': (0.0, -h_px), 'nw': (0.0, -h_px),
@@ -1450,7 +1450,7 @@ class Canvas(Widget):
 
     @staticmethod
     def _dist_point_to_segment(px, py, x1, y1, x2, y2) -> float:
-        """Distance from point P to segment AB (in mm)."""
+        '''Distance from point P to segment AB (in mm).'''
         vx, vy = x2 - x1, y2 - y1
         wx, wy = px - x1, py - y1
         c1 = vx * wx + vy * wy
@@ -1465,7 +1465,7 @@ class Canvas(Widget):
 
     @staticmethod
     def _point_in_polygon(px: float, py: float, pts: List[float]) -> bool:
-        """Ray casting algorithm (mm)."""
+        '''Ray casting algorithm (mm).'''
         inside = False
         n = len(pts) // 2
         for i in range(n):
@@ -1481,7 +1481,7 @@ class Canvas(Widget):
 
     @staticmethod
     def _parse_color(color: str) -> Tuple[float, float, float, float]:
-        """Parse a '#RRGGBB' or '#RRGGBBAA' hex color into RGBA floats."""
+        '''Parse a '#RRGGBB' or '#RRGGBBAA' hex color into RGBA floats.'''
         if not isinstance(color, str) or not color.startswith('#'):
             # Fallback to black
             return (0.0, 0.0, 0.0, 1.0)
@@ -1503,7 +1503,7 @@ class Canvas(Widget):
 
     def _draw_dashed_polyline(self, g: InstructionGroup, pts_px: List[float], width_px: float,
                                on_px: float, off_px: float):
-        """Render a dashed polyline given points in px using on/off dash lengths."""
+        '''Render a dashed polyline given points in px using on/off dash lengths.'''
         if len(pts_px) < 4:
             return
         # Iterate segments
@@ -1540,16 +1540,16 @@ class Canvas(Widget):
     # ---------- Grid-based cursor snapping ----------
     
     def set_grid_step(self, grid_step_ticks: float):
-        """Set the grid step for cursor snapping in piano ticks."""
-        print(f"GRID DEBUG: Setting grid step to {grid_step_ticks} ticks")
+        '''Set the grid step for cursor snapping in piano ticks.'''
+        print(f'GRID DEBUG: Setting grid step to {grid_step_ticks} ticks')
         self._grid_step_ticks = grid_step_ticks
         
     def get_grid_step(self) -> float:
-        """Get the current grid step in piano ticks."""
+        '''Get the current grid step in piano ticks.'''
         return self._grid_step_ticks
     
     def _snap_to_grid(self, time_position_mm: float) -> float:
-        """Snap a time position to the current grid step."""
+        '''Snap a time position to the current grid step.'''
         # Use the same corrected calculation as the scroll system
         # to ensure cursor snapping matches the actual visual grid
         
@@ -1568,7 +1568,7 @@ class Canvas(Widget):
 
         # DEBUG: Print what's happening with detailed grid step info
         grid_step_ticks = self._get_grid_step_ticks()
-        print(f"SNAP DEBUG: pos={time_position_mm:.1f}mm, grid_step={grid_step_ticks}t, quarters={quarters:.3f}, ticks={ticks:.1f}")
+        print(f'SNAP DEBUG: pos={time_position_mm:.1f}mm, grid_step={grid_step_ticks}t, quarters={quarters:.3f}, ticks={ticks:.1f}')
 
         # Snap to grid step
         snapped_ticks = round(ticks / grid_step_ticks) * grid_step_ticks
@@ -1582,13 +1582,13 @@ class Canvas(Widget):
 
         # Convert snapped ticks back to mm using the same quarter spacing
         snapped_mm = (snapped_ticks / quarter_note_length) * mm_per_quarter
-        print(f"SNAP DEBUG: snapped_ticks={snapped_ticks:.1f}, snapped_quarters={snapped_quarters:.3f}, snapped_mm={snapped_mm:.1f}, grid_step_ratio={grid_step_in_quarters:.2f}")
-        print(f"GRID STEP DEBUG: {grid_step_ticks}t = {grid_step_in_quarters:.1f} quarters, visual spacing = {grid_step_in_quarters * mm_per_quarter:.1f}mm")
+        print(f'SNAP DEBUG: snapped_ticks={snapped_ticks:.1f}, snapped_quarters={snapped_quarters:.3f}, snapped_mm={snapped_mm:.1f}, grid_step_ratio={grid_step_in_quarters:.2f}')
+        print(f'GRID STEP DEBUG: {grid_step_ticks}t = {grid_step_in_quarters:.1f} quarters, visual spacing = {grid_step_in_quarters * mm_per_quarter:.1f}mm')
 
         return snapped_mm
     
     def _update_cursor_position(self, touch_x_px: float):
-        """Update cursor position based on touch position with grid snapping."""
+        '''Update cursor position based on touch position with grid snapping.'''
         # Convert touch position to mm coordinates (we only care about x)
         mm_x, _ = self._px_to_mm(touch_x_px, 0)  # y doesn't matter for cursor position
         
@@ -1603,7 +1603,7 @@ class Canvas(Widget):
             self._draw_cursor()
     
     def _draw_cursor(self):
-        """Draw or update the cursor line."""
+        '''Draw or update the cursor line.'''
         # Remove existing cursor line if it exists
         if self._cursor_line_instr:
             self._items_group.remove(self._cursor_line_instr)
@@ -1636,27 +1636,27 @@ class Canvas(Widget):
         self._items_group.add(self._cursor_line_instr)
     
     def show_cursor(self):
-        """Show the cursor line."""
+        '''Show the cursor line.'''
         self._cursor_visible = True
         self._draw_cursor()
     
     def hide_cursor(self):
-        """Hide the cursor line."""
+        '''Hide the cursor line.'''
         self._cursor_visible = False
         if self._cursor_line_instr:
             self._items_group.remove(self._cursor_line_instr)
             self._cursor_line_instr = None
     
     def get_cursor_position_mm(self) -> float:
-        """Get the current cursor position in mm."""
+        '''Get the current cursor position in mm.'''
         return self._cursor_x_mm
     
     def _calculate_grid_step_pixels(self) -> float:
-        """Calculate scroll step in pixels to exactly match visual grid spacing.
+        '''Calculate scroll step in pixels to exactly match visual grid spacing.
         
         This should match the exact visual distance between grid lines in the editor.
         Uses direct pixel calculation to avoid double conversion.
-        """
+        '''
         # Get values directly from the score
         quarter_note_length = 256.0  # Default
         if hasattr(self, 'piano_roll_editor') and self.piano_roll_editor and hasattr(self.piano_roll_editor, 'score'):
@@ -1672,6 +1672,6 @@ class Canvas(Widget):
         mm_per_quarter = float(self._quarter_note_spacing_mm)
         grid_step_pixels = grid_step_quarters * mm_per_quarter * max(1e-6, self._px_per_mm)
 
-        print(f"VISUAL SCROLL STEP: {grid_step_ticks} ticks -> {grid_step_quarters:.3f} quarters -> {grid_step_pixels:.1f} pixels (scale-aware)")
+        print(f'VISUAL SCROLL STEP: {grid_step_ticks} ticks -> {grid_step_quarters:.3f} quarters -> {grid_step_pixels:.1f} pixels (scale-aware)')
 
         return grid_step_pixels

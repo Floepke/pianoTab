@@ -1,7 +1,7 @@
-"""
+'''
 Validation and migration utilities for SCORE JSON files.
 Handles field name mapping and missing field detection.
-"""
+'''
 
 from dataclasses import fields, MISSING
 from typing import Dict, Any, List, Tuple, Type
@@ -9,14 +9,14 @@ import json
 
 
 def get_field_mappings(cls: Type) -> Dict[str, str]:
-    """
+    '''
     Extract code→JSON field name mappings from dataclass metadata.
     
     Returns:
         Dict mapping Python field names to JSON field names.
         Example: {'duration': 'dur', 'velocity': 'vel', 'color': 'color', ...}
         Note: Storage fields like _color map to their JSON name without underscore.
-    """
+    '''
     mappings = {}
     for field_obj in fields(cls):
         # Get JSON name from metadata
@@ -33,13 +33,13 @@ def get_field_mappings(cls: Type) -> Dict[str, str]:
 
 
 def get_field_defaults(cls: Type) -> Dict[str, Any]:
-    """
+    '''
     Extract default values for all fields in a dataclass.
     
     Returns:
         Dict mapping JSON field names to their default values.
         Example: {'pitch': 40, 'dur': 256.0, 'color': None, ...}
-    """
+    '''
     defaults = {}
     mappings = get_field_mappings(cls)
     
@@ -61,19 +61,19 @@ def get_field_defaults(cls: Type) -> Dict[str, Any]:
 
 
 def validate_and_fix_object(obj_dict: Dict[str, Any], cls: Type, obj_type: str = None) -> Tuple[Dict[str, Any], List[str]]:
-    """
+    '''
     Validate a loaded JSON object and fill in missing fields with defaults.
     
     Args:
         obj_dict: The loaded JSON object as a dictionary
         cls: The dataclass type this object should match
-        obj_type: Optional name for better error messages (e.g., "Note", "Slur")
+        obj_type: Optional name for better error messages (e.g., 'Note', 'Slur')
     
     Returns:
         Tuple of (fixed_dict, warnings_list)
         - fixed_dict: The object with missing fields filled in
         - warnings_list: List of warning messages about missing/added fields
-    """
+    '''
     if obj_type is None:
         obj_type = cls.__name__
     
@@ -93,7 +93,7 @@ def validate_and_fix_object(obj_dict: Dict[str, Any], cls: Type, obj_type: str =
     
     unexpected = actual_json_names - expected_json_names
     if unexpected:
-        warnings.append(f"{obj_type}: Unexpected fields in JSON: {unexpected}")
+        warnings.append(f'{obj_type}: Unexpected fields in JSON: {unexpected}')
     
     # Check for missing fields and fill with defaults
     missing = expected_json_names - actual_json_names
@@ -104,20 +104,20 @@ def validate_and_fix_object(obj_dict: Dict[str, Any], cls: Type, obj_type: str =
                 fixed_dict[json_name] = default_value
                 code_name = json_to_code.get(json_name, json_name)
                 warnings.append(
-                    f"{obj_type}: Missing field '{json_name}' (code: '{code_name}'), "
-                    f"using default: {default_value}"
+                    f'{obj_type}: Missing field '{json_name}' (code: '{code_name}'), '
+                    f'using default: {default_value}'
                 )
             else:
                 # Required field with no default
                 warnings.append(
-                    f"{obj_type}: REQUIRED field '{json_name}' is missing and has no default!"
+                    f'{obj_type}: REQUIRED field '{json_name}' is missing and has no default!'
                 )
     
     return fixed_dict, warnings
 
 
 def validate_and_fix_score(score_dict: Dict[str, Any]) -> Tuple[Dict[str, Any], List[str]]:
-    """
+    '''
     Validate entire SCORE structure recursively and fix missing fields.
     
     Args:
@@ -125,7 +125,7 @@ def validate_and_fix_score(score_dict: Dict[str, Any]) -> Tuple[Dict[str, Any], 
     
     Returns:
         Tuple of (fixed_score_dict, all_warnings)
-    """
+    '''
     from file.SCORE import SCORE
     from file.note import Note
     from file.graceNote import GraceNote
@@ -160,14 +160,14 @@ def validate_and_fix_score(score_dict: Dict[str, Any]) -> Tuple[Dict[str, Any], 
     # Validate metaInfo
     if 'metaInfo' in fixed_score:
         fixed_score['metaInfo'], warnings = validate_and_fix_object(
-            fixed_score['metaInfo'], MetaInfo, "MetaInfo"
+            fixed_score['metaInfo'], MetaInfo, 'MetaInfo'
         )
         all_warnings.extend(warnings)
     
     # Validate header
     if 'header' in fixed_score:
         fixed_score['header'], warnings = validate_and_fix_object(
-            fixed_score['header'], Header, "Header"
+            fixed_score['header'], Header, 'Header'
         )
         all_warnings.extend(warnings)
     
@@ -204,7 +204,7 @@ def validate_and_fix_score(score_dict: Dict[str, Any]) -> Tuple[Dict[str, Any], 
     if 'baseGrid' in fixed_score:
         for i, bg in enumerate(fixed_score['baseGrid']):
             fixed_score['baseGrid'][i], warnings = validate_and_fix_object(
-                bg, BaseGrid, f"BaseGrid[{i}]"
+                bg, BaseGrid, f'BaseGrid[{i}]'
             )
             all_warnings.extend(warnings)
     
@@ -212,7 +212,7 @@ def validate_and_fix_score(score_dict: Dict[str, Any]) -> Tuple[Dict[str, Any], 
     if 'lineBreak' in fixed_score:
         for i, lb in enumerate(fixed_score['lineBreak']):
             fixed_score['lineBreak'][i], warnings = validate_and_fix_object(
-                lb, LineBreak, f"LineBreak[{i}]"
+                lb, LineBreak, f'LineBreak[{i}]'
             )
             all_warnings.extend(warnings)
             
@@ -220,7 +220,7 @@ def validate_and_fix_score(score_dict: Dict[str, Any]) -> Tuple[Dict[str, Any], 
             if 'staveRange' in lb:
                 for j, sr in enumerate(lb['staveRange']):
                     lb['staveRange'][j], warnings = validate_and_fix_object(
-                        sr, StaveRange, f"LineBreak[{i}].StaveRange[{j}]"
+                        sr, StaveRange, f'LineBreak[{i}].StaveRange[{j}]'
                     )
                     all_warnings.extend(warnings)
     
@@ -252,7 +252,7 @@ def validate_and_fix_score(score_dict: Dict[str, Any]) -> Tuple[Dict[str, Any], 
                 event_list = events[event_type]
                 for event_idx, event in enumerate(event_list):
                     fixed_event, warnings = validate_and_fix_object(
-                        event, event_class, f"Stave[{stave_idx}].{event_type}[{event_idx}]"
+                        event, event_class, f'Stave[{stave_idx}].{event_type}[{event_idx}]'
                     )
                     events[event_type][event_idx] = fixed_event
                     all_warnings.extend(warnings)
@@ -262,7 +262,7 @@ def validate_and_fix_score(score_dict: Dict[str, Any]) -> Tuple[Dict[str, Any], 
                         for art_idx, art in enumerate(fixed_event['art']):
                             fixed_art, art_warnings = validate_and_fix_object(
                                 art, Articulation, 
-                                f"Stave[{stave_idx}].Note[{event_idx}].Articulation[{art_idx}]"
+                                f'Stave[{stave_idx}].Note[{event_idx}].Articulation[{art_idx}]'
                             )
                             fixed_event['art'][art_idx] = fixed_art
                             all_warnings.extend(art_warnings)
@@ -271,7 +271,7 @@ def validate_and_fix_score(score_dict: Dict[str, Any]) -> Tuple[Dict[str, Any], 
 
 
 def validate_score_integrity(score_instance) -> List[str]:
-    """
+    '''
     Validate a loaded SCORE instance for data integrity and cross-references.
     
     Args:
@@ -279,15 +279,15 @@ def validate_score_integrity(score_instance) -> List[str]:
     
     Returns:
         List of validation warnings and errors
-    """
+    '''
     if hasattr(score_instance, 'validate_data_integrity'):
         return score_instance.validate_data_integrity()
     else:
-        return ["Warning: SCORE instance does not support integrity validation"]
+        return ['Warning: SCORE instance does not support integrity validation']
 
 
 def full_score_validation(score_data: dict) -> tuple[dict, list[str]]:
-    """
+    '''
     Complete validation pipeline: structural validation + cross-reference validation.
     
     Args:
@@ -295,7 +295,7 @@ def full_score_validation(score_data: dict) -> tuple[dict, list[str]]:
     
     Returns:
         Tuple of (validated_score_dict, all_warnings)
-    """
+    '''
     # First do structural validation
     fixed_data, structural_warnings = validate_and_fix_score(score_data)
     
@@ -315,5 +315,5 @@ def full_score_validation(score_data: dict) -> tuple[dict, list[str]]:
         return fixed_data, all_warnings
         
     except Exception as e:
-        structural_warnings.append(f"Could not perform cross-reference validation: {e}")
+        structural_warnings.append(f'Could not perform cross-reference validation: {e}')
         return fixed_data, structural_warnings

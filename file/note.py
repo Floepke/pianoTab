@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 @dataclass_json
 @dataclass
 class Note:
-    """
+    '''
     Musical note event with automatic property inheritance.
     
     Set values naturally:
@@ -17,7 +17,7 @@ class Note:
     
     Access values directly:
         actual_color = note.color  # Auto-resolves inheritance
-    """
+    '''
     id: int = 0
     time: float = 0.0
     duration: float = field(default=256.0, metadata=config(field_name='duration'))
@@ -33,61 +33,61 @@ class Note:
     _blackNoteDirection: Optional[Literal['^', 'v']] = field(default=None, metadata=config(field_name='blackNoteDirection'))
 
     def __post_init__(self):
-        """Initialize score reference as a non-dataclass attribute."""
+        '''Initialize score reference as a non-dataclass attribute.'''
         self.score: Optional['SCORE'] = None
     
     # Property: color
     @property
     def color(self) -> str:
-        """Get color - inherits from globalNote.color if None."""
+        '''Get color - inherits from globalNote.color if None.'''
         if self._color is not None:
             return self._color
         if self.score is None:
-            print("Warning: Note has no score reference for property inheritance.")
+            print('Warning: Note has no score reference for property inheritance.')
             return '#000000'  # Fallback if no score reference
         return self.score.properties.globalNote.color
     
     @color.setter
     def color(self, value: Optional[str]):
-        """Set color - use None to reset to inheritance."""
+        '''Set color - use None to reset to inheritance.'''
         self._color = value
     
     # Property: colorMidiLeftNote
     @property
     def colorMidiLeftNote(self) -> str:
-        """Get left MIDI note color - inherits from globalNote.colorLeftMidiNote if None."""
+        '''Get left MIDI note color - inherits from globalNote.colorLeftMidiNote if None.'''
         if self._colorMidiLeftNote is not None:
             return self._colorMidiLeftNote
         if self.score is None:
-            print("Warning: Note has no score reference for property inheritance.")
+            print('Warning: Note has no score reference for property inheritance.')
             return '#000000'  # Fallback if no score reference
         return self.score.properties.globalNote.colorLeftMidiNote
     
     @colorMidiLeftNote.setter
     def colorMidiLeftNote(self, value: Optional[str]):
-        """Set left MIDI note color - use None to reset to inheritance."""
+        '''Set left MIDI note color - use None to reset to inheritance.'''
         self._colorMidiLeftNote = value
     
     # Property: colorMidiRightNote
     @property
     def colorMidiRightNote(self) -> str:
-        """Get right MIDI note color - inherits from globalNote.colorRightMidiNote if None."""
+        '''Get right MIDI note color - inherits from globalNote.colorRightMidiNote if None.'''
         if self._colorMidiRightNote is not None:
             return self._colorMidiRightNote
         if self.score is None:
-            print("Warning: Note has no score reference for property inheritance.")
+            print('Warning: Note has no score reference for property inheritance.')
             return '#000000'  # Fallback if no score reference
         return self.score.properties.globalNote.colorRightMidiNote
     
     @colorMidiRightNote.setter
     def colorMidiRightNote(self, value: Optional[str]):
-        """Set right MIDI note color - use None to reset to inheritance."""
+        '''Set right MIDI note color - use None to reset to inheritance.'''
         self._colorMidiRightNote = value
     
     # Property: colorMidiNote (hand-dependent inheritance - deprecated, use colorMidiLeftNote/colorMidiRightNote)
     @property
     def colorMidiNote(self) -> str:
-        """Get MIDI note color - inherits based on hand (left '<' or right '>')."""
+        '''Get MIDI note color - inherits based on hand (left '<' or right '>').'''
         if self.hand == '<':
             return self.colorMidiLeftNote
         else:
@@ -95,7 +95,7 @@ class Note:
     
     @colorMidiNote.setter
     def colorMidiNote(self, value: Optional[str]):
-        """Set MIDI note color for current hand."""
+        '''Set MIDI note color for current hand.'''
         if self.hand == '<':
             self._colorMidiLeftNote = value
         else:
@@ -104,7 +104,7 @@ class Note:
     # Property: blackNoteDirection
     @property
     def blackNoteDirection(self) -> Literal['^', 'v']:
-        """Get black note direction - inherits from globalNote.blackNoteDirection if None."""
+        '''Get black note direction - inherits from globalNote.blackNoteDirection if None.'''
         if self._blackNoteDirection is not None:
             return self._blackNoteDirection
         if self.score is None:
@@ -113,5 +113,5 @@ class Note:
     
     @blackNoteDirection.setter
     def blackNoteDirection(self, value: Optional[Literal['^', 'v']]):
-        """Set black note direction - use None to reset to inheritance."""
+        '''Set black note direction - use None to reset to inheritance.'''
         self._blackNoteDirection = value

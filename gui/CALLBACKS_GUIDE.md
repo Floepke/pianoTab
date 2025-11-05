@@ -48,8 +48,8 @@ Add the corresponding method to the `pianoTABGUI` class:
 
 ```python
 def on_export_pdf(self):
-    """Export current score to PDF."""
-    print("Exporting to PDF...")
+    '''Export current score to PDF.'''
+    print('Exporting to PDF...')
     # Your implementation here
 ```
 
@@ -70,10 +70,10 @@ Edit the `create_button_config()` function:
 ```python
 def create_button_config(app_instance) -> ButtonConfig:
     return {
-        "note2left": app_instance.on_note_to_left,
-        "note2right": app_instance.on_note_to_right,
-        "note": app_instance.on_add_note,
-        "gracenote": app_instance.on_add_grace_note,  # New button!
+        'note2left': app_instance.on_note_to_left,
+        'note2right': app_instance.on_note_to_right,
+        'note': app_instance.on_add_note,
+        'gracenote': app_instance.on_add_grace_note,  # New button!
     }
 ```
 
@@ -84,9 +84,9 @@ If you want the button to appear by default (not just when referenced in config)
 ```python
 def get_default_sash_buttons() -> List[str]:
     return [
-        "note2left",
-        "note2right",
-        "gracenote",  # Will appear by default
+        'note2left',
+        'note2right',
+        'gracenote',  # Will appear by default
     ]
 ```
 
@@ -96,8 +96,8 @@ Add the corresponding method:
 
 ```python
 def on_add_grace_note(self):
-    """Add a grace note at current position."""
-    print("Adding grace note")
+    '''Add a grace note at current position.'''
+    print('Adding grace note')
     # Your implementation here
 ```
 
@@ -139,8 +139,8 @@ def on_add_grace_note(self):
     # Key is used as:
     # 1. Icon name lookup in icons_data.ICONS
     # 2. Fallback button text if icon not found
-    "icon_name": callback_function,
-    "another_button": callback_function,
+    'icon_name': callback_function,
+    'another_button': callback_function,
 }
 ```
 
@@ -162,7 +162,7 @@ def on_add_grace_note(self):
    - Binds the callback from `BUTTON_CONFIG`
 4. When user clicks, the callback is invoked
 
-## Example: Adding a "Tempo" Button
+## Example: Adding a 'Tempo' Button
 
 ### 1. Create icon (optional, can use text fallback)
 ```bash
@@ -174,18 +174,18 @@ python icons/precompile_icons.py
 ```python
 def create_button_config(app_instance) -> ButtonConfig:
     return {
-        "note2left": app_instance.on_note_to_left,
-        "note2right": app_instance.on_note_to_right,
-        "note": app_instance.on_add_note,
-        "tempo": app_instance.on_set_tempo,  # NEW!
+        'note2left': app_instance.on_note_to_left,
+        'note2right': app_instance.on_note_to_right,
+        'note': app_instance.on_add_note,
+        'tempo': app_instance.on_set_tempo,  # NEW!
     }
 ```
 
 ### 3. Implement in `toolsash.py`
 ```python
 def on_set_tempo(self):
-    """Open tempo setting dialog."""
-    print("Setting tempo...")
+    '''Open tempo setting dialog.'''
+    print('Setting tempo...')
     # Show tempo input dialog
     # Update score with new tempo
 ```

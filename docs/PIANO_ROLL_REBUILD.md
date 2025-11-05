@@ -72,17 +72,17 @@ Based on your Tkinter properties system:
 
 ```python
 # Stave line colors and widths
-stave_two_color = "#666666"        # Two-line color
-stave_three_color = "#888888"      # Three-line color  
-stave_clef_color = "#000000"       # Clef-line color
+stave_two_color = '#666666'        # Two-line color
+stave_three_color = '#888888'      # Three-line color  
+stave_clef_color = '#000000'       # Clef-line color
 stave_two_width = 0.1
 stave_three_width = 0.1
 stave_clef_width = 0.15
 
 # Grid colors and widths
-barline_color = "#000000"
+barline_color = '#000000'
 barline_width = 0.2
-gridline_color = "#CCCCCC"
+gridline_color = '#CCCCCC'
 gridline_width = 0.1
 ```
 

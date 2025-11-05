@@ -17,11 +17,11 @@ shape.commit()
 angles = [0, 15, 30, 45, 60, 75, 90, 120, 150]
 font_pt = 16
 ax, ay = 100, 60
-fontname = "Courier-Bold"
+fontname = 'Courier-Bold'
 font = fitz.Font(fontname)
 for i, ang in enumerate(angles):
     y = ay + i*24
-    txt = f"Angle {ang}"
+    txt = f'Angle {ang}'
     # Height = font size, width not needed for drawing baseline-left
     h = font_pt
     # Anchor: top-left at (ax, y)
@@ -38,8 +38,8 @@ for i, ang in enumerate(angles):
         page.insert_text(fitz.Point(blx, bly), txt, fontname=fontname, fontsize=font_pt, color=color)
 
 # Also try insert_text with rotate at baseline
-page.insert_text(fitz.Point(300, 60+9*24), "rotate param 90", fontsize=16, fontname=fontname, color=(1,0,0), rotate=90)
+page.insert_text(fitz.Point(300, 60+9*24), 'rotate param 90', fontsize=16, fontname=fontname, color=(1,0,0), rotate=90)
 
 
 doc.save(out_path)
-print("WROTE", out_path)
+print('WROTE', out_path)

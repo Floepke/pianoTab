@@ -78,11 +78,11 @@ class SCORE:
             pass
 
     def _next_id(self) -> int:
-        """Get the next unique ID for this score."""
+        '''Get the next unique ID for this score.'''
         return self._id.new()
     
     def reset_ids(self, start_id: int = 1):
-        """Reset the ID generator to start from a specific ID."""
+        '''Reset the ID generator to start from a specific ID.'''
         self._id.reset(start_id)
     
     # Convenience methods for managing line breaks and base grids:
@@ -138,7 +138,7 @@ class SCORE:
                     if hasattr(event, 'id'):
                         event_id = event.id
                         if event_id in all_ids:
-                            warnings.append(f"Duplicate ID {event_id}: {event_type} in stave {stave_idx}")
+                            warnings.append(f'Duplicate ID {event_id}: {event_type} in stave {stave_idx}')
                         all_ids.add(event_id)
                         id_to_object[event_id] = (event_type, stave_idx, event)
         
@@ -146,7 +146,7 @@ class SCORE:
         for i, line_break in enumerate(self.lineBreak):
             if hasattr(line_break, 'id'):
                 if line_break.id in all_ids:
-                    warnings.append(f"Duplicate ID {line_break.id}: lineBreak[{i}] conflicts with existing event")
+                    warnings.append(f'Duplicate ID {line_break.id}: lineBreak[{i}] conflicts with existing event')
                 all_ids.add(line_break.id)
                 id_to_object[line_break.id] = ('lineBreak', i, line_break)
         
@@ -162,7 +162,7 @@ class SCORE:
                     if abs(note.time - beam_time) <= beam.time + 256.0  # Within one quarter note
                 ]
                 if not nearby_notes:
-                    warnings.append(f"Beam {beam.id} at time {beam_time} in stave {stave_idx} has no nearby notes")
+                    warnings.append(f'Beam {beam.id} at time {beam_time} in stave {stave_idx} has no nearby notes')
         
         # 2. Check for slurs with invalid time ranges
         for stave_idx, stave in enumerate(self.stave):
@@ -171,7 +171,7 @@ class SCORE:
                 end_time = slur.y4_time
                 
                 if end_time <= start_time:
-                    warnings.append(f"Slur {slur.id} in stave {stave_idx} has invalid time range: {start_time} to {end_time}")
+                    warnings.append(f'Slur {slur.id} in stave {stave_idx} has invalid time range: {start_time} to {end_time}')
                 
                 # Check if there are notes in the slur's time range
                 notes_in_range = [
@@ -179,24 +179,24 @@ class SCORE:
                     if start_time <= note.time <= end_time
                 ]
                 if not notes_in_range:
-                    warnings.append(f"Slur {slur.id} in stave {stave_idx} spans {start_time}-{end_time} but contains no notes")
+                    warnings.append(f'Slur {slur.id} in stave {stave_idx} spans {start_time}-{end_time} but contains no notes')
         
         # 3. Check for notes with articulations that have score references
         for stave_idx, stave in enumerate(self.stave):
             for note in stave.event.note:
                 if note.score is None:
-                    warnings.append(f"Note {note.id} in stave {stave_idx} missing score reference")
+                    warnings.append(f'Note {note.id} in stave {stave_idx} missing score reference')
                 
                 for art_idx, articulation in enumerate(note.articulation):
                     if articulation.score is None:
-                        warnings.append(f"Articulation {art_idx} on note {note.id} in stave {stave_idx} missing score reference")
+                        warnings.append(f'Articulation {art_idx} on note {note.id} in stave {stave_idx} missing score reference')
         
         # 4. Check lineBreak staveRange consistency (should be automatic now, but verify)
         expected_stave_count = len(self.stave)
         for lb_idx, line_break in enumerate(self.lineBreak):
             actual_range_count = len(line_break.staveRange)
             if actual_range_count != expected_stave_count:
-                warnings.append(f"LineBreak {lb_idx} has {actual_range_count} staveRange objects but score has {expected_stave_count} staves")
+                warnings.append(f'LineBreak {lb_idx} has {actual_range_count} staveRange objects but score has {expected_stave_count} staves')
         
         # 5. Check for overlapping events that might indicate data corruption
         for stave_idx, stave in enumerate(self.stave):
@@ -207,7 +207,7 @@ class SCORE:
                     if (note1.time == note2.time and 
                         note1.pitch == note2.pitch and 
                         note1.hand == note2.hand):
-                        warnings.append(f"Duplicate notes detected in stave {stave_idx}: {note1.id} and {note2.id} (time={note1.time}, pitch={note1.pitch})")
+                        warnings.append(f'Duplicate notes detected in stave {stave_idx}: {note1.id} and {note2.id} (time={note1.time}, pitch={note1.pitch})')
         
         return warnings
     
@@ -231,27 +231,27 @@ class SCORE:
                 for event in event_list:
                     if hasattr(event, 'id'):
                         if event.id == 0:
-                            warnings.append(f"{event_type} in stave {stave_idx} has ID 0 (should be assigned)")
+                            warnings.append(f'{event_type} in stave {stave_idx} has ID 0 (should be assigned)')
                         elif event.id in used_ids:
-                            warnings.append(f"Duplicate ID {event.id} found in {event_type} in stave {stave_idx}")
+                            warnings.append(f'Duplicate ID {event.id} found in {event_type} in stave {stave_idx}')
                         used_ids.add(event.id)
         
         # Time-based validation
         for stave_idx, stave in enumerate(self.stave):
             for note in stave.event.note:
                 if note.time < 0:
-                    warnings.append(f"Note {note.id} in stave {stave_idx} has negative time: {note.time}")
+                    warnings.append(f'Note {note.id} in stave {stave_idx} has negative time: {note.time}')
                 if note.duration <= 0:
-                    warnings.append(f"Note {note.id} in stave {stave_idx} has invalid duration: {note.duration}")
+                    warnings.append(f'Note {note.id} in stave {stave_idx} has invalid duration: {note.duration}')
                 if not (1 <= note.pitch <= 88):
-                    warnings.append(f"Note {note.id} in stave {stave_idx} has invalid pitch: {note.pitch} (should be 1-88)")
+                    warnings.append(f'Note {note.id} in stave {stave_idx} has invalid pitch: {note.pitch} (should be 1-88)')
         
         # LineBreak validation
         for i, line_break in enumerate(self.lineBreak):
             if line_break.time < 0:
-                warnings.append(f"LineBreak {i} has negative time: {line_break.time}")
+                warnings.append(f'LineBreak {i} has negative time: {line_break.time}')
             if line_break.type == 'locked' and line_break.time != 0.0:
-                warnings.append(f"LineBreak {i} is 'locked' but time is {line_break.time} (should be 0.0)")
+                warnings.append(f'LineBreak {i} is "locked" but time is {line_break.time} (should be 0.0)')
         
         return warnings
     
@@ -371,10 +371,10 @@ class SCORE:
         
         # Print warnings about missing/fixed fields
         if warnings:
-            print(f"\n=== Validation warnings for '{filename}' ===")
+            print(f'\n=== Validation warnings for "{filename}" ===')
             for warning in warnings:
-                print(f"  ⚠ {warning}")
-            print(f"=== {len(warnings)} warning(s) total ===\n")
+                print(f'  ⚠ {warning}')
+            print(f'=== {len(warnings)} warning(s) total ===\n')
 
         score = cls.from_dict(fixed_data)
         score.renumber_id()
@@ -425,54 +425,54 @@ class SCORE:
 
     @staticmethod
     def _json_field_name(f) -> str:
-        """Best effort to get the JSON alias for a dataclass field; falls back to the Python name."""
+        '''Best effort to get the JSON alias for a dataclass field; falls back to the Python name.'''
         try:
-            meta = getattr(f, "metadata", None) or {}
-            cfg = meta.get("dataclasses_json", None)
+            meta = getattr(f, 'metadata', None) or {}
+            cfg = meta.get('dataclasses_json', None)
             if cfg is not None:
                 if isinstance(cfg, dict):
-                    name = cfg.get("field_name", None)
+                    name = cfg.get('field_name', None)
                     if isinstance(name, str) and name:
                         return name
                     # Try marshmallow field data_key
-                    mm = cfg.get("mm_field", None)
+                    mm = cfg.get('mm_field', None)
                     try:
-                        data_key = getattr(mm, "data_key", None)
+                        data_key = getattr(mm, 'data_key', None)
                         if isinstance(data_key, str) and data_key:
                             return data_key
                     except Exception:
                         pass
                 else:
-                    name = getattr(cfg, "field_name", None)
+                    name = getattr(cfg, 'field_name', None)
                     if isinstance(name, str) and name:
                         return name
                     try:
-                        mm = getattr(cfg, "mm_field", None)
-                        data_key = getattr(mm, "data_key", None)
+                        mm = getattr(cfg, 'mm_field', None)
+                        data_key = getattr(mm, 'data_key', None)
                         if isinstance(data_key, str) and data_key:
                             return data_key
                     except Exception:
                         pass
-                # Fallback: parse string repr for data_key/field_name
-                try:
-                    s = str(cfg)
-                    import re as _re
-                    m = _re.search(r"data_key=['\"]([^'\"]+)['\"]", s)
-                    if m:
-                        return m.group(1)
-                    m2 = _re.search(r"field_name=['\"]([^'\"]+)['\"]", s)
-                    if m2:
-                        return m2.group(1)
-                except Exception:
-                    pass
+                # # Fallback: parse string repr for data_key/field_name messed up code
+                # try:
+                #     s = str(cfg)
+                #     import re as _re
+                #     m = _re.search(r'data_key=['\']([^'\']+)['\']', s)
+                #     if m:
+                #         return m.group(1)
+                #     m2 = _re.search(r'field_name=['\']([^'\']+)['\']', s)
+                #     if m2:
+                #         return m2.group(1)
+                # except Exception:
+                #     pass
         except Exception:
             pass
         return f.name
 
     def _coerce_bool_alias_fields(self) -> None:
-        """Traverse the SCORE object and coerce any fields whose JSON alias ends with '?' to Python bools.
+        '''Traverse the SCORE object and coerce any fields whose JSON alias ends with '?' to Python bools.
         This keeps the in-memory model using True/False consistently, regardless of legacy 0/1 values.
-        """
+        '''
         def _walk(obj):
             if is_dataclass(obj):
                 for f in fields(obj):
@@ -487,9 +487,9 @@ class SCORE:
                     # Coerce scalar if alias ends with '?'
                     try:
                         jn = self._json_field_name(f)
-                        is_bool_intended = isinstance(jn, str) and jn.endswith("?")
+                        is_bool_intended = isinstance(jn, str) and jn.endswith('?')
                         # Heuristic fallback: fields commonly used as visibility toggles
-                        if not is_bool_intended and (f.name == "visible" or f.name.endswith("Visible")):
+                        if not is_bool_intended and (f.name == 'visible' or f.name.endswith('Visible')):
                             is_bool_intended = True
                         if is_bool_intended:
                             if val is None:
@@ -514,7 +514,7 @@ class SCORE:
         _walk(self)
 
     def _to_dict_with_bool_aliases(self) -> dict:
-        """Return a dict suitable for JSON dump where any key ending with '?' has boolean values."""
+        '''Return a dict suitable for JSON dump where any key ending with '?' has boolean values.'''
         base = self.to_dict()
 
         def _convert(x):
@@ -522,7 +522,7 @@ class SCORE:
                 out = {}
                 for k, v in x.items():
                     cv = _convert(v)
-                    if isinstance(k, str) and k.endswith("?"):
+                    if isinstance(k, str) and k.endswith('?'):
                         # Force to bool for primitives; leave containers unchanged (shouldn't happen for bool fields)
                         if isinstance(cv, (bool, int, float)):
                             out[k] = bool(cv)

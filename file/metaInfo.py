@@ -9,6 +9,6 @@ class MetaInfo:
     extension: str = '.piano'
     description: str = 'pianoTAB score file'
     version: str = '1.0'
-    created: str = field(default_factory=lambda: time.strftime("%d-%m-%Y_%H:%M:%S"))
+    created: str = field(default_factory=lambda: time.strftime('%d-%m-%Y_%H:%M:%S'))
     author: str = 'pianoTAB Team'
     license: str = 'MIT'

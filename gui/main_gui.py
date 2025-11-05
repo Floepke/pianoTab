@@ -1,4 +1,4 @@
-"""
+'''
 pianoTAB Kivy GUI - Main GUI structure.
 
 Recreates the tkinter GUI with:
@@ -7,7 +7,7 @@ Recreates the tkinter GUI with:
   - Left: Editor area
   - Right: Print preview
   - Wide draggable sash between them
-"""
+'''
 
 import sys
 import os
@@ -34,11 +34,11 @@ from utils.pymupdfexport import PyMuPDFCanvas
 
 
 class EditorWidget(Widget):
-    """
+    '''
     Simple editor widget placeholder.
     This will be replaced with your actual piano tab editor.
     Uses clipping to hide content that goes out of bounds.
-    """
+    '''
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -74,7 +74,7 @@ class EditorWidget(Widget):
         self.label.center = self.center
     
     def update_graphics(self, *args):
-        """Update graphics when size changes."""
+        '''Update graphics when size changes.'''
         # Update scissor clipping region
         self.scissor.x = int(self.x)
         self.scissor.y = int(self.y)
@@ -98,11 +98,11 @@ class EditorWidget(Widget):
 
 
 class PrintPreviewWidget(Widget):
-    """
+    '''
     Simple print preview widget placeholder.
     This will be replaced with your actual print preview.
     Uses clipping to hide content that goes out of bounds.
-    """
+    '''
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -137,7 +137,7 @@ class PrintPreviewWidget(Widget):
         self.label.center = self.center
     
     def update_graphics(self, *args):
-        """Update graphics when size changes."""
+        '''Update graphics when size changes.'''
         # Update scissor clipping region
         self.scissor.x = int(self.x)
         self.scissor.y = int(self.y)
@@ -159,10 +159,10 @@ class PrintPreviewWidget(Widget):
 
 
 class PropertiesPanelWidget(Widget):
-    """
+    '''
     Bottom properties panel placeholder.
     Will later display/edit settings organized in tabs.
-    """
+    '''
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         with self.canvas.before:
@@ -186,10 +186,10 @@ class PropertiesPanelWidget(Widget):
 
 
 class SidePanelWidget(ScrollView):
-    """
+    '''
     Left side panel widget - a simple scrollable vertical layout.
     Contains grid selector and tool selector.
-    """
+    '''
     
     def __init__(self, grid_callback=None, tool_callback=None, **kwargs):
         super().__init__(
@@ -225,7 +225,7 @@ class SidePanelWidget(ScrollView):
         self.layout.add_widget(self.tool_selector)
     
     def on_tool_selected(self, tool_name):
-        """Handle tool selection and notify main GUI."""
+        '''Handle tool selection and notify main GUI.'''
         if self.tool_callback:
             try:
                 self.tool_callback(tool_name)
@@ -235,7 +235,7 @@ class SidePanelWidget(ScrollView):
         print(f'Tool selected: {tool_name}')
     
     def on_grid_changed(self, grid_step):
-        """Handle grid step change from GridSelector."""
+        '''Handle grid step change from GridSelector.'''
         print(f'Grid step changed to: {grid_step} piano ticks')
         
         # Call the main GUI callback if available
@@ -244,10 +244,10 @@ class SidePanelWidget(ScrollView):
 
 
 class pianoTABGUI(BoxLayout):
-    """
+    '''
     Main GUI class for pianoTAB application in Kivy.
     Recreates the tkinter structure with menu bar, left panel and split view.
-    """
+    '''
     
     def __init__(self, **kwargs):
         super().__init__(orientation='vertical', **kwargs)
@@ -263,11 +263,11 @@ class pianoTABGUI(BoxLayout):
         self.setup_layout()
     
     def _normalize_tool_key(self, name: str) -> str:
-        """Normalize ToolSelector name to contextual-toolbar key (e.g., 'Note' -> 'note')."""
+        '''Normalize ToolSelector name to contextual-toolbar key (e.g., 'Note' -> 'note').'''
         return name.lower().replace('-', '').replace(' ', '').replace('_', '')
 
     def on_tool_selected(self, tool_name):
-        """Forward tool selection to the sashes to update contextual buttons."""
+        '''Forward tool selection to the sashes to update contextual buttons.'''
         key = self._normalize_tool_key(tool_name)
         # Only update contextual toolbar on the horizontal sash (editor|properties)
         # Horizontal sash between editor (top) and properties panel (bottom) - contextual left aligned
@@ -278,7 +278,7 @@ class pianoTABGUI(BoxLayout):
                 pass
     
     def setup_layout(self):
-        """Create the main layout structure with menu bar and resizable panels."""
+        '''Create the main layout structure with menu bar and resizable panels.'''
         
         # Add menu bar at the top using centralized configuration
         menu_config = create_menu_config(self)
@@ -381,7 +381,7 @@ class pianoTABGUI(BoxLayout):
         self.file_manager = None
     
     def _init_grid_step(self, dt):
-        """Initialize the editor with the current grid step from the side panel."""
+        '''Initialize the editor with the current grid step from the side panel.'''
         if self.editor_area and self.side_panel:
             # Get the current grid step from the grid selector
             grid_step = self.side_panel.grid_selector.get_grid_step()
@@ -389,7 +389,7 @@ class pianoTABGUI(BoxLayout):
             print(f'Initialized editor with grid step: {grid_step} piano ticks')
     
     def on_grid_step_changed(self, grid_step):
-        """Handle grid step change from the side panel."""
+        '''Handle grid step change from the side panel.'''
         print(f'Main GUI received grid step change: {grid_step} piano ticks')
         
         # Update editor cursor snapping behavior
@@ -397,23 +397,23 @@ class pianoTABGUI(BoxLayout):
             self.editor_area.set_grid_step(grid_step)
     
     def get_editor_widget(self):
-        """Get reference to the editor widget."""
+        '''Get reference to the editor widget.'''
         return self.editor_area
     
     def get_preview_widget(self):
-        """Get reference to the preview widget."""
+        '''Get reference to the preview widget.'''
         return self.print_preview
     
     def get_side_panel(self):
-        """Get reference to the side panel."""
+        '''Get reference to the side panel.'''
         return self.side_panel
 
     def _setup_snap_ratio(self, _dt):
-        """Calculate and set the snap ratio for the editor-preview split.
+        '''Calculate and set the snap ratio for the editor-preview split.
         
         This allows the sash to snap to the perfect position where the paper
         dimensions (width_mm/height_mm ratio) fit exactly in the right panel.
-        """
+        '''
         sp = self.editor_preview_split
         if not sp:
             return
@@ -435,7 +435,7 @@ class pianoTABGUI(BoxLayout):
         sp.bind(size=lambda *args: sp.set_snap_ratio_from_aspect(aspect_ratio))
 
     def _fit_preview_page_on_start(self, _dt):
-        """Adjust the editor-preview sash so the A4 page in the preview fits fully.
+        '''Adjust the editor-preview sash so the A4 page in the preview fits fully.
 
         The preview Canvas uses scale_to_width, so content_height = preview_width * (page_h/page_w).
         To fit exactly, set preview_width ≈ (preview_height - ε) / (page_h/page_w).
@@ -443,7 +443,7 @@ class pianoTABGUI(BoxLayout):
         
         NOTE: This method is currently disabled. The snap-to-fit behavior allows users
         to manually snap to this position by dragging the sash.
-        """
+        '''
         sp = self.editor_preview_split
         if not sp:
             return
@@ -511,7 +511,7 @@ class pianoTABGUI(BoxLayout):
     ''' on_X event handlers '''
 
     def on_exit(self):
-        """Handle File > Exit."""
+        '''Handle File > Exit.'''
         if self.file_manager:
             self.file_manager.exit_app()
         else:
@@ -519,7 +519,7 @@ class pianoTABGUI(BoxLayout):
             App.get_running_app().stop()
 
     def on_about(self):
-        """Handle About menu."""
+        '''Handle About menu.'''
         ...
 
     # ----- File menu delegates (wired in menu_config in callbacks.py) -----

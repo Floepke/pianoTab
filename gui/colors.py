@@ -1,15 +1,15 @@
-"""
+'''
 Color system for pianoTAB application.
 Generates a 4-color palette from two base colors.
-"""
+'''
 
 
 class ColorScheme:
-    """Manages application color palette."""
+    '''Manages application color palette.'''
     
     @staticmethod
     def hex_to_rgba(hex_color, alpha=1.0):
-        """
+        '''
         Convert hex color code to normalized RGBA tuple for Kivy.
         
         Args:
@@ -26,7 +26,7 @@ class ColorScheme:
             (1.0, 0.0, 0.0, 0.5)
             >>> ColorScheme.hex_to_rgba('0A0A0C')
             (0.039, 0.039, 0.047, 1.0)
-        """
+        '''
         # Remove '#' if present
         hex_color = hex_color.lstrip('#')
         
@@ -36,7 +36,7 @@ class ColorScheme:
         
         # Validate length
         if len(hex_color) != 6:
-            raise ValueError(f"Invalid hex color: {hex_color}. Expected 6 characters.")
+            raise ValueError(f'Invalid hex color: {hex_color}. Expected 6 characters.')
         
         # Convert to RGB (0-255) then normalize to 0.0-1.0
         r = int(hex_color[0:2], 16) / 255.0
@@ -47,7 +47,7 @@ class ColorScheme:
     
     @staticmethod
     def rgb_to_rgba(r, g, b, a=1.0):
-        """
+        '''
         Convert RGB values (0-255) to normalized RGBA tuple for Kivy.
         
         Args:
@@ -64,12 +64,12 @@ class ColorScheme:
             (1.0, 1.0, 1.0, 1.0)
             >>> ColorScheme.rgb_to_rgba(255, 0, 0, 0.5)
             (1.0, 0.0, 0.0, 0.5)
-        """
+        '''
         return (r / 255.0, g / 255.0, b / 255.0, a)
     
     def __init__(self, color_light=(1.0, 1.0, 1.0, 1.0), color_dark=(0.0, 0.0, 0.0, 1.0), 
                  accent_color=(0.2, 1, .6, 1.0)):
-        """
+        '''
         Initialize color scheme with base colors.
         
         Args:
@@ -80,7 +80,7 @@ class ColorScheme:
         Examples:
             >>> ColorScheme('#FFFFFF', '#000000', '#3399FF')
             >>> ColorScheme((1.0, 1.0, 1.0, 1.0), (0.0, 0.0, 0.0, 1.0))
-        """
+        '''
         # Convert hex strings to RGBA tuples if needed
         if isinstance(color_light, str):
             color_light = self.hex_to_rgba(color_light)
@@ -99,7 +99,7 @@ class ColorScheme:
     
     @staticmethod
     def _blend(color1, color2, amount):
-        """
+        '''
         Blend two colors.
         
         Args:
@@ -109,14 +109,14 @@ class ColorScheme:
         
         Returns:
             Blended color (R, G, B, A)
-        """
+        '''
         return tuple(
             color1[i] + (color2[i] - color1[i]) * amount
             for i in range(4)
         )
     
     def get_all(self):
-        """Return all five colors as a dictionary."""
+        '''Return all five colors as a dictionary.'''
         return {
             'light': self.color_light,
             'light_darker': self.color_light_darker,
@@ -135,8 +135,8 @@ class ColorScheme:
 '''
 default_colors = ColorScheme(
     color_light='#FFFFFF',
-    color_dark="#1C241D",
-    accent_color="#06aec1"
+    color_dark="#373620",
+    accent_color="#a8c106"
 )
 
 # Easy access to colors throughout the app

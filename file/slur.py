@@ -34,7 +34,7 @@ class Slur:
     _middleWidth: Optional[float] = field(default=None, metadata=config(field_name='middleWidth'))
 
     def __post_init__(self):
-        """Initialize score reference as a non-dataclass attribute."""
+        '''Initialize score reference as a non-dataclass attribute.'''
         self.score: Optional['SCORE'] = None
     
     @property
@@ -50,47 +50,47 @@ class Slur:
     # Property: color
     @property
     def color(self) -> str:
-        """Get color - inherits from globalSlur.color if None."""
+        '''Get color - inherits from globalSlur.color if None.'''
         if self._color is not None:
             return self._color
         if self.score is None:
-            print("Warning: Slur has no score reference for property inheritance.")
+            print('Warning: Slur has no score reference for property inheritance.')
             return '#000000'  # Fallback if no score reference
         return self.score.properties.globalSlur.color
     
     @color.setter
     def color(self, value: Optional[str]):
-        """Set color - use None to reset to inheritance."""
+        '''Set color - use None to reset to inheritance.'''
         self._color = value
     
     # Property: startEndWidth
     @property
     def startEndWidth(self) -> float:
-        """Get startEndWidth - inherits from globalSlur.startEndWidth if None."""
+        '''Get startEndWidth - inherits from globalSlur.startEndWidth if None.'''
         if self._startEndWidth is not None:
             return self._startEndWidth
         if self.score is None:
-            print("Warning: Slur has no score reference for property inheritance.")
+            print('Warning: Slur has no score reference for property inheritance.')
             return 0.5  # Fallback if no score reference
         return self.score.properties.globalSlur.startEndWidth
     
     @startEndWidth.setter
     def startEndWidth(self, value: Optional[float]):
-        """Set startEndWidth - use None to reset to inheritance."""
+        '''Set startEndWidth - use None to reset to inheritance.'''
         self._startEndWidth = value
     
     # Property: middleWidth
     @property
     def middleWidth(self) -> float:
-        """Get middleWidth - inherits from globalSlur.middleWidth if None."""
+        '''Get middleWidth - inherits from globalSlur.middleWidth if None.'''
         if self._middleWidth is not None:
             return self._middleWidth
         if self.score is None:
-            print("Warning: Slur has no score reference for property inheritance.")
+            print('Warning: Slur has no score reference for property inheritance.')
             return 1.0  # Fallback if no score reference
         return self.score.properties.globalSlur.middleWidth
     
     @middleWidth.setter
     def middleWidth(self, value: Optional[float]):
-        """Set middleWidth - use None to reset to inheritance."""
+        '''Set middleWidth - use None to reset to inheritance.'''
         self._middleWidth = value

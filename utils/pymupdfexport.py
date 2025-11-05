@@ -1,4 +1,4 @@
-"""
+'''
 PyMuPDF-backed Canvas that mirrors drawing operations to a vector PDF.
 
 - Subclasses utils.canvas.Canvas so all Kivy rendering remains unchanged.
@@ -19,9 +19,9 @@ Usage:
         cv.pdf_mode = True
         cv.new_page()
         cv.add_line(10, 10, 100, 10, stroke_width_mm=0.5)
-        cv.add_rectangle(10, 20, 60, 50, outline_color="#FF0000")
-        cv.save_pdf("output.pdf")
-"""
+        cv.add_rectangle(10, 20, 60, 50, outline_color='#FF0000')
+        cv.save_pdf('output.pdf')
+'''
 from __future__ import annotations
 from typing import Iterable, List, Tuple, Optional, Dict, Any
 
@@ -44,13 +44,13 @@ def _hex_to_rgb(color_hex: str) -> Tuple[float, float, float]:
 
 
 class PyMuPDFCanvas(Canvas):
-    """Canvas subclass that mirrors drawing to a PDF using PyMuPDF.
+    '''Canvas subclass that mirrors drawing to a PDF using PyMuPDF.
 
     pdf_mode: when True, drawing operations mirror to PDF.
     new_page(): creates a new PDF page using current width_mm/height_mm.
     save_pdf(path): saves the PDF document.
     close_pdf(): closes the PDF document handle.
-    """
+    '''
 
     def __init__(
         self,
@@ -77,7 +77,7 @@ class PyMuPDFCanvas(Canvas):
         self.debug_pdf_text = False
 
     def _scale_width(self, width_pt: float) -> float:
-        """Apply global PDF stroke scaling and minimum width clamp."""
+        '''Apply global PDF stroke scaling and minimum width clamp.'''
         try:
             scale = float(getattr(self, 'pdf_stroke_scale', 1.0))
         except Exception:
@@ -87,7 +87,7 @@ class PyMuPDFCanvas(Canvas):
     # ----- PDF lifecycle -----
 
     def new_page(self):
-        """Create and activate a new PDF page matching current mm size."""
+        '''Create and activate a new PDF page matching current mm size.'''
         if not fitz:
             return None
         if self._doc is None:
@@ -133,7 +133,7 @@ class PyMuPDFCanvas(Canvas):
     # ----- Coordinate conversion -----
 
     def _xy_mm_to_pdf_pt(self, x_mm: float, y_mm_top: float) -> Tuple[float, float]:
-        """Convert top-left mm coordinates to PDF points with bottom-left origin."""
+        '''Convert top-left mm coordinates to PDF points with bottom-left origin.'''
         # PyMuPDF page coordinates are top-left origin with y increasing downwards.
         # So we do NOT invert Y: keep top-left mm -> top-left PDF points.
         return _mm_to_pt(x_mm), _mm_to_pt(y_mm_top)
@@ -356,12 +356,12 @@ class PyMuPDFCanvas(Canvas):
                 # Measure actual text bbox using a temporary TextWriter to get accurate height
                 # Resolve a robust Base-14 font usable across PyMuPDF versions
                 font_obj = None
-                fontname_pdf = "Courier-Bold"
+                fontname_pdf = 'Courier-Bold'
                 try:
                     font_obj = fitz.Font(fontname_pdf)
                 except Exception:
                     try:
-                        fontname_pdf = "Courier"
+                        fontname_pdf = 'Courier'
                         font_obj = fitz.Font(fontname_pdf)
                     except Exception:
                         font_obj = None
@@ -389,7 +389,7 @@ class PyMuPDFCanvas(Canvas):
                 bl_x = tl_x
                 bl_y = tl_y + h_pt
                 rot = float(c.get('angle_deg', 0.0))
-                path_used = ""
+                path_used = ''
                 try:
                     if abs(rot) > 1e-9:
                         # Robust path: TextWriter with morph anchored at (ax_pt, ay_pt)
@@ -407,30 +407,30 @@ class PyMuPDFCanvas(Canvas):
                             tw.append(fitz.Point(bl_x, bl_y), txt, fontsize=font_pt)
                         m = fitz.Matrix(1, 0, 0, 1, 0, 0).prerotate(-rot)
                         tw.write_text(page, color=color_rgb, morph=(fitz.Point(ax_pt, ay_pt), m))
-                        path_used = "TextWriter+morph"
+                        path_used = 'TextWriter+morph'
                     else:
                         page.insert_text(
                             fitz.Point(bl_x, bl_y), txt, fontsize=font_pt, fontname=fontname_pdf, color=color_rgb
                         )
-                        path_used = "insert_text(no-rot)"
+                        path_used = 'insert_text(no-rot)'
                 except Exception as e1:
                     # Fallbacks for older versions: try insert_text with rotate (pivot = baseline)
                     try:
                         page.insert_text(
                             fitz.Point(bl_x, bl_y), txt, fontsize=font_pt, fontname=fontname_pdf, color=color_rgb, rotate=-rot
                         )
-                        path_used = "insert_text(rotate)"
+                        path_used = 'insert_text(rotate)'
                     except Exception as e2:
                         try:
                             page.insert_text(
-                                fitz.Point(bl_x, bl_y), txt, fontsize=font_pt, fontname="Courier", color=color_rgb
+                                fitz.Point(bl_x, bl_y), txt, fontsize=font_pt, fontname='Courier', color=color_rgb
                             )
-                            path_used = "insert_text(courier,fallback-no-rot)"
+                            path_used = 'insert_text(courier,fallback-no-rot)'
                         except Exception:
-                            path_used = "SKIPPED"
+                            path_used = 'SKIPPED'
                 if getattr(self, 'debug_pdf_text', False):
                     try:
-                        print(f"[PDF Text] '{txt[:24]}' angle={rot:.2f} at=({ax_pt:.1f},{ay_pt:.1f}) baseline=({bl_x:.1f},{bl_y:.1f}) path={path_used}")
+                        print(f'[PDF Text] "{txt[:24]}" angle={rot:.2f} at=({ax_pt:.1f},{ay_pt:.1f}) baseline=({bl_x:.1f},{bl_y:.1f}) path={path_used}')
                     except Exception:
                         pass
 
@@ -438,7 +438,7 @@ class PyMuPDFCanvas(Canvas):
 
     def _pdf_draw_dashed_polyline(self, page, pts: List[Tuple[float, float]], color: Tuple[float, float, float], width_pt: float,
                                on_pt: float, off_pt: float, *, close: bool = False):
-        """Draw dashed polyline with continuous dash phase across segments."""
+        '''Draw dashed polyline with continuous dash phase across segments.'''
         if len(pts) < 2:
             return
         # If dash pattern is invalid, draw solid
@@ -493,11 +493,11 @@ class PyMuPDFCanvas(Canvas):
 
     @staticmethod
     def _anchor_offsets_pt(anchor: str, w_pt: float, h_pt: float) -> Tuple[float, float]:
-        """Offsets from anchor point to top-left of a text rectangle in PDF points.
+        '''Offsets from anchor point to top-left of a text rectangle in PDF points.
 
         Coordinates use top-left origin with Y increasing downward.
         Matches Canvas._anchor_offsets for parity.
-        """
+        '''
         a = (anchor or 'top_left').strip().lower()
         mapping = {
             'top_left': (0.0, 0.0), 'tl': (0.0, 0.0), 'nw': (0.0, 0.0),

@@ -1,209 +1,209 @@
 {
-    "metaInfo": {
-        "appName": "pianoTAB",
-        "extension": ".piano",
-        "description": "pianoTAB score file",
-        "version": "1.0",
-        "created": "30-10-2025_05:07:53",
-        "author": "pianoTAB Team",
-        "license": "MIT"
+    'metaInfo': {
+        'appName': 'pianoTAB',
+        'extension': '.piano',
+        'description': 'pianoTAB score file',
+        'version': '1.0',
+        'created': '30-10-2025_05:07:53',
+        'author': 'pianoTAB Team',
+        'license': 'MIT'
     },
-    "header": {
-        "title": "Untitled",
-        "subtitle": "",
-        "composer": "",
-        "arranger": "",
-        "lyricist": "",
-        "publisher": "",
-        "copyright": "Copyright \u00a9 2025, pianoTAB. All rights reserved.",
-        "timeStamp": "30-10-2025_05:07:53",
-        "genre": "",
-        "comment": ""
+    'header': {
+        'title': 'Untitled',
+        'subtitle': '',
+        'composer': '',
+        'arranger': '',
+        'lyricist': '',
+        'publisher': '',
+        'copyright': 'Copyright \u00a9 2025, pianoTAB. All rights reserved.',
+        'timeStamp': '30-10-2025_05:07:53',
+        'genre': '',
+        'comment': ''
     },
-    "properties": {
-        "globalNote": {
-            "color": "#000000",
-            "colorLeftMidiNote": "#000000",
-            "colorRightMidiNote": "#000000",
-            "stemWidth": 1.0,
-            "stemLength": 10.0,
-            "beamWidth": 1.0,
-            "blackNoteDirection": "v",
-            "noteHeadVisible?": 1,
-            "stemVisible?": 1,
-            "midiNoteVisible?": 1,
-            "accidentalVisible?": 1,
-            "noteStopVisible?": 1,
-            "continuationDotVisible?": 1,
-            "leftDotVisible?": 1
+    'properties': {
+        'globalNote': {
+            'color': '#000000',
+            'colorLeftMidiNote': '#000000',
+            'colorRightMidiNote': '#000000',
+            'stemWidth': 1.0,
+            'stemLength': 10.0,
+            'beamWidth': 1.0,
+            'blackNoteDirection': 'v',
+            'noteHeadVisible?': 1,
+            'stemVisible?': 1,
+            'midiNoteVisible?': 1,
+            'accidentalVisible?': 1,
+            'noteStopVisible?': 1,
+            'continuationDotVisible?': 1,
+            'leftDotVisible?': 1
         },
-        "globalArticulation": {
-            "color": "#000000",
-            "visible?": 1
+        'globalArticulation': {
+            'color': '#000000',
+            'visible?': 1
         },
-        "globalBeam": {
-            "color": "#000000",
-            "width": 4.0,
-            "slant": 5.0,
-            "visible?": 1
+        'globalBeam': {
+            'color': '#000000',
+            'width': 4.0,
+            'slant': 5.0,
+            'visible?': 1
         },
-        "globalGraceNote": {
-            "color": "#000000",
-            "visible?": 1
+        'globalGraceNote': {
+            'color': '#000000',
+            'visible?': 1
         },
-        "globalCountLine": {
-            "color": "#000000",
-            "width": 1.0,
-            "dashPattern": [],
-            "visible?": 1
+        'globalCountLine': {
+            'color': '#000000',
+            'width': 1.0,
+            'dashPattern': [],
+            'visible?': 1
         },
-        "globalSlur": {
-            "color": "#000000",
-            "middleWidth": 1.0,
-            "startEndWidth": 0.5,
-            "visible?": 1
+        'globalSlur': {
+            'color': '#000000',
+            'middleWidth': 1.0,
+            'startEndWidth': 0.5,
+            'visible?': 1
         },
-        "globalText": {
-            "fontSize": 12,
-            "family": "Courier New",
-            "color": "#000000"
+        'globalText': {
+            'fontSize': 12,
+            'family': 'Courier New',
+            'color': '#000000'
         },
-        "globalBarLine": {
-            "color": "#000000",
-            "width": 1.0,
-            "visible?": 1
+        'globalBarLine': {
+            'color': '#000000',
+            'width': 1.0,
+            'visible?': 1
         },
-        "globalBasegrid": {
-            "gridlineColor": "#000000",
-            "gridlineWidth": 1.0,
-            "gridlineDashPattern": [
+        'globalBasegrid': {
+            'gridlineColor': '#000000',
+            'gridlineWidth': 1.0,
+            'gridlineDashPattern': [
                 4,
                 4
             ],
-            "barlineColor": "#000000",
-            "barlineWidth": 2.0,
-            "fontSize": 12
+            'barlineColor': '#000000',
+            'barlineWidth': 2.0,
+            'fontSize': 12
         },
-        "globalStave": {
-            "twoLineColor": "#000000",
-            "threeLineColor": "#000000",
-            "clefColor": "#000000",
-            "twoLineWidth": 1.0,
-            "threeLineWidth": 2.0,
-            "clefWidth": 1.0,
-            "visible?": 1,
-            "clefDashPattern": [
+        'globalStave': {
+            'twoLineColor': '#000000',
+            'threeLineColor': '#000000',
+            'clefColor': '#000000',
+            'twoLineWidth': 1.0,
+            'threeLineWidth': 2.0,
+            'clefWidth': 1.0,
+            'visible?': 1,
+            'clefDashPattern': [
                 4,
                 4
             ]
         },
-        "globalPage": {
-            "width": 210.0,
-            "height": 297.0,
-            "marginLeft": 5.0,
-            "marginRight": 5.0,
-            "marginUp": 10.0,
-            "marginDown": 10.0,
-            "headerHeight": 12.5,
-            "footerHeight": 12.5
+        'globalPage': {
+            'width': 210.0,
+            'height': 297.0,
+            'marginLeft': 5.0,
+            'marginRight': 5.0,
+            'marginUp': 10.0,
+            'marginDown': 10.0,
+            'headerHeight': 12.5,
+            'footerHeight': 12.5
         },
-        "globalSection": {
-            "color": "#000000",
-            "lineWidth": 1.0,
-            "visible?": 1
+        'globalSection': {
+            'color': '#000000',
+            'lineWidth': 1.0,
+            'visible?': 1
         },
-        "globalStartRepeat": {
-            "color": "#000000",
-            "lineWidth": 1.0,
-            "visible?": 1
+        'globalStartRepeat': {
+            'color': '#000000',
+            'lineWidth': 1.0,
+            'visible?': 1
         },
-        "globalEndrepeat": {
-            "color": "#000000",
-            "lineWidth": 1.0,
-            "visible?": 1
+        'globalEndrepeat': {
+            'color': '#000000',
+            'lineWidth': 1.0,
+            'visible?': 1
         },
-        "editorZoomPixelsQuarter": 100,
-        "stopSignType": "pianoTAB",
-        "drawScale": 0.75
+        'editorZoomPixelsQuarter': 100,
+        'stopSignType': 'pianoTAB',
+        'drawScale': 0.75
     },
-    "baseGrid": [
+    'baseGrid': [
         {
-            "numerator": 4,
-            "denominator": 4,
-            "gridTimes": [
+            'numerator': 4,
+            'denominator': 4,
+            'gridTimes': [
                 256.0,
                 512.0,
                 768.0
             ],
-            "measureAmount": 8,
-            "timeSignatureIndicatorVisible?": 1
+            'measureAmount': 8,
+            'timeSignatureIndicatorVisible?': 1
         }
     ],
-    "lineBreak": [
+    'lineBreak': [
         {
-            "id": 0,
-            "time": 0.0,
-            "type": "locked",
-            "staveRange": []
+            'id': 0,
+            'time': 0.0,
+            'type': 'locked',
+            'staveRange': []
         }
     ],
-    "stave": [
+    'stave': [
         {
-            "name": "Stave 1",
-            "scale": 1.0,
-            "event": {
-                "note": [
+            'name': 'Stave 1',
+            'scale': 1.0,
+            'event': {
+                'note': [
                     {
-                        "id": 1,
-                        "time": 0.0,
-                        "duration": 256.0,
-                        "pitch": 60,
-                        "velocity": 80,
-                        "art": [],
-                        "hand": ">",
-                        "color": null,
-                        "colorMidiLeftNote": null,
-                        "colorMidiRightNote": null,
-                        "blackNoteDirection": null
+                        'id': 1,
+                        'time': 0.0,
+                        'duration': 256.0,
+                        'pitch': 60,
+                        'velocity': 80,
+                        'art': [],
+                        'hand': '>',
+                        'color': null,
+                        'colorMidiLeftNote': null,
+                        'colorMidiRightNote': null,
+                        'blackNoteDirection': null
                     },
                     {
-                        "id": 2,
-                        "time": 0.0,
-                        "duration": 256.0,
-                        "pitch": 62,
-                        "velocity": 80,
-                        "art": [],
-                        "hand": ">",
-                        "color": null,
-                        "colorMidiLeftNote": null,
-                        "colorMidiRightNote": null,
-                        "blackNoteDirection": null
+                        'id': 2,
+                        'time': 0.0,
+                        'duration': 256.0,
+                        'pitch': 62,
+                        'velocity': 80,
+                        'art': [],
+                        'hand': '>',
+                        'color': null,
+                        'colorMidiLeftNote': null,
+                        'colorMidiRightNote': null,
+                        'blackNoteDirection': null
                     },
                     {
-                        "id": 3,
-                        "time": 0.0,
-                        "duration": 256.0,
-                        "pitch": 40,
-                        "velocity": 80,
-                        "art": [],
-                        "hand": ">",
-                        "color": null,
-                        "colorMidiLeftNote": null,
-                        "colorMidiRightNote": null,
-                        "blackNoteDirection": null
+                        'id': 3,
+                        'time': 0.0,
+                        'duration': 256.0,
+                        'pitch': 40,
+                        'velocity': 80,
+                        'art': [],
+                        'hand': '>',
+                        'color': null,
+                        'colorMidiLeftNote': null,
+                        'colorMidiRightNote': null,
+                        'blackNoteDirection': null
                     }
                 ],
-                "graceNote": [],
-                "countLine": [],
-                "startRepeat": [],
-                "endRepeat": [],
-                "section": [],
-                "beam": [],
-                "text": [],
-                "slur": [],
-                "tempo": []
+                'graceNote': [],
+                'countLine': [],
+                'startRepeat': [],
+                'endRepeat': [],
+                'section': [],
+                'beam': [],
+                'text': [],
+                'slur': [],
+                'tempo': []
             }
         }
     ],
-    "quarterNoteLength": 256.0
+    'quarterNoteLength': 256.0
 }

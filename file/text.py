@@ -18,37 +18,37 @@ class Text:
     _color: Optional[str] = field(default=None, metadata=config(field_name='color'))
     
     def __post_init__(self):
-        """Initialize score reference as a non-dataclass attribute."""
+        '''Initialize score reference as a non-dataclass attribute.'''
         self.score: Optional['SCORE'] = None
     
     # Property: fontSize
     @property
     def fontSize(self) -> int:
-        """Get fontSize - inherits from globalText.fontSize if None."""
+        '''Get fontSize - inherits from globalText.fontSize if None.'''
         if self._fontSize is not None:
             return self._fontSize
         if self.score is None:
-            print("Warning: Text has no score reference for property inheritance.")
+            print('Warning: Text has no score reference for property inheritance.')
             return 12  # Fallback if no score reference
         return self.score.properties.globalText.fontSize
     
     @fontSize.setter
     def fontSize(self, value: Optional[int]):
-        """Set fontSize - use None to reset to inheritance."""
+        '''Set fontSize - use None to reset to inheritance.'''
         self._fontSize = value
     
     # Property: color
     @property
     def color(self) -> str:
-        """Get color - inherits from globalText.color if None."""
+        '''Get color - inherits from globalText.color if None.'''
         if self._color is not None:
             return self._color
         if self.score is None:
-            print("Warning: Text has no score reference for property inheritance.")
+            print('Warning: Text has no score reference for property inheritance.')
             return '#000000'  # Fallback if no score reference
         return self.score.properties.globalText.color
     
     @color.setter
     def color(self, value: Optional[str]):
-        """Set color - use None to reset to inheritance."""
+        '''Set color - use None to reset to inheritance.'''
         self._color = value

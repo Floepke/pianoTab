@@ -1,7 +1,7 @@
-"""
+'''
 Custom SplitView widget for Kivy with draggable wide sash.
 Similar to tkinter's PanedWindow but with customizable sash width.
-"""
+'''
 
 from kivy.uix.widget import Widget
 from kivy.uix.button import Button, ButtonBehavior
@@ -16,7 +16,7 @@ from icons.icon import load_icon
 
 
 class IconButton(ButtonBehavior, Image):
-    """A button that displays an icon image with a colored background."""
+    '''A button that displays an icon image with a colored background.'''
 
     def __init__(self, icon_name: str = '', **kwargs):
         super().__init__(**kwargs)
@@ -51,11 +51,11 @@ class IconButton(ButtonBehavior, Image):
 
 
 class ToolSash(Widget):
-    """Draggable sash with embedded toolbar buttons.
+    '''Draggable sash with embedded toolbar buttons.
 
     Buttons are direct children with inline positioning logic,
     ensuring they move perfectly in sync with the sash.
-    """
+    '''
 
     def __init__(self, split_view, default_toolbar=None, contextual_toolbar=None, **kwargs):
         super().__init__(**kwargs)
@@ -85,10 +85,10 @@ class ToolSash(Widget):
         self.default_buttons = []
         for key, val in self.default_toolbar.items():
             cb = None
-            tip = ""
+            tip = ''
             if isinstance(val, tuple) and len(val) >= 1:
                 cb = val[0]
-                tip = val[1] if len(val) >= 2 else ""
+                tip = val[1] if len(val) >= 2 else ''
             elif callable(val) or val is None:
                 cb = val
             btn = self._make_button(key, cb)
@@ -171,10 +171,10 @@ class ToolSash(Widget):
         try:
             cb()
         except Exception as exc:
-            print(f"Action error: {exc}")
+            print(f'Action error: {exc}')
 
     def _action_missing(self, key, *_args):
-        print(f"No action configured for '{key}'")
+        print(f'No action configured for "{key}"')
 
     # Helpers and public API for contextual toolbar
 
@@ -193,7 +193,7 @@ class ToolSash(Widget):
 
     def set_configs(self, default_toolbar: Optional[Dict[str, Any]] = None,
                     contextual_toolbar: Optional[Dict[str, Dict[str, Any]]] = None):
-        """Update toolbar configs and rebuild buttons."""
+        '''Update toolbar configs and rebuild buttons.'''
         if default_toolbar is not None:
             self.default_toolbar = dict(default_toolbar)
             # Rebuild default buttons
@@ -219,7 +219,7 @@ class ToolSash(Widget):
         self._update_layout()
 
     def set_context_key(self, key: Optional[str]):
-        """Set the active contextual key (e.g., 'note') to show its buttons at the sash bottom."""
+        '''Set the active contextual key (e.g., 'note') to show its buttons at the sash bottom.'''
         if key == self.current_context_key:
             return
         self.current_context_key = key
@@ -227,7 +227,7 @@ class ToolSash(Widget):
         self._update_layout()
 
     def set_linked_split(self, partner_split):
-        """Link this sash's SplitView to another SplitView for cross-axis synchronization."""
+        '''Link this sash's SplitView to another SplitView for cross-axis synchronization.'''
         self.linked_split = partner_split
 
     def _rebuild_contextual_buttons(self, key: Optional[str]):
@@ -396,10 +396,10 @@ class ToolSash(Widget):
 
 
 class SplitView(Widget):
-    """
+    '''
     A split view widget with draggable sash.
     Similar to tkinter's PanedWindow but with Kivy styling.
-    """
+    '''
     
     sash_width = NumericProperty(20)  # Width of the draggable sash
     split_ratio = NumericProperty(0.5)  # Initial split ratio (0.0 to 1.0)
@@ -443,12 +443,12 @@ class SplitView(Widget):
         self.bind(sash_color=self.update_sash_color)
     
     def _on_size_change(self, *args):
-        """Handle size changes - update layout but preserve user's split ratio."""
+        '''Handle size changes - update layout but preserve user's split ratio.'''
         # Only update the layout, don't recalculate split_ratio
         self.update_layout()
     
     def on_sash_width_change(self, instance, value):
-        """Update sash size when sash_width changes."""
+        '''Update sash size when sash_width changes.'''
         if self.orientation == 'horizontal':
             self.sash.width = value
         else:
@@ -456,11 +456,11 @@ class SplitView(Widget):
         self.update_layout()
     
     def update_sash_color(self, *args):
-        """Update sash background color."""
+        '''Update sash background color.'''
         self.sash.bg_color.rgba = self.sash_color
     
     def set_left(self, widget):
-        """Set the left/top widget."""
+        '''Set the left/top widget.'''
         if self.left_widget:
             self.left_container.remove_widget(self.left_widget)
         
@@ -470,7 +470,7 @@ class SplitView(Widget):
             self.update_layout()
     
     def set_right(self, widget):
-        """Set the right/bottom widget."""
+        '''Set the right/bottom widget.'''
         if self.right_widget:
             self.right_container.remove_widget(self.right_widget)
         
@@ -480,7 +480,7 @@ class SplitView(Widget):
             self.update_layout()
     
     def update_layout(self, *args):
-        """Update the layout based on split ratio."""
+        '''Update the layout based on split ratio.'''
         if self.orientation == 'horizontal':
             # Horizontal split
             total_width = self.width
@@ -560,7 +560,7 @@ class SplitView(Widget):
                     pass
     
     def update_split(self, touch_pos):
-        """Update split ratio based on touch position with snap-to-fit functionality."""
+        '''Update split ratio based on touch position with snap-to-fit functionality.'''
         if self.orientation == 'horizontal':
             # Calculate new ratio based on x position
             relative_x = touch_pos[0] - self.x
@@ -601,7 +601,7 @@ class SplitView(Widget):
                 # If within threshold, snap to ideal ratio
                 if abs(current_x - snap_x) <= self.snap_threshold:
                     new_ratio = snap_ratio_to_use
-                    print(f"DEBUG: Snapped to ideal ratio {new_ratio:.3f} (using stored: {self.sash._drag_start_snap_ratio is not None})")
+                    print(f'DEBUG: Snapped to ideal ratio {new_ratio:.3f} (using stored: {self.sash._drag_start_snap_ratio is not None})')
         else:
             # Calculate new ratio based on y position
             relative_y = touch_pos[1] - self.y
@@ -647,7 +647,7 @@ class SplitView(Widget):
         self.update_layout()
     
     def set_snap_ratio_from_aspect(self, aspect_ratio):
-        """
+        '''
         Calculate and set the snap ratio based on paper aspect ratio (height/width).
         
         For horizontal split: calculates the split ratio where the right panel width
@@ -655,7 +655,7 @@ class SplitView(Widget):
         
         Args:
             aspect_ratio: Paper height / paper width (e.g., 297/210 for A4)
-        """
+        '''
         # Store aspect ratio for recalculation during sash dragging
         self._last_aspect_ratio = aspect_ratio
         
@@ -687,7 +687,7 @@ class SplitView(Widget):
                 snap_ratio = max(min_ratio, min(max_ratio, snap_ratio))
                 
                 self.snap_ratio = snap_ratio
-                print(f"DEBUG: Set snap_ratio to {snap_ratio:.3f} for perfect fit (required_width: {required_right_width:.1f}, sash: {self.sash_width}, no scrollbar for snap-to-fit)")
+                print(f'DEBUG: Set snap_ratio to {snap_ratio:.3f} for perfect fit (required_width: {required_right_width:.1f}, sash: {self.sash_width}, no scrollbar for snap-to-fit)')
             else:
                 self.snap_ratio = None
 
@@ -714,4 +714,4 @@ class SplitView(Widget):
 Sash = ToolSash
 
 # Explicit re-exports for clarity when using `from gui.split_view import *`
-__all__ = ["SplitView", "ToolSash", "Sash"]
+__all__ = ['SplitView', 'ToolSash', 'Sash']

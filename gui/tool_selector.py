@@ -1,9 +1,9 @@
-"""
+'''
 Tool Selector Widget for pianoTAB GUI (Kivy version).
 
 Replicates the CustomTkinter ToolSelector: a titled label and a scrollable
 list of tool buttons with a single-selection highlight and callback.
-"""
+'''
 
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
@@ -15,7 +15,7 @@ from icons.icon import load_icon
 
 
 class ToolButton(BoxLayout):
-    """A styled button with icon and text that supports a selected state."""
+    '''A styled button with icon and text that supports a selected state.'''
     is_selected = False
 
     def __init__(self, text, icon_name=None, on_select=None, **kwargs):
@@ -46,7 +46,7 @@ class ToolButton(BoxLayout):
                     texture=icon_texture.texture,
                     size_hint=(None, None),
                     size=(96, 96),
-                    fit_mode="contain"
+                    fit_mode='contain'
                 )
                 self.add_widget(self.icon_widget)
         
@@ -100,13 +100,13 @@ class ToolButton(BoxLayout):
 
 
 class ToolSelector(BoxLayout):
-    """
+    '''
     Kivy Tool Selector with label + list of predefined tools.
 
     Properties:
     - current_tool: name of the selected tool
     - callback: optional callable(tool_name) invoked on selection
-    """
+    '''
 
     current_tool = StringProperty('Note')
     callback = ObjectProperty(None, allownone=True)

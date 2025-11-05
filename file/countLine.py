@@ -17,37 +17,37 @@ class CountLine:
     _dashPattern: Optional[List[float]] = field(default=None, metadata=config(field_name='dashPattern'))
     
     def __post_init__(self):
-        """Initialize score reference as a non-dataclass attribute."""
+        '''Initialize score reference as a non-dataclass attribute.'''
         self.score: Optional['SCORE'] = None
     
     # Property: color
     @property
     def color(self) -> str:
-        """Get color - inherits from globalCountLine.color if None."""
+        '''Get color - inherits from globalCountLine.color if None.'''
         if self._color is not None:
             return self._color
         if self.score is None:
-            print("Warning: CountLine has no score reference for property inheritance.")
+            print('Warning: CountLine has no score reference for property inheritance.')
             return '#000000'  # Fallback if no score reference
         return self.score.properties.globalCountLine.color
     
     @color.setter
     def color(self, value: Optional[str]):
-        """Set color - use None to reset to inheritance."""
+        '''Set color - use None to reset to inheritance.'''
         self._color = value
     
     # Property: dashPattern
     @property
     def dashPattern(self) -> List[int]:
-        """Get dashPattern - inherits from globalCountLine.dashPattern if None."""
+        '''Get dashPattern - inherits from globalCountLine.dashPattern if None.'''
         if self._dashPattern is not None:
             return self._dashPattern
         if self.score is None:
-            print("Warning: CountLine has no score reference for property inheritance.")
+            print('Warning: CountLine has no score reference for property inheritance.')
             return []  # Fallback if no score reference
         return self.score.properties.globalCountLine.dashPattern
     
     @dashPattern.setter
     def dashPattern(self, value: Optional[List[int]]):
-        """Set dashPattern - use None to reset to inheritance."""
+        '''Set dashPattern - use None to reset to inheritance.'''
         self._dashPattern = value

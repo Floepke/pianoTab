@@ -1,20 +1,30 @@
 #!/usr/bin/env python3
-"""
+'''
 pianoTAB - Music Notation Editor
 Main application entry point for Kivy version.
-"""
+'''
 import sys
 import os
 
-os.environ["KIVY_METRICS_DENSITY"] = "1.5"
+os.environ['KIVY_METRICS_DENSITY'] = '1.5'
 # Try to force a specific window provider to avoid issues
-os.environ["KIVY_WINDOW"] = "sdl2"
+os.environ['KIVY_WINDOW'] = 'sdl2'
 # Disable vsync which can cause hanging
-os.environ["KIVY_GL_BACKEND"] = "gl"
+os.environ['KIVY_GL_BACKEND'] = 'gl'
 # Additional environment variables to help with stability
-os.environ["KIVY_GL_DEBUG"] = "0"
+os.environ['KIVY_GL_DEBUG'] = '0'
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# macOS: optionally start as a background app to avoid unhiding the Dock on launch.
+# Enable by setting PTAB_BACKGROUND_START=1 (or true/yes). Must be set BEFORE importing Kivy.
+try:
+    if sys.platform == 'darwin':
+        flag = os.getenv('PTAB_BACKGROUND_START', '').strip().lower()
+        if flag in ('1', 'true', 'yes', 'on'):
+            os.environ['SDL_MAC_BACKGROUND_APP'] = '1'
+except Exception:
+    pass
 
 from kivy.config import Config
 
@@ -54,7 +64,7 @@ from utils.settings import SettingsManager
 from utils.embedded_font import cleanup_embedded_fonts
 
 class pianoTAB(App):
-    """Main pianoTAB application."""
+    '''Main pianoTAB application.'''
     
     title = 'pianoTAB - Music Notation Editor'
     
@@ -67,9 +77,11 @@ class pianoTAB(App):
         # App-wide settings available from anywhere via App.get_running_app().settings
         self.settings: SettingsManager = SettingsManager()
         self.settings.load()
+        # Debounce flag for editor refresh
+        self._refresh_scheduled = False
     
     def build(self):
-        """Build and return the root widget - UI construction only."""
+        '''Build and return the root widget - UI construction only.'''
         # Window setup
         Window.clearcolor = DARK
         
@@ -78,7 +90,7 @@ class pianoTAB(App):
         return self.gui
     
     def on_start(self):
-        """Called after build() - Initialize business logic here."""
+        '''Called after build() - Initialize business logic here.'''
         Logger.info('pianoTAB: Application started')
         
         # Platform-specific window maximization for Linux
@@ -135,11 +147,20 @@ class pianoTAB(App):
         except Exception as e:
             Logger.warning(f'pianoTAB: Could not schedule test scroll sequence: {e}')
 
+        # Optional: bring window to front after background start (macOS)
+        try:
+            if sys.platform == 'darwin':
+                bring = os.getenv('PTAB_BRING_TO_FRONT', '').strip().lower()
+                if bring in ('1', 'true', 'yes', 'on'):
+                    Clock.schedule_once(lambda _dt: Window.raise_window(), 0.1)
+        except Exception:
+            pass
+
     def _zoom_refresh_after_gui_ready(self, dt, attempts: int = 0):
-        """Ensure editor.zoom_refresh runs after canvas is sized and scaled.
+        '''Ensure editor.zoom_refresh runs after canvas is sized and scaled.
 
         Retries briefly if layout isn't ready yet.
-        """
+        '''
         try:
             cv = self.gui.get_editor_widget() if self.gui else None
             if not cv or cv.width <= 0 or cv.height <= 0 or getattr(cv, '_px_per_mm', 0) <= 0:
@@ -155,7 +176,7 @@ class pianoTAB(App):
             Logger.warning(f'pianoTAB: zoom_refresh after GUI failed: {e}')
     
     def _setup_bindings(self):
-        """Setup event bindings between components."""
+        '''Setup event bindings between components.'''
         # Bind global keyboard shortcuts for zooming
         try:
             Window.bind(on_key_down=self._on_key_down)
@@ -163,25 +184,47 @@ class pianoTAB(App):
             pass
 
     def _on_properties_changed(self, score):
-        """
+        '''
         Invoked by PropertyTreeEditor after edits.
         Refresh the editor view to reflect updated SCORE properties and mark as dirty.
-        """
+        '''
         try:
-            if self.editor is not None:
-                self.editor.refresh_display()
+            # Debounce heavy editor refresh to reduce stutter on rapid edits
+            self._refresh_editor_debounced(0)
             if self.file_manager is not None:
                 self.file_manager.mark_dirty()
         except Exception:
             pass
 
+    def _refresh_editor_debounced(self, delay: float = 0.0):
+        try:
+            if self._refresh_scheduled:
+                return
+            self._refresh_scheduled = True
+            Clock.schedule_once(self._do_refresh_editor, delay)
+        except Exception:
+            # Fallback: try immediate refresh
+            try:
+                if self.editor is not None:
+                    self.editor.refresh_display()
+            except Exception:
+                pass
+
+    def _do_refresh_editor(self, _dt):
+        self._refresh_scheduled = False
+        try:
+            if self.editor is not None:
+                self.editor.refresh_display()
+        except Exception:
+            pass
+
     def _on_key_down(self, window, key, scancode, codepoint, modifiers):
-        """Handle global key presses for zooming.
+        '''Handle global key presses for zooming.
 
         Binds the following keys:
         - '=' or '+' -> zoom in
         - '-' or '_' -> zoom out
-        """
+        '''
         try:
             # Normalize codepoint; fall back to ASCII from key if needed
             ch = codepoint or ''
@@ -201,7 +244,7 @@ class pianoTAB(App):
         return False
 
     def _test_scroll_sequence(self, dt):
-        """Test: scroll to time 0 now, then to 1024.0 two seconds later."""
+        '''Test: scroll to time 0 now, then to 1024.0 two seconds later.'''
         try:
             if self.editor is not None:
                 Logger.info('pianoTAB: TEST - Scrolling to time 0.0')
@@ -219,7 +262,7 @@ class pianoTAB(App):
             Logger.warning(f'pianoTAB: TEST - Failed scroll to 1024.0: {e}')
 
     def _safe_maximize_linux(self, dt):
-        """Safely maximize window on Linux with error handling."""
+        '''Safely maximize window on Linux with error handling.'''
         try:
             from kivy.utils import platform
             if platform == 'linux':
@@ -240,14 +283,14 @@ class pianoTAB(App):
                 Logger.warning(f'pianoTAB: Fallback resize also failed: {fallback_error}')
 
     def _try_enter_native_fullscreen_macos(self, attempt: int = 1):
-        """Best-effort native fullscreen on macOS using AppKit when available.
+        '''Best-effort native fullscreen on macOS using AppKit when available.
 
         - First, try PyObjC to call NSWindow.toggleFullScreen_ for true native
           macOS fullscreen (separate Space, menu bar auto-hide behavior).
         - If PyObjC isn't available, fall back to Kivy's fullscreen/maximize.
         - Attempt this a couple of times as the main window may not be ready
           immediately after build().
-        """
+        '''
         # Only run on macOS
         if platform != 'macosx':
             return
@@ -288,13 +331,13 @@ class pianoTAB(App):
             Logger.debug('pianoTAB: Fullscreen/maximize not supported on this platform')
     
     def on_stop(self):
-        """Cleanup when app is closing."""
+        '''Cleanup when app is closing.'''
         Logger.info('pianoTAB: Application stopping')
         
         # Perform any necessary cleanup here
         try:
             # Persist settings just in case
-            if hasattr(self, "settings") and self.settings is not None:
+            if hasattr(self, 'settings') and self.settings is not None:
                 self.settings.save()
         except Exception:
             pass
@@ -307,7 +350,7 @@ class pianoTAB(App):
             Logger.warning(f'pianoTAB: Could not clean up font files: {e}')
 
 def main():
-    """Main entry point."""
+    '''Main entry point.'''
     Logger.info('pianoTAB: Starting pianoTAB Music Notation Editor')
     app = pianoTAB()
     try:

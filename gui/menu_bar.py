@@ -1,7 +1,7 @@
-"""
+'''
 Menu Bar Widget for pianoTAB (Kivy).
 Provides File/Edit/View/Help menus similar to traditional desktop apps.
-"""
+'''
 
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
@@ -14,7 +14,7 @@ from gui.colors import DARK, DARK_LIGHTER, LIGHT
 
 
 class MenuBar(BoxLayout):
-    """
+    '''
     Application menu bar configured via dictionary.
     
     Configuration format:
@@ -37,7 +37,7 @@ class MenuBar(BoxLayout):
         - (callable, str): Menu item with tooltip
         - None: Menu item (disabled)
         - '---' key: Separator
-    """
+    '''
 
     def __init__(self, menu_config=None, **kwargs):
         kwargs['orientation'] = 'horizontal'
@@ -63,7 +63,7 @@ class MenuBar(BoxLayout):
         self.add_widget(BoxLayout())
 
     def _build_from_config(self, config):
-        """Build menu structure from configuration dict."""
+        '''Build menu structure from configuration dict.'''
         for menu_name, menu_value in config.items():
             if isinstance(menu_value, dict):
                 # Dict = dropdown menu
@@ -81,7 +81,7 @@ class MenuBar(BoxLayout):
             self.add_widget(button)
 
     def _create_dropdown_button(self, text, items):
-        """Create a button with dropdown menu."""
+        '''Create a button with dropdown menu.'''
         button = Button(
             text=text,
             size_hint_x=None,
@@ -123,7 +123,7 @@ class MenuBar(BoxLayout):
         return button
 
     def _create_direct_button(self, text, value):
-        """Create a direct button (no dropdown)."""
+        '''Create a direct button (no dropdown).'''
         button = Button(
             text=text,
             size_hint_x=None,
@@ -150,7 +150,7 @@ class MenuBar(BoxLayout):
         return button
 
     def _add_menu_item(self, dropdown, text, value):
-        """Add a menu item to dropdown."""
+        '''Add a menu item to dropdown.'''
         # Check if this is a submenu (value is a dict)
         if isinstance(value, dict):
             self._add_submenu(dropdown, text, value)
@@ -187,7 +187,7 @@ class MenuBar(BoxLayout):
         dropdown.add_widget(btn)
 
     def _add_submenu(self, parent_dropdown, text, items):
-        """Add a submenu item that opens another dropdown."""
+        '''Add a submenu item that opens another dropdown.'''
         # Create submenu button with arrow indicator
         btn = Button(
             text=text + ' ►',
@@ -264,7 +264,7 @@ class MenuBar(BoxLayout):
         parent_dropdown.add_widget(btn)
 
     def _add_separator(self, dropdown):
-        """Add a separator line to dropdown."""
+        '''Add a separator line to dropdown.'''
         sep = Widget(size_hint_y=None, height=1)
         with sep.canvas:
             Color(*DARK_LIGHTER)

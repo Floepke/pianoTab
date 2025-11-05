@@ -1,8 +1,8 @@
-"""
+'''
 Grid Selector Widget for pianoTAB GUI (Kivy version).
 
 Allows selecting note length grid and subdivision for cursor snapping.
-"""
+'''
 
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
@@ -14,11 +14,11 @@ from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER, ACCENT_COLOR
 
 
 class SpinBox(BoxLayout):
-    """
+    '''
     Custom spinbox widget with +/- buttons and number display label.
     Styled to match the CustomTkinter design.
     Desktop-only (no virtual keyboard).
-    """
+    '''
     
     value = NumericProperty(1)
     min_value = NumericProperty(1)
@@ -81,7 +81,7 @@ class SpinBox(BoxLayout):
         self.bind(on_touch_down=self.on_spinbox_touch)
 
     def _bind_press_highlight(self, btn, normal_color=DARK_LIGHTER, pressed_color=ACCENT_COLOR):
-        """Bind button to show pressed highlight color and restore on release."""
+        '''Bind button to show pressed highlight color and restore on release.'''
         def _on_state(instance, state):
             if state == 'down':
                 instance.background_color = pressed_color
@@ -90,12 +90,12 @@ class SpinBox(BoxLayout):
         btn.bind(state=_on_state)
     
     def update_label_bg(self, *args):
-        """Update background rectangle for value label."""
+        '''Update background rectangle for value label.'''
         self.value_bg.pos = self.value_label.pos
         self.value_bg.size = self.value_label.size
     
     def on_spinbox_touch(self, instance, touch):
-        """Handle mouse wheel scrolling anywhere on spinbox."""
+        '''Handle mouse wheel scrolling anywhere on spinbox.'''
         if self.collide_point(*touch.pos):
             if hasattr(touch, 'button') and touch.button == 'scrollup':
                 self.increase()
@@ -106,25 +106,25 @@ class SpinBox(BoxLayout):
         return False
     
     def decrease(self, *args):
-        """Decrease value by 1."""
+        '''Decrease value by 1.'''
         if self.value > self.min_value:
             self.value -= 1
             self.value_label.text = str(int(self.value))
     
     def increase(self, *args):
-        """Increase value by 1."""
+        '''Increase value by 1.'''
         if self.value < self.max_value:
             self.value += 1
             self.value_label.text = str(int(self.value))
 
 
 class ClickableLabel(ButtonBehavior, Label):
-    """Label that can receive click/tap events (via ButtonBehavior)."""
+    '''Label that can receive click/tap events (via ButtonBehavior).'''
     pass
 
 
 class GridButton(Button):
-    """Custom styled button for grid selection."""
+    '''Custom styled button for grid selection.'''
     
     is_selected = False
     
@@ -149,7 +149,7 @@ class GridButton(Button):
         self.text_size = (self.width - 12, None)
     
     def update_style(self):
-        """Update button appearance based on selection state."""
+        '''Update button appearance based on selection state.'''
         if self.is_selected:
             self.background_color = ACCENT_COLOR
             self.color = LIGHT
@@ -160,7 +160,7 @@ class GridButton(Button):
             self.bold = False
     
     def set_selected(self, selected):
-        """Set selection state."""
+        '''Set selection state.'''
         self.is_selected = selected
         self.update_style()
 
@@ -175,7 +175,7 @@ class GridButton(Button):
 
 
 class SubdivContainer(BoxLayout):
-    """Container that intercepts mouse wheel to adjust subdivision when hovered."""
+    '''Container that intercepts mouse wheel to adjust subdivision when hovered.'''
     def __init__(self, owner, **kwargs):
         super().__init__(**kwargs)
         self._owner = owner
@@ -192,7 +192,7 @@ class SubdivContainer(BoxLayout):
 
 
 class GridSelector(BoxLayout):
-    """
+    '''
     Grid selector widget for timing/rhythm grid in Kivy.
     
     Features:
@@ -201,7 +201,7 @@ class GridSelector(BoxLayout):
     - Custom SpinBox for subdivision (1-99)
     - Real-time calculation display
     - Callback when grid changes
-    """
+    '''
     
     quarter_note_ticks = NumericProperty(256.0)
     current_grid_step = NumericProperty(256.0)
@@ -248,17 +248,17 @@ class GridSelector(BoxLayout):
         self.update_grid_step_label()
 
     def _get_grid_lengths(self):
-        """calculates the right grid lengths based on the file models pianoTick value."""
+        '''calculates the right grid lengths based on the file models pianoTick value.'''
         pianotick = ...
         return self.grid_lengths
     
     def update_graphics(self, *args):
-        """Update all graphics when size/pos changes."""
+        '''Update all graphics when size/pos changes.'''
         self.bg.pos = self.pos
         self.bg.size = self.size
     
     def create_widgets(self):
-        """Create all UI components."""
+        '''Create all UI components.'''
         
         # Grid step display label
         self.grid_label = Label(
@@ -333,7 +333,7 @@ class GridSelector(BoxLayout):
             )
         subdiv_container.bind(pos=self.update_subdiv_bg, size=self.update_subdiv_bg)
         
-        # Left side: "−" button centered vertically
+        # Left side: '−' button centered vertically
         from kivy.uix.widget import Widget as _W
         left_vbox = BoxLayout(orientation='vertical', size_hint_x=None, width=56)
         left_vbox.add_widget(_W(size_hint_y=1))
@@ -362,7 +362,7 @@ class GridSelector(BoxLayout):
         left_spacer = _W(size_hint_x=1)
         right_spacer = _W(size_hint_x=1)
 
-        # Unified clickable label: "÷   <number>"
+        # Unified clickable label: '÷   <number>'
         self.subdiv_combo_label = ClickableLabel(
             text=f'÷   {int(self.subdivision)}',
             size_hint=(None, None),
@@ -401,7 +401,7 @@ class GridSelector(BoxLayout):
         center_vbox.add_widget(_W(size_hint_y=1))
         subdiv_container.add_widget(center_vbox)
 
-        # Right side: "+" button centered vertically
+        # Right side: '+' button centered vertically
         right_vbox = BoxLayout(orientation='vertical', size_hint_x=None, width=56)
         right_vbox.add_widget(_W(size_hint_y=1))
         inc_btn = Button(
@@ -429,17 +429,17 @@ class GridSelector(BoxLayout):
         self.update_selection()
     
     def update_scroll_bg(self, instance, value):
-        """Update scroll background."""
+        '''Update scroll background.'''
         self.scroll_bg.pos = instance.pos
         self.scroll_bg.size = instance.size
     
     def update_subdiv_bg(self, instance, value):
-        """Update subdivision background."""
+        '''Update subdivision background.'''
         self.subdiv_bg.pos = instance.pos
         self.subdiv_bg.size = instance.size
     
     def select_grid(self, grid_name):
-        """Handle grid length selection."""
+        '''Handle grid length selection.'''
         self.current_grid_name = grid_name
         self.update_selection()
         self.update_grid_step_label()
@@ -448,12 +448,12 @@ class GridSelector(BoxLayout):
             self.callback(self.current_grid_step)
     
     def update_selection(self):
-        """Update visual selection state of buttons."""
+        '''Update visual selection state of buttons.'''
         for name, button in self.grid_buttons.items():
             button.set_selected(name == self.current_grid_name)
     
     def on_subdivision_change(self):
-        """Reflect subdivision change into UI and fire callback."""
+        '''Reflect subdivision change into UI and fire callback.'''
         # Update unified label text
         if hasattr(self, 'subdiv_combo_label'):
             self.subdiv_combo_label.text = f'÷   {int(self.subdivision)}'
@@ -472,13 +472,13 @@ class GridSelector(BoxLayout):
             self.on_subdivision_change()
 
     def reset_subdivision(self):
-        """Reset subdivision to 1 and update UI/callback."""
+        '''Reset subdivision to 1 and update UI/callback.'''
         if self.subdivision != 1:
             self.subdivision = 1
             self.on_subdivision_change()
     
     def update_grid_step_label(self):
-        """Update the grid step label with calculated value."""
+        '''Update the grid step label with calculated value.'''
         self.current_grid_step = self.get_grid_step()
         
         # Format as float with appropriate precision
@@ -489,7 +489,7 @@ class GridSelector(BoxLayout):
         self.grid_label.text = f'Grid Step: {grid_text}'
     
     def get_grid_step(self):
-        """Calculate and return current grid step value in piano ticks."""
+        '''Calculate and return current grid step value in piano ticks.'''
         # Find the tick value for current grid
         grid_ticks = 256.0  # Default to quarter note
         for grid_name, ticks in self.grid_lengths:
@@ -502,15 +502,15 @@ class GridSelector(BoxLayout):
         return grid_step
     
     def get_current_grid(self):
-        """Get the currently selected grid length name."""
+        '''Get the currently selected grid length name.'''
         return self.current_grid_name
     
     def get_subdivision(self):
-        """Get the current subdivision value."""
+        '''Get the current subdivision value.'''
         return self.subdivision
     
     def set_subdivision(self, value):
-        """Set the subdivision value programmatically."""
+        '''Set the subdivision value programmatically.'''
         try:
             ival = int(value)
             if 1 <= ival <= 99:

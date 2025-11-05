@@ -15,7 +15,7 @@ from utils.CONSTANTS import (
 )
 
 class Editor:
-    """
+    '''
     Vertical Piano Roll Editor based on the original Tkinter design.
     
     Layout follows your specific design patterns:
@@ -24,7 +24,7 @@ class Editor:
     - Specific line patterns (two-line, three-line, clef-line)
     - Time flows vertically (top to bottom)
     - Pitch flows horizontally with your custom spacing
-    """
+    '''
     
     def __init__(self, editor_canvas: Canvas, score: SCORE = None):
         self.canvas: Canvas = editor_canvas  # Fixed: use consistent attribute name
@@ -36,16 +36,16 @@ class Editor:
         self.pixels_per_quarter = float(DEFAULT_PIXELS_PER_QUARTER)
         
         # Stave & grid configuration defaults (overridden by SCORE properties below)
-        self.stave_two_color = "#000000"
-        self.stave_three_color = "#000000"
-        self.stave_clef_color = "#000000"
+        self.stave_two_color = '#000000'
+        self.stave_three_color = '#000000'
+        self.stave_clef_color = '#000000'
         self.stave_two_width = 0.125
         self.stave_three_width = 0.25
         self.stave_clef_width = 0.125
 
-        self.barline_color = "#000000"
+        self.barline_color = '#000000'
         self.barline_width = 0.25
-        self.gridline_color = "#000000"
+        self.gridline_color = '#000000'
         self.gridline_width = 0.125
         self.gridline_dash_pattern = [2, 2]
         self.clef_dash_pattern = [2, 2]
@@ -64,14 +64,14 @@ class Editor:
         self._calculate_layout()
 
     def _apply_settings_from_score(self):
-        """Synchronize editor state from SCORE.properties.
+        '''Synchronize editor state from SCORE.properties.
 
         - Zoom (editorZoomPixelsQuarter)
         - Stave visuals (globalStave)
         - Grid/barline visuals (globalBasegrid)
         Called in __init__ and whenever SCORE/properties change so drawing uses the
         SCORE's values from the start. Fallbacks use safe defaults when properties are missing.
-        """
+        '''
         if not self.score or not hasattr(self.score, 'properties'):
             return
 
@@ -81,7 +81,7 @@ class Editor:
         if hasattr(properties, 'editorZoomPixelsQuarter') and properties.editorZoomPixelsQuarter:
             try:
                 self.pixels_per_quarter = float(properties.editorZoomPixelsQuarter)
-                print(f"DEBUG: Using SCORE editorZoomPixelsQuarter: {self.pixels_per_quarter} pixels")
+                print(f'DEBUG: Using SCORE editorZoomPixelsQuarter: {self.pixels_per_quarter} pixels')
             except Exception:
                 # Keep current/default on parse error
                 pass
@@ -111,7 +111,7 @@ class Editor:
     # Defer zoom refresh until the canvas attaches us and scale is known.
     
     def _create_default_score_template(self) -> SCORE:
-        """Create a default score with a single stave and exactly one base grid."""
+        '''Create a default score with a single stave and exactly one base grid.'''
         score = SCORE()
         
         # Ensure single known stave name
@@ -144,7 +144,7 @@ class Editor:
     # Defer zoom refresh until the canvas attaches us and scale is known.
     
     def _calculate_layout(self):
-        """Calculate layout dimensions based on your Tkinter design."""
+        '''Calculate layout dimensions based on the old Tkinter design.'''
         self.editor_margin = self.canvas.width_mm / 6  # Your margin calculation
         
         # Calculate stave dimensions using shared constants
@@ -170,16 +170,16 @@ class Editor:
     
     @property
     def width(self) -> float:
-        """Canvas width in mm."""
+        '''Canvas width in mm.'''
         return self.canvas.width_mm
     
     @property 
     def height(self) -> float:
-        """Canvas height in mm."""
+        '''Canvas height in mm.'''
         return self.canvas.height_mm
     
     def key_to_x_position(self, key_number: int) -> float:
-        """Convert piano key number (1-88) to X position using your spacing algorithm."""
+        '''Convert piano key number (1-88) to X position using your spacing algorithm.'''
         x_positions = []
         x_pos = self.editor_margin - self.semitone_width
         
@@ -195,7 +195,7 @@ class Editor:
         return self.editor_margin
     
     def _time_to_y_mm(self, time_ticks: float) -> float:
-        """Convert time in ticks to Y coordinate in millimeters (top-left origin)."""
+        '''Convert time in ticks to Y coordinate in millimeters (top-left origin).'''
         mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
         if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
             # Fallback derive from score zoom and current canvas scale
@@ -206,7 +206,7 @@ class Editor:
         return self.editor_margin + (time_quarters * mm_per_quarter) - (self.scroll_time_offset * mm_per_quarter)
     
     def _get_score_length_in_ticks(self) -> float:
-        """Calculate total score length in ticks based on your algorithm."""
+        '''Calculate total score length in ticks based on your algorithm.'''
         total_ticks = 0.0
         for grid in self.score.baseGrid:
             ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
@@ -215,8 +215,8 @@ class Editor:
         return total_ticks
     
     def render(self):
-        """Render the complete piano roll with all elements."""
-        print("DEBUG: Starting render()")
+        '''Render the complete piano roll with all elements.'''
+        print('DEBUG: Starting render()')
         
         # Clear any existing content
         self.canvas.clear()
@@ -233,19 +233,19 @@ class Editor:
         content_height_mm = (total_time / max(1e-6, ql)) * mm_per_quarter
         total_height_mm = content_height_mm + (2.0 * self.editor_margin)  # top + bottom margin equal to editor_margin
         
-        print(f"DEBUG: Canvas size: {self.width}mm x {self.height}mm")
-        print(f"DEBUG: Piano width: {piano_width}mm (margin: {self.editor_margin}mm)")
-        print(f"DEBUG: Calculated content height: {content_height_mm}mm")
-        print(f"DEBUG: Total logical page height (with margins): {total_height_mm}mm")
-        print(f"DEBUG: Total time in ticks: {total_time}")
+        print(f'DEBUG: Canvas size: {self.width}mm x {self.height}mm')
+        print(f'DEBUG: Piano width: {piano_width}mm (margin: {self.editor_margin}mm)')
+        print(f'DEBUG: Calculated content height: {content_height_mm}mm')
+        print(f'DEBUG: Total logical page height (with margins): {total_height_mm}mm')
+        print(f'DEBUG: Total time in ticks: {total_time}')
         
         # Reconcile canvas height to desired content height (shrink or grow).
         # Use tolerance to avoid thrashing on tiny deltas; preserve scroll position.
         desired_height_mm = float(total_height_mm)
         current_height_mm = float(self.canvas.height_mm)
         if abs(desired_height_mm - current_height_mm) > 0.1:
-            action = "Expanding" if desired_height_mm > current_height_mm else "Shrinking"
-            print(f"DEBUG: {action} canvas height from {current_height_mm}mm to {desired_height_mm}mm")
+            action = 'Expanding' if desired_height_mm > current_height_mm else 'Shrinking'
+            print(f'DEBUG: {action} canvas height from {current_height_mm}mm to {desired_height_mm}mm')
             # Keep scroll; Canvas clamps if out-of-bounds. Avoid reset to prevent jumpiness.
             self.canvas.set_size_mm(self.canvas.width_mm, desired_height_mm, reset_scroll=False)
         
@@ -272,7 +272,7 @@ class Editor:
     
     
     def _draw_stave(self):
-        """Draw the 88-key stave with your specific line patterns."""
+        '''Draw the 88-key stave with your specific line patterns.'''
         total_ticks = self._get_score_length_in_ticks()
         mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
         if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
@@ -281,7 +281,7 @@ class Editor:
         # Stave height independent of scroll offset
         ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
         stave_height = (total_ticks / max(1e-6, ql)) * mm_per_quarter
-        print(f"   Stave height: {stave_height}mm (score length: {total_ticks} ticks)")
+        print(f'   Stave height: {stave_height}mm (score length: {total_ticks} ticks)')
         
         lines_drawn = 0
         key = 2  # Start from key 2 as in your algorithm
@@ -327,7 +327,7 @@ class Editor:
         return lines_drawn
     
     def _draw_barlines_and_grid(self):
-        """Draw barlines and grid lines based on your Tkinter algorithm."""
+        '''Draw barlines and grid lines based on your Tkinter algorithm.'''
         # Calculate barline positions (your get_editor_barline_positions equivalent)
         barline_positions = []
         total_ticks = 0.0
@@ -350,7 +350,7 @@ class Editor:
                     x2_mm=self.editor_margin + self.stave_width, y2_mm=y_pos,
                     stroke_color=self.barline_color,
                     stroke_width_mm=self.barline_width,
-                    id=['barlines', f"barline_{measure_number}"]
+                    id=['barlines', f'barline_{measure_number}']
                 )
                 
                 # Measure number (positioned at right edge before scrollbar)
@@ -361,7 +361,7 @@ class Editor:
                     font_size_pt=sp(12) * 2,  # Kivy font * 2, then convert back to pt for canvas
                     color=self.barline_color,
                     anchor='ne',
-                    id=['measureNumbers', f"measure_number_{measure_number}"]
+                    id=['measureNumbers', f'measure_number_{measure_number}']
                 )
         
         # Calculate and draw gridlines (your get_editor_gridline_positions equivalent)
@@ -384,7 +384,7 @@ class Editor:
                             stroke_width_mm=self.gridline_width,
                             stroke_dash=True,  # Dashed gridlines
                             stroke_dash_pattern_mm=tuple(self.gridline_dash_pattern),  # Use SCORE model pattern
-                            id=['gridlines', f"gridline_{total_ticks}_{i}"]
+                            id=['gridlines', f'gridline_{total_ticks}_{i}']
                         )
                 total_ticks += measure_ticks
         
@@ -401,7 +401,7 @@ class Editor:
     
     # Zoom and interaction methods (simplified for initial implementation)
     def zoom_in(self, factor: float = 1.2):
-        """Increase SCORE.properties.editorZoomPixelsQuarter by factor (px per quarter)."""
+        '''Increase SCORE.properties.editorZoomPixelsQuarter by factor (px per quarter).'''
         try:
             current = float(self.pixels_per_quarter)
             new_ppq = max(1.0, current * float(factor))
@@ -410,10 +410,10 @@ class Editor:
             self._calculate_layout()
             self.render()
         except Exception as e:
-            print(f"DEBUG: zoom_in failed: {e}")
+            print(f'DEBUG: zoom_in failed: {e}')
     
     def zoom_out(self, factor: float = 1.2):
-        """Decrease SCORE.properties.editorZoomPixelsQuarter by factor (px per quarter)."""
+        '''Decrease SCORE.properties.editorZoomPixelsQuarter by factor (px per quarter).'''
         try:
             current = float(self.pixels_per_quarter)
             new_ppq = max(1.0, current / float(factor))
@@ -422,27 +422,27 @@ class Editor:
             self._calculate_layout()
             self.render()
         except Exception as e:
-            print(f"DEBUG: zoom_out failed: {e}")
+            print(f'DEBUG: zoom_out failed: {e}')
     
     def set_zoom_pixels_per_quarter(self, pixels: float):
-        """Set the zoom level directly (px per quarter) and update SCORE + layout."""
+        '''Set the zoom level directly (px per quarter) and update SCORE + layout.'''
         try:
             self.pixels_per_quarter = max(1.0, float(pixels))
             self._update_score_zoom()
             self._calculate_layout()
             self.render()
         except Exception as e:
-            print(f"DEBUG: set_zoom_pixels_per_quarter failed: {e}")
+            print(f'DEBUG: set_zoom_pixels_per_quarter failed: {e}')
 
     def zoom_refresh(self):
-        """Re-apply current zoom without changing SCORE's editorZoomPixelsQuarter.
+        '''Re-apply current zoom without changing SCORE's editorZoomPixelsQuarter.
 
         This performs the same processing pipeline as zoom_in/zoom_out but keeps
         the SCORE.properties.editorZoomPixelsQuarter value unchanged. Useful when
         the canvas scale (px-per-mm) changes or after (re)attaching the editor.
         Ensures Canvas view/scale have finished updating before re-rendering so
         widget size changes are reflected correctly.
-        """
+        '''
         try:
             cv = self.canvas
 
@@ -477,27 +477,27 @@ class Editor:
                     self._calculate_layout()
                     self.render()
                 except Exception as inner_e:
-                    print(f"DEBUG: zoom_refresh inner failed: {inner_e}")
+                    print(f'DEBUG: zoom_refresh inner failed: {inner_e}')
 
             # Kick off on next frame to let any pending canvas layout settle
             Clock.schedule_once(lambda dt: _attempt(dt, 0, float(getattr(cv, '_px_per_mm', 0.0))), 0)
         except Exception as e:
-            print(f"DEBUG: zoom_refresh failed: {e}")
+            print(f'DEBUG: zoom_refresh failed: {e}')
     
     def _update_score_zoom(self):
-        """Persist current pixels_per_quarter to SCORE.properties.editorZoomPixelsQuarter."""
+        '''Persist current pixels_per_quarter to SCORE.properties.editorZoomPixelsQuarter.'''
         if (hasattr(self.score, 'properties') and 
             hasattr(self.score.properties, 'editorZoomPixelsQuarter')):
             self.score.properties.editorZoomPixelsQuarter = float(self.pixels_per_quarter)
-            print(f"DEBUG: Updated SCORE editorZoomPixelsQuarter to: {self.pixels_per_quarter} pixels")
+            print(f'DEBUG: Updated SCORE editorZoomPixelsQuarter to: {self.pixels_per_quarter} pixels')
     
     def scroll_to_time(self, time_ticks: float):
-        """Scroll to a specific time position (in ticks)."""
+        '''Scroll to a specific time position (in ticks).'''
         self.scroll_time_offset = ticks_to_quarters(time_ticks)
         self.render()
     
     def x_to_key_number(self, x_mm: float) -> int:
-        """Convert X coordinate to piano key number (1-88) using your algorithm."""
+        '''Convert X coordinate to piano key number (1-88) using your algorithm.'''
         # Recreate the x_positions list from your Tkinter code
         x_positions = []
         x_pos = self.editor_margin - self.semitone_width
@@ -516,7 +516,7 @@ class Editor:
         return 1
     
     def y_to_ticks(self, y_mm: float) -> float:
-        """Convert Y coordinate to time in ticks (inverse of _time_to_y_mm)."""
+        '''Convert Y coordinate to time in ticks (inverse of _time_to_y_mm).'''
         mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
         if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
             px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
@@ -527,7 +527,7 @@ class Editor:
     
     # Interaction support
     def on_item_click(self, item_id: int, touch_pos_mm: Tuple[float, float]) -> bool:
-        """Handle click on canvas items."""
+        '''Handle click on canvas items.'''
         if item_id in self.canvas._items:
             canvas_item = self.canvas._items[item_id]
             item_tags = canvas_item.get('id', set())
@@ -545,7 +545,7 @@ class Editor:
         return False
     
     def _find_note_by_id(self, stave_idx: int, note_id: int) -> Optional[Note]:
-        """Find a note by stave index and note ID."""
+        '''Find a note by stave index and note ID.'''
         if 0 <= stave_idx < len(self.score.stave):
             for note in self.score.stave[stave_idx].event.note:
                 if note.id == note_id:
@@ -553,13 +553,13 @@ class Editor:
         return None
     
     def _select_note(self, note: Note):
-        """Select a note for editing."""
+        '''Select a note for editing.'''
         self.selected_notes.clear()
         self.selected_notes.append(note)
-        print(f"Selected note: Key={note.pitch-20}, Time={note.time}, Duration={note.duration}")
+        print(f'Selected note: Key={note.pitch-20}, Time={note.time}, Duration={note.duration}')
     
     def add_note_at_position(self, key_number: int, time_ticks: float, duration_ticks: float = PIANOTICK_QUARTER, stave_idx: int = 0):
-        """Add a new note at the specified position."""
+        '''Add a new note at the specified position.'''
         if 1 <= key_number <= PIANO_KEY_COUNT and 0 <= stave_idx < len(self.score.stave):
             midi_pitch = key_number_to_midi(key_number)
             new_note = self.score.new_note(
@@ -573,7 +573,7 @@ class Editor:
         return None
 
     def _get_grid_step_ticks(self) -> float:
-        """Return current grid step in ticks from grid_selector/canvas."""
+        '''Return current grid step in ticks from grid_selector/canvas.'''
         try:
             gs = getattr(self, 'grid_selector', None)
             if gs is not None and hasattr(gs, 'get_grid_step'):
@@ -593,11 +593,11 @@ class Editor:
         return float(PIANOTICK_QUARTER)
 
     def get_grid_step(self) -> float:
-        """Expose grid step for other components (canvas fallback)."""
+        '''Expose grid step for other components (canvas fallback).'''
         return self._get_grid_step_ticks()
 
     def update_cursor_from_mouse_mm(self, y_mm: float):
-        """Update cursor_time from mouse Y in mm with grid snapping."""
+        '''Update cursor_time from mouse Y in mm with grid snapping.'''
         try:
             raw_ticks = self.y_to_ticks(float(y_mm))
             step = max(1e-6, self._get_grid_step_ticks())
@@ -609,10 +609,10 @@ class Editor:
             self.cursor_time = snapped
             self._draw_cursor()
         except Exception as e:
-            print(f"CURSOR DEBUG: update failed: {e}")
+            print(f'CURSOR DEBUG: update failed: {e}')
 
     def clear_cursor(self):
-        """Hide cursor and remove from canvas."""
+        '''Hide cursor and remove from canvas.'''
         self.cursor_time = None
         if getattr(self, '_cursor_item_id', None):
             try:
@@ -622,7 +622,7 @@ class Editor:
             self._cursor_item_id = None
 
     def _draw_cursor(self):
-        """Draw or update the dashed horizontal cursor at cursor_time."""
+        '''Draw or update the dashed horizontal cursor at cursor_time.'''
         # Remove existing
         if getattr(self, '_cursor_item_id', None):
             try:
@@ -645,7 +645,7 @@ class Editor:
                 y1_mm=y_mm,
                 x2_mm=x2,
                 y2_mm=y_mm,
-                stroke_color="#000000",
+                stroke_color='#000000',
                 stroke_width_mm=0.25,
                 stroke_dash=True,
                 stroke_dash_pattern_mm=(2.0, 2.0),
@@ -653,12 +653,12 @@ class Editor:
             )
             # Kept on top by being added after raise_in_order in render()
         except Exception as e:
-            print(f"CURSOR DEBUG: draw failed: {e}")
+            print(f'CURSOR DEBUG: draw failed: {e}')
 
 
 # Maintain backward compatibility and integrate with main app
 class Editor(Editor):
-    """
+    '''
     Main Editor class that integrates PianoRollEditor with the pianoTAB application.
     
     This class:
@@ -666,7 +666,7 @@ class Editor(Editor):
     - Connects to the SCORE model for line thickness and color settings
     - Integrates with the main GUI and file management system
     - Handles callbacks for score modifications
-    """
+    '''
     
     def __init__(self, editor_canvas: Canvas, score: Optional[SCORE] = None):
         # Initialize the piano roll editor
@@ -682,7 +682,7 @@ class Editor(Editor):
         Clock.schedule_once(self._initial_render, 0.2)
     
     def set_score(self, score: SCORE):
-        """Set a new score and update the display."""
+        '''Set a new score and update the display.'''
         self.score = score
         # Sync all visuals and zoom from new score
         self._apply_settings_from_score()
@@ -691,15 +691,15 @@ class Editor(Editor):
             self.on_modified()
     
     def _update_line_settings_from_score(self):
-        """Update settings from SCORE; kept for backward-compatibility.
+        '''Update settings from SCORE; kept for backward-compatibility.
 
         Delegates to _apply_settings_from_score() which now syncs both zoom and
         visual line settings from the model to ensure the editor matches paper output.
-        """
+        '''
         self._apply_settings_from_score()
         
     def load_score(self, score: SCORE):
-        """Load an existing SCORE into the editor and refresh the display."""
+        '''Load an existing SCORE into the editor and refresh the display.'''
         try:
             # Use existing pipeline to apply the new score, zoom, and styles
             self.set_score(score)
@@ -710,10 +710,10 @@ class Editor(Editor):
             except Exception:
                 pass
         except Exception as e:
-            print(f"Editor: load_score error: {e}")
+            print(f'Editor: load_score error: {e}')
 
     def new_score(self):
-        """Create a new default SCORE and display it."""
+        '''Create a new default SCORE and display it.'''
         try:
             score = self._create_default_score_template()
             self.set_score(score)
@@ -724,30 +724,30 @@ class Editor(Editor):
             except Exception:
                 pass
         except Exception as e:
-            print(f"Editor: new_score error: {e}")
+            print(f'Editor: new_score error: {e}')
     
     def _initial_render(self, dt):
-        """Perform initial render after app has loaded."""
+        '''Perform initial render after app has loaded.'''
         try:
             self.render()
-            print(f"Editor: Initial render complete for score with {len(self.score.stave)} staves")
+            print(f'Editor: Initial render complete for score with {len(self.score.stave)} staves')
         except Exception as e:
-            print(f"Editor: Initial render error: {e}")
+            print(f'Editor: Initial render error: {e}')
             import traceback
             traceback.print_exc()
     
     def add_note(self, stave_idx: int, pitch: int, time: float, duration: float, hand: str = '>'):
-        """Add a new note to the score and update the display."""
+        '''Add a new note to the score and update the display.'''
         try:
             self.score.new_note(stave_idx, time, pitch, duration, hand)
             self.render()
             if self.on_modified:
                 self.on_modified()
         except Exception as e:
-            print(f"Editor: Error adding note: {e}")
+            print(f'Editor: Error adding note: {e}')
     
     def delete_selected_notes(self):
-        """Delete currently selected notes and update the display."""
+        '''Delete currently selected notes and update the display.'''
         if not self.selected_notes:
             return
         
@@ -765,9 +765,9 @@ class Editor(Editor):
             if self.on_modified:
                 self.on_modified()
         except Exception as e:
-            print(f"Editor: Error deleting notes: {e}")
+            print(f'Editor: Error deleting notes: {e}')
     
     def refresh_display(self):
-        """Refresh the display after score changes."""
+        '''Refresh the display after score changes.'''
         self._apply_settings_from_score()
         self.render()
