@@ -1,5 +1,5 @@
 """
-Grid Selector Widget for PianoTab GUI (Kivy version).
+Grid Selector Widget for pianoTAB GUI (Kivy version).
 
 Allows selecting note length grid and subdivision for cursor snapping.
 """

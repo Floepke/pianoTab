@@ -1,8 +1,8 @@
 """
-Application settings management for PianoTab.
+Application settings management for pianoTAB.
 
 Responsibilities:
-- Resolve a cross-platform user config path: ~/.pianotab/settings.json
+- Resolve a cross-platform user config path: ~/.pianoTAB/settings.json
 - Ensure the folder/file exist with sane defaults
 - Load/save JSON safely (preserve unknown keys, tolerate comments off)
 - Provide simple get/set helpers and helpers for recent files
@@ -38,8 +38,8 @@ DEFAULTS: Dict[str, Any] = {
 
 
 def _config_dir() -> Path:
-    """Return the per-user config directory: ~/.pianotab"""
-    return Path.home() / ".pianotab"
+    """Return the per-user config directory: ~/.pianoTAB"""
+    return Path.home() / ".pianoTAB"
 
 
 def _config_path() -> Path:

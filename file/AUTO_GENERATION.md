@@ -2,7 +2,7 @@
 
 ## Overview
 
-The PianoTab project now uses **auto-generation** for all `new_*()` methods in `SCORE.py`. 
+The pianoTAB project now uses **auto-generation** for all `new_*()` methods in `SCORE.py`. 
 
 **You only edit ONE place to add a field**: the Event dataclass itself.
 

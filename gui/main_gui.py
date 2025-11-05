@@ -1,5 +1,5 @@
 """
-PianoTab Kivy GUI - Main GUI structure.
+pianoTAB Kivy GUI - Main GUI structure.
 
 Recreates the tkinter GUI with:
 - Left side panel
@@ -243,9 +243,9 @@ class SidePanelWidget(ScrollView):
             self.grid_callback(grid_step)
 
 
-class PianoTabGUI(BoxLayout):
+class pianoTABGUI(BoxLayout):
     """
-    Main GUI class for PianoTab application in Kivy.
+    Main GUI class for pianoTAB application in Kivy.
     Recreates the tkinter structure with menu bar, left panel and split view.
     """
     
@@ -544,7 +544,7 @@ class PianoTabGUI(BoxLayout):
 
 
 __all__ = [
-    'PianoTabGUI',
+    'pianoTABGUI',
     'SidePanelWidget',
     'EditorWidget',
     'PrintPreviewWidget',

@@ -1,6 +1,6 @@
 # Adding a New Field to a Dataclass - Checklist
 
-This guide explains how to add a new field to any dataclass in the PianoTab project while maintaining the validation system.
+This guide explains how to add a new field to any dataclass in the pianoTAB project while maintaining the validation system.
 
 ## Overview
 
@@ -116,10 +116,10 @@ s.new_note(pitch=62, accidental='♭')
 s.new_note(pitch=64)  # No accidental (uses default None)
 
 # Save
-s.save('tests/test_accidental.pianotab')
+s.save('tests/test_accidental.pianoTAB')
 
 # Load back
-loaded = SCORE.load('tests/test_accidental.pianotab')
+loaded = SCORE.load('tests/test_accidental.pianoTAB')
 
 # Verify
 assert loaded.stave[0].event.note[0].accidental == '♯'
@@ -153,11 +153,11 @@ old_data = {
     }]
 }
 
-with open('tests/test_old_format.pianotab', 'w') as f:
+with open('tests/test_old_format.pianoTAB', 'w') as f:
     json.dump(old_data, f)
 
 # Load it - validation should fill in default
-loaded = SCORE.load('tests/test_old_format.pianotab')
+loaded = SCORE.load('tests/test_old_format.pianoTAB')
 
 # Verify default was applied
 assert loaded.stave[0].event.note[0].accidental == None

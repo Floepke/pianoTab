@@ -1,11 +1,11 @@
 {
     "metaInfo": {
-        "appName": "PianoTab",
+        "appName": "pianoTAB",
         "extension": ".piano",
-        "description": "PianoTab score file",
+        "description": "pianoTAB score file",
         "version": "1.0",
         "created": "04-11-2025_04:12:53",
-        "author": "PianoTab Team",
+        "author": "pianoTAB Team",
         "license": "MIT"
     },
     "header": {
@@ -15,7 +15,7 @@
         "arranger": "",
         "lyricist": "",
         "publisher": "",
-        "copyright": "Copyright \u00a9 2025, PianoTab. All rights reserved.",
+        "copyright": "Copyright \u00a9 2025, pianoTAB. All rights reserved.",
         "timeStamp": "04-11-2025_04:12:53",
         "genre": "",
         "comment": ""
@@ -123,7 +123,7 @@
             "visible?": 1
         },
         "editorZoomPixelsQuarter": 250,
-        "stopSignType": "PianoTab",
+        "stopSignType": "pianoTAB",
         "drawScale": 0.75
     },
     "baseGrid": [

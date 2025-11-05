@@ -1,5 +1,5 @@
 """
-Tool Selector Widget for PianoTab GUI (Kivy version).
+Tool Selector Widget for pianoTAB GUI (Kivy version).
 
 Replicates the CustomTkinter ToolSelector: a titled label and a scrollable
 list of tool buttons with a single-selection highlight and callback.

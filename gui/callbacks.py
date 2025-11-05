@@ -35,7 +35,7 @@ ContextualToolbarConfig = Dict[str, ButtonConfigWithTips]
 class AppCallbacks(Protocol):
     """Interface for callbacks the GUI exposes. Used for IntelliSense.
 
-    The main PianoTab GUI should implement these methods. Keeping this in one
+    The main pianoTAB GUI should implement these methods. Keeping this in one
     Protocol gives strong typing without tight coupling.
     """
 

@@ -259,7 +259,7 @@ class FileManager:
             root, ext = os.path.splitext(filepath)
             if not ext:
                 filepath = root + DEFAULT_EXT
-            elif ext.lower() not in (".piano", ".pianotab", ".json"):
+            elif ext.lower() not in (".piano", ".pianoTAB", ".json"):
                 filepath = filepath + DEFAULT_EXT
             
             # Check if file exists and confirm overwrite
@@ -387,7 +387,7 @@ class FileManager:
                     root, ext = os.path.splitext(filepath)
                     if not ext:
                         filepath = root + DEFAULT_EXT
-                    elif ext.lower() not in (".piano", ".pianotab", ".json"):
+                    elif ext.lower() not in (".piano", ".pianoTAB", ".json"):
                         filepath = filepath + DEFAULT_EXT
                     
                     # Check if file exists and confirm overwrite

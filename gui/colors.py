@@ -1,5 +1,5 @@
 """
-Color system for PianoTab application.
+Color system for pianoTAB application.
 Generates a 4-color palette from two base colors.
 """
 

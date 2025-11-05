@@ -7,11 +7,11 @@ Usage (macOS/zsh):
   KIVY_METRICS_DENSITY=1.0 python3 examples/filechooser_demo.py
 
   # Or slightly larger fonts with the same density
-  KIVY_METRICS_DENSITY=1.2 PIANOTAB_FONT_SCALE=1.1 python3 examples/filechooser_demo.py
+  KIVY_METRICS_DENSITY=1.2 pianoTAB_FONT_SCALE=1.1 python3 examples/filechooser_demo.py
 
 Environment variables:
   - KIVY_METRICS_DENSITY: float. Lower -> smaller dp sizes. Higher -> larger dp sizes.
-  - PIANOTAB_FONT_SCALE: float. Optional multiplier applied to sp font sizes in this demo.
+  - pianoTAB_FONT_SCALE: float. Optional multiplier applied to sp font sizes in this demo.
 """
 import os
 import sys
@@ -33,14 +33,14 @@ from kivy.metrics import Metrics
 
 class FileChooserDemo(App):
     def build(self):
-        font_scale = float(os.environ.get("PIANOTAB_FONT_SCALE", "1.0"))
+        font_scale = float(os.environ.get("pianoTAB_FONT_SCALE", "1.0"))
         root = BoxLayout(orientation="vertical", padding=8, spacing=8)
 
         info = Label(
             text=(
                 f"KIVY_METRICS_DENSITY={os.environ.get('KIVY_METRICS_DENSITY')}\n"
                 f"Metrics.density={Metrics.density:.2f}  Metrics.fontscale={Metrics.fontscale:.2f}\n"
-                f"PIANOTAB_FONT_SCALE={font_scale} (demo-only)"
+                f"pianoTAB_FONT_SCALE={font_scale} (demo-only)"
             ),
             size_hint_y=None,
             height=60,

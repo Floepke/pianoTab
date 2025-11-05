@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `PianoRollEditor` is a comprehensive vertical piano roll editor for the PianoTab application. It displays MIDI data flowing from top to bottom with a piano keyboard on the left side for pitch reference.
+The `PianoRollEditor` is a comprehensive vertical piano roll editor for the pianoTAB application. It displays MIDI data flowing from top to bottom with a piano keyboard on the left side for pitch reference.
 
 ## Features
 
@@ -125,7 +125,7 @@ canvas.bind(on_item_click=lambda w, id, t, pos: piano_roll.on_item_click(id, pos
 
 ## Integration with Main Application
 
-The piano roll editor is designed to integrate seamlessly with the existing PianoTab architecture:
+The piano roll editor is designed to integrate seamlessly with the existing pianoTAB architecture:
 
 - **Model Integration**: Direct connection to SCORE model
 - **Canvas Compatibility**: Uses the existing Canvas widget system

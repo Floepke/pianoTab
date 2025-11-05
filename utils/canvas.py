@@ -755,7 +755,7 @@ class Canvas(Widget):
         - color: hex string like '#RRGGBB' or '#RRGGBBAA'
 
         Notes
-        - Font is fixed to 'Courier New' in pianoTab. you can only use one good readable font.
+        - Font is fixed to 'Courier New' in pianoTAB. you can only use one good readable font.
         - Hit-testing uses the un-rotated bounding box (rotation ignored for clicks).
         """
         item_id = self._new_item_id()

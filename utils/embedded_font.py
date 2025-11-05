@@ -1,5 +1,5 @@
 """
-Embedded Courier New Bold font for PianoTab application.
+Embedded Courier New Bold font for pianoTAB application.
 This module contains a base64-encoded Courier New Bold TTF font.
 """
 
@@ -29,7 +29,7 @@ class EmbeddedFontManager:
         
         # Create temporary directory if needed
         if not self._temp_dir:
-            self._temp_dir = tempfile.mkdtemp(prefix="pianotab_fonts_")
+            self._temp_dir = tempfile.mkdtemp(prefix="pianoTAB_fonts_")
         
         # Decode and write the font data
         try:

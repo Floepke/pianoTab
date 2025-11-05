@@ -1,5 +1,5 @@
 """
-PianoTab Constants
+pianoTAB Constants
 ==================
 
 Shared constants for piano roll editor and sheet engraving.
@@ -22,7 +22,7 @@ BLACK_KEYS = [2, 5, 7, 10, 12, 14, 17, 19, 22, 24, 26, 29, 31, 34, 36, 38, 41, 4
 
 # MIDI and timing constants
 PIANOTICK_QUARTER = 256.0
-"""Number of ticks per quarter note in the PianoTab timing system."""
+"""Number of ticks per quarter note in the pianoTAB timing system."""
 
 MIDI_KEY_OFFSET = 20
 """Offset to convert between MIDI pitch numbers (21-108) and key numbers (1-88)."""

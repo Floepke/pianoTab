@@ -53,10 +53,10 @@ from utils.file_manager import FileManager
 from utils.settings import SettingsManager
 from utils.embedded_font import cleanup_embedded_fonts
 
-class PianoTab(App):
-    """Main PianoTab application."""
+class pianoTAB(App):
+    """Main pianoTAB application."""
     
-    title = 'PianoTab - Music Notation Editor'
+    title = 'pianoTAB - Music Notation Editor'
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -79,7 +79,7 @@ class PianoTab(App):
     
     def on_start(self):
         """Called after build() - Initialize business logic here."""
-        Logger.info('PianoTab: Application started')
+        Logger.info('pianoTAB: Application started')
         
         # Platform-specific window maximization for Linux
         from kivy.utils import platform
@@ -87,9 +87,9 @@ class PianoTab(App):
             try:
                 # Use a safer delayed maximization approach for Linux
                 Clock.schedule_once(self._safe_maximize_linux, 1.0)
-                Logger.info('PianoTab: Scheduled safe window maximization for Linux')
+                Logger.info('pianoTAB: Scheduled safe window maximization for Linux')
             except Exception as e:
-                Logger.warning(f'PianoTab: Could not schedule window maximization: {e}')
+                Logger.warning(f'pianoTAB: Could not schedule window maximization: {e}')
         
         # Initialize Editor (which owns the SCORE)
         self.editor = Editor(self.gui.get_editor_widget())
@@ -126,14 +126,14 @@ class PianoTab(App):
         try:
             Clock.schedule_once(self._zoom_refresh_after_gui_ready, 0)
         except Exception as e:
-            Logger.warning(f'PianoTab: Could not schedule zoom refresh: {e}')
+            Logger.warning(f'pianoTAB: Could not schedule zoom refresh: {e}')
 
         # Test: set scroll to time 0, then after 2 seconds to 1024.0 (second barline)
         try:
             Clock.schedule_once(self._test_scroll_sequence, 0.8)
-            Logger.info('PianoTab: Scheduled test scroll sequence (0.0 then 1024.0)')
+            Logger.info('pianoTAB: Scheduled test scroll sequence (0.0 then 1024.0)')
         except Exception as e:
-            Logger.warning(f'PianoTab: Could not schedule test scroll sequence: {e}')
+            Logger.warning(f'pianoTAB: Could not schedule test scroll sequence: {e}')
 
     def _zoom_refresh_after_gui_ready(self, dt, attempts: int = 0):
         """Ensure editor.zoom_refresh runs after canvas is sized and scaled.
@@ -146,13 +146,13 @@ class PianoTab(App):
                 if attempts < 20:
                     Clock.schedule_once(lambda _dt: self._zoom_refresh_after_gui_ready(_dt, attempts + 1), 0.05)
                 else:
-                    Logger.warning('PianoTab: zoom_refresh skipped (canvas not ready after retries)')
+                    Logger.warning('pianoTAB: zoom_refresh skipped (canvas not ready after retries)')
                 return
             if self.editor is not None:
                 self.editor.zoom_refresh()
-                Logger.info('PianoTab: Performed zoom_refresh after GUI ready')
+                Logger.info('pianoTAB: Performed zoom_refresh after GUI ready')
         except Exception as e:
-            Logger.warning(f'PianoTab: zoom_refresh after GUI failed: {e}')
+            Logger.warning(f'pianoTAB: zoom_refresh after GUI failed: {e}')
     
     def _setup_bindings(self):
         """Setup event bindings between components."""
@@ -204,19 +204,19 @@ class PianoTab(App):
         """Test: scroll to time 0 now, then to 1024.0 two seconds later."""
         try:
             if self.editor is not None:
-                Logger.info('PianoTab: TEST - Scrolling to time 0.0')
+                Logger.info('pianoTAB: TEST - Scrolling to time 0.0')
                 self.editor.scroll_to_time(0.0)
             Clock.schedule_once(self._scroll_to_second_barline, 2.0)
         except Exception as e:
-            Logger.warning(f'PianoTab: TEST - Failed initial scroll to 0.0: {e}')
+            Logger.warning(f'pianoTAB: TEST - Failed initial scroll to 0.0: {e}')
 
     def _scroll_to_second_barline(self, dt):
         try:
             if self.editor is not None:
-                Logger.info('PianoTab: TEST - Scrolling to time 1024.0 (second barline)')
+                Logger.info('pianoTAB: TEST - Scrolling to time 1024.0 (second barline)')
                 self.editor.scroll_to_time(1024.0)
         except Exception as e:
-            Logger.warning(f'PianoTab: TEST - Failed scroll to 1024.0: {e}')
+            Logger.warning(f'pianoTAB: TEST - Failed scroll to 1024.0: {e}')
 
     def _safe_maximize_linux(self, dt):
         """Safely maximize window on Linux with error handling."""
@@ -226,18 +226,18 @@ class PianoTab(App):
                 # Check if the window is ready and properly initialized
                 if Window and hasattr(Window, 'maximize'):
                     Window.maximize()
-                    Logger.info('PianoTab: Window maximized successfully on Linux')
+                    Logger.info('pianoTAB: Window maximized successfully on Linux')
                 else:
-                    Logger.warning('PianoTab: Window maximize method not available')
+                    Logger.warning('pianoTAB: Window maximize method not available')
         except Exception as e:
-            Logger.warning(f'PianoTab: Safe maximize failed: {e}')
+            Logger.warning(f'pianoTAB: Safe maximize failed: {e}')
             # Fallback: try to resize to a large size
             try:
                 # Set to a large window size as fallback
                 Window.size = (1600, 1000)
-                Logger.info('PianoTab: Window resized to large size (fallback)')
+                Logger.info('pianoTAB: Window resized to large size (fallback)')
             except Exception as fallback_error:
-                Logger.warning(f'PianoTab: Fallback resize also failed: {fallback_error}')
+                Logger.warning(f'pianoTAB: Fallback resize also failed: {fallback_error}')
 
     def _try_enter_native_fullscreen_macos(self, attempt: int = 1):
         """Best-effort native fullscreen on macOS using AppKit when available.
@@ -285,11 +285,11 @@ class PianoTab(App):
         try:
             Window.maximize()
         except Exception:
-            Logger.debug('PianoTab: Fullscreen/maximize not supported on this platform')
+            Logger.debug('pianoTAB: Fullscreen/maximize not supported on this platform')
     
     def on_stop(self):
         """Cleanup when app is closing."""
-        Logger.info('PianoTab: Application stopping')
+        Logger.info('pianoTAB: Application stopping')
         
         # Perform any necessary cleanup here
         try:
@@ -302,24 +302,24 @@ class PianoTab(App):
         # Clean up temporary font files
         try:
             cleanup_embedded_fonts()
-            Logger.info('PianoTab: Cleaned up temporary font files')
+            Logger.info('pianoTAB: Cleaned up temporary font files')
         except Exception as e:
-            Logger.warning(f'PianoTab: Could not clean up font files: {e}')
+            Logger.warning(f'pianoTAB: Could not clean up font files: {e}')
 
 def main():
     """Main entry point."""
-    Logger.info('PianoTab: Starting PianoTab Music Notation Editor')
-    app = PianoTab()
+    Logger.info('pianoTAB: Starting pianoTAB Music Notation Editor')
+    app = pianoTAB()
     try:
         app.run()
     except KeyboardInterrupt:
-        Logger.info('PianoTab: Application interrupted by user')
+        Logger.info('pianoTAB: Application interrupted by user')
     except Exception as e:
-        Logger.error(f'PianoTab: Unexpected error: {e}')
+        Logger.error(f'pianoTAB: Unexpected error: {e}')
         import traceback
         traceback.print_exc()
         return 1
-    Logger.info('PianoTab: Application closed')
+    Logger.info('pianoTAB: Application closed')
     return 0
 
 if __name__ == '__main__':

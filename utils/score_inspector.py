@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Score Inspector - Diagnostic tool for PianoTab pickle files
+Score Inspector - Diagnostic tool for pianoTAB pickle files
 
-This tool safely loads and inspects PianoTab SCORE files saved in pickle format.
+This tool safely loads and inspects pianoTAB SCORE files saved in pickle format.
 It provides formatted output to help debug corrupted or problematic files.
 
 Usage:
@@ -16,7 +16,7 @@ from pathlib import Path
 
 # Optional: set this to inspect a file without using command-line arguments.
 # Example: FILE_TO_INSPECT = "/absolute/path/to/your_score.pkl"
-FILE_TO_INSPECT: str = "/Users/philipbergwerf/Documents/pianoTab_kivy/test_score.pianotab"
+FILE_TO_INSPECT: str = "/Users/philipbergwerf/Documents/pianoTAB_kivy/test_score.pianoTAB"
 
 # Add parent directory to path to ensure imports work
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -57,8 +57,8 @@ def inspect_score(filename: str) -> None:
         return
     
     # Check file extension (optional warning)
-    if filepath.suffix not in ['.pkl', '.pickle', '.dat', '.pianotab']:
-        print(f"Warning: File '{filename}' doesn't have a typical pickle extension (.pkl, .pickle, .dat, .pianotab)")
+    if filepath.suffix not in ['.pkl', '.pickle', '.dat', '.pianoTAB']:
+        print(f"Warning: File '{filename}' doesn't have a typical pickle extension (.pkl, .pickle, .dat, .pianoTAB)")
         print()
     
     print(f"Inspecting: {filepath.absolute()}")

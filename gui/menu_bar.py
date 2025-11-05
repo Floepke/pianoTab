@@ -1,5 +1,5 @@
 """
-Menu Bar Widget for PianoTab (Kivy).
+Menu Bar Widget for pianoTAB (Kivy).
 Provides File/Edit/View/Help menus similar to traditional desktop apps.
 """
 

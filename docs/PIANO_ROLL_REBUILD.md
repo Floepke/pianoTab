@@ -2,7 +2,7 @@
 
 ## Overview
 
-I've completely rebuilt the `PianoRollEditor` class to match your specific Tkinter implementation patterns. The new design follows your exact algorithms and visual layout from `pianoTab_tkinter_old`.
+I've completely rebuilt the `PianoRollEditor` class to match your specific Tkinter implementation patterns. The new design follows your exact algorithms and visual layout from `pianoTAB_tkinter_old`.
 
 ## Key Features Implemented
 

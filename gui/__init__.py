@@ -1,11 +1,11 @@
 """
-GUI package for PianoTab Kivy application.
+GUI package for pianoTAB Kivy application.
 """
 
 from gui.split_view import SplitView, Sash, ToolSash
 from gui.grid_selector import GridSelector, SpinBox, GridButton
 from gui.main_gui import (
-    PianoTabGUI,
+    pianoTABGUI,
     EditorWidget,
     PrintPreviewWidget,
     SidePanelWidget
@@ -18,7 +18,7 @@ __all__ = [
     'GridSelector',
     'SpinBox',
     'GridButton',
-    'PianoTabGUI',
+    'pianoTABGUI',
     'EditorWidget',
     'PrintPreviewWidget',
     'SidePanelWidget'

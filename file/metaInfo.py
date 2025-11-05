@@ -5,10 +5,10 @@ import time
 @dataclass_json
 @dataclass
 class MetaInfo:
-    appName: str = 'PianoTab'
+    appName: str = 'pianoTAB'
     extension: str = '.piano'
-    description: str = 'PianoTab score file'
+    description: str = 'pianoTAB score file'
     version: str = '1.0'
     created: str = field(default_factory=lambda: time.strftime("%d-%m-%Y_%H:%M:%S"))
-    author: str = 'PianoTab Team'
+    author: str = 'pianoTAB Team'
     license: str = 'MIT'

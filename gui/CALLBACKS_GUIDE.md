@@ -1,6 +1,6 @@
 # Callback Configuration Guide
 
-This guide explains how to add new menu items and toolbar buttons to PianoTab using the centralized callback system.
+This guide explains how to add new menu items and toolbar buttons to pianoTAB using the centralized callback system.
 
 ## Overview
 
@@ -44,7 +44,7 @@ def create_menu_config(app_instance) -> MenuConfig:
 
 ### Step 2: Implement the method in `toolsash.py`
 
-Add the corresponding method to the `PianoTabGUI` class:
+Add the corresponding method to the `pianoTABGUI` class:
 
 ```python
 def on_export_pdf(self):
@@ -147,7 +147,7 @@ def on_add_grace_note(self):
 ## How It Works
 
 ### Menu Bar
-1. `PianoTabGUI.__init__()` creates the GUI instance
+1. `pianoTABGUI.__init__()` creates the GUI instance
 2. `setup_layout()` calls `create_menu_config(self)` to get menu configuration
 3. Configuration is passed to `MenuBar(menu_config)`
 4. MenuBar creates buttons/dropdowns based on the config

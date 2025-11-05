@@ -1,5 +1,5 @@
 """
-New modular GUI scaffold for PianoTab.
+New modular GUI scaffold for pianoTAB.
 
 - MainMenu(): wraps the existing MenuBar using the current callbacks config
 - SidePanel(): fixed-width vertical panel with GridSelector + ToolSelector

@@ -659,7 +659,7 @@ class Editor:
 # Maintain backward compatibility and integrate with main app
 class Editor(Editor):
     """
-    Main Editor class that integrates PianoRollEditor with the PianoTab application.
+    Main Editor class that integrates PianoRollEditor with the pianoTAB application.
     
     This class:
     - Inherits piano roll functionality from PianoRollEditor
