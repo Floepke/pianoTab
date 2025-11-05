@@ -70,7 +70,7 @@ class SidePanel(ScrollView):
             do_scroll_x=False,
             do_scroll_y=True,
             bar_width=8,
-            bar_color=DARK_LIGHTER,
+            bar_color=DARK,
             bar_inactive_color=DARK,
             scroll_type=['bars', 'content'],
             **kwargs

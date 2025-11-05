@@ -2,7 +2,7 @@
 Comprehensive Property Tree Editor for SCORE.
 
 Updates:
-- Event.* lists get transparent −/+ buttons:
+- Event.* lists get transparent -/+ buttons:
   - “+” calls SCORE.new_{event_type}(stave_idx=…) to append a default object.
   - “−” removes the last element of that list.
 - Visual/layout:
@@ -13,7 +13,7 @@ Updates:
   - Aligned columns: editors start at a fixed right column regardless of indent depth.
   - No overlap with the scrollbar; editors stretch to end right next to the custom scrollbar.
 - Scrollbar:
-  - Replaces ScrollView’s default bars with the same CustomScrollbar used by the Canvas.
+  - Replaces ScrollView's default bars with the same CustomScrollbar used by the Canvas.
   - Keeps content non-overlapping by reserving width for the scrollbar.
 - Editor UX:
   - Int/Float spinboxes also accept manual numeric input; only digits and optional '.' allowed.
@@ -42,14 +42,18 @@ from kivy.uix.popup import Popup
 from kivy.uix.widget import Widget
 from kivy.uix.colorpicker import ColorPicker
 from kivy.uix.floatlayout import FloatLayout
-from kivy.metrics import dp
-from kivy.graphics import Color, Rectangle, InstructionGroup
+from kivy.uix.image import Image
+from kivy.uix.anchorlayout import AnchorLayout
+from kivy.uix.behaviors import ButtonBehavior
+from kivy.metrics import dp, sp
+from kivy.graphics import Color, Rectangle, InstructionGroup, Line
 from kivy.properties import NumericProperty
 from kivy.clock import Clock
 
-from gui.colors import DARK_LIGHTER, LIGHT_DARKER, ACCENT_COLOR
+from gui.colors import DARK_LIGHTER, LIGHT_DARKER, DARK, ACCENT_COLOR
 from utils.canvas import CustomScrollbar
 from file.SCORE import SCORE, Event
+from icons.icon import IconLoader
 
 # Visual constants
 BLACK = (0, 0, 0, 1)
@@ -110,6 +114,24 @@ class NumericTextInput(TextInput):
             # prevent multiple dots
             if "." in substring and "." in self.text:
                 substring = substring.replace(".", "")
+        filtered = "".join(ch for ch in substring if ch in allowed)
+        return super().insert_text(filtered, from_undo=from_undo)
+
+
+class ListNumericTextInput(TextInput):
+    """
+    TextInput for space-separated numeric lists.
+    - allow_float=False: allow digits and spaces only (ints). Loose '.' are filtered out.
+    - allow_float=True: allow digits, spaces and '.' (floats). Loose '.' tokens are ignored during parse.
+    """
+    def __init__(self, allow_float: bool, **kwargs):
+        super().__init__(**kwargs)
+        self.allow_float = allow_float
+
+    def insert_text(self, substring, from_undo=False):
+        # Always allow digits, spaces, and '.' so users can type floats even when list becomes ints.
+        # Loose '.' tokens are ignored during parse.
+        allowed = "0123456789 ."
         filtered = "".join(ch for ch in substring if ch in allowed)
         return super().insert_text(filtered, from_undo=from_undo)
 
@@ -291,7 +313,7 @@ class ColorField(BoxLayout):
         buttons.add_widget(ok)
         content.add_widget(buttons)
 
-        popup = Popup(title="Select Color", content=content, size_hint=(None, None), size=(dp(500), dp(400)))
+        popup = Popup(title="Select Color...", content=content, size_hint=(None, None), size=(dp(500), dp(400)))
 
         def _on_cancel(*_):
             popup.dismiss()
@@ -321,7 +343,10 @@ class PropertyTreeEditor(BoxLayout):
 
     STRIPE_HEIGHT = dp(28)
     INDENT = dp(50)
-    LEFT_COL_WIDTH = dp(420)  # fixed left column (indent + arrow + label) so editors align
+    # Minimum left column width; actual width is auto-sized based on model depth and view width
+    MIN_LEFT_COL_WIDTH = dp(420)
+    # Dynamic left column width (indent + arrow + label). All rows bind to this.
+    left_col_width = NumericProperty(dp(420))
 
     def __init__(self, **kwargs):
         super().__init__(orientation="vertical", size_hint=(1, 1), **kwargs)
@@ -343,7 +368,7 @@ class PropertyTreeEditor(BoxLayout):
         self.layout = BoxLayout(
             orientation="vertical",
             spacing=0,
-            padding=(dp(10), 0, dp(10), 0),
+            padding=(dp(10), 0, dp(0), 0),
             size_hint_y=None,
             size_hint_x=None,
             width=100,  # will be updated by view metrics
@@ -353,8 +378,10 @@ class PropertyTreeEditor(BoxLayout):
         self.container.add_widget(self.sv)
 
         # Background stripes behind content
-        self._bg_group = InstructionGroup()
+        self._bg_group = InstructionGroup()      # base + stripes
+        self._col_group = InstructionGroup()     # value column divider line
         self.layout.canvas.before.add(self._bg_group)
+        self.layout.canvas.before.add(self._col_group)
 
         # Custom scrollbar (shared look & feel), bound to this adapter widget
         self.custom_scrollbar = CustomScrollbar(self)
@@ -373,6 +400,8 @@ class PropertyTreeEditor(BoxLayout):
         self.bind(pos=self._update_view_and_graphics, size=self._update_view_and_graphics)
         self.sv.bind(scroll_y=self._on_sv_scroll_y)
         self.layout.bind(pos=lambda *_: self._update_background(), size=lambda *_: self._update_background())
+        # When left column width changes, apply to existing rows and redraw divider
+        self.bind(left_col_width=lambda *_: self._on_left_col_width_change())
 
         self._score: Optional[Any] = None
         self.on_change: Optional[Callable[[Any], None]] = None
@@ -446,6 +475,9 @@ class PropertyTreeEditor(BoxLayout):
         # Make content layout fill the view width
         self.layout.width = self._view_w
 
+        # Auto-size left column to accommodate deepest indent while keeping minimum right column
+        self._auto_size_left_column()
+
         # Update background and scrollbar
         self._update_background()
         try:
@@ -459,33 +491,70 @@ class PropertyTreeEditor(BoxLayout):
 
     def set_score(self, score: Any):
         self._score = score
+        # Recompute left column width against the bound model
+        self._auto_size_left_column()
         self._rebuild()
 
     # ---------- Rendering ----------
 
     def _update_background(self):
-        # Draw alternating stripes from the top of the layout downward
+        # Draw base background (LIGHT_DARKER) once and only DARK_LIGHTER stripes to reduce draw calls
         if not hasattr(self, "_bg_group") or self._bg_group is None:
             return
         self._bg_group.clear()
         tgt = getattr(self, "layout", None) or self
         w = float(getattr(tgt, "width", 0.0))
-        h = float(getattr(tgt, "height", 0.0))
+        h_content = float(getattr(tgt, "height", 0.0))
+        # Ensure we fill at least the visible viewport height so the area under short content is not dark
+        h = float(max(h_content, float(getattr(self, "_view_h", h_content))))
         x0 = float(getattr(tgt, "x", 0.0))
         # Pixel-align the starting top to avoid subpixel drift between rebuilds
-        y_top_float = float(getattr(tgt, "top", getattr(tgt, "y", 0.0) + h))
+        y_top_float = float(getattr(tgt, "y", 0.0)) + h_content
         y_top = float(int(round(y_top_float)))
         if w <= 0 or h <= 0:
             return
 
-        # Exact number of visible stripes; no extra "+2" rows
-        n = int(math.ceil(h / self.STRIPE_HEIGHT))
+        # Base fill (LIGHT_DARKER) for the full visible area
+        self._bg_group.add(Color(*LIGHT_DARKER))
+        self._bg_group.add(Rectangle(pos=(x0, y_top - h), size=(w, h)))
+
+        # Only draw DARK_LIGHTER stripes on every other row to halve rectangle count
+        # Optimization: draw stripes only for the content height, not the full viewport
+        n = int(math.ceil(h_content / self.STRIPE_HEIGHT))
         y = y_top
+        # Start with row 0 at the top; draw DARK_LIGHTER for odd rows only
         for i in range(n):
-            color = LIGHT_DARKER if (i % 2 == 0) else DARK_LIGHTER
-            self._bg_group.add(Color(*color))
-            self._bg_group.add(Rectangle(pos=(x0, y - self.STRIPE_HEIGHT), size=(w, self.STRIPE_HEIGHT)))
+            if (i % 2) == 1:
+                self._bg_group.add(Color(*DARK_LIGHTER))
+                self._bg_group.add(Rectangle(pos=(x0, y - self.STRIPE_HEIGHT), size=(w, self.STRIPE_HEIGHT)))
             y -= self.STRIPE_HEIGHT
+
+        # Update value column divider after background
+        self._update_value_column_divider()
+
+    def _update_value_column_divider(self):
+        # Draw a thick vertical line just before value labels (at start of right column)
+        if not hasattr(self, "_col_group") or self._col_group is None:
+            return
+        self._col_group.clear()
+        # Horizontal spacing between the left column and the divider
+        row_spacing = dp(2.5)
+        try:
+            pad_left = float(self.layout.padding[0]) if isinstance(self.layout.padding, (list, tuple)) else 0.0
+        except Exception:
+            pad_left = 0.0
+        x_line = float(self.layout.x) + pad_left + float(self.left_col_width) + row_spacing
+        sbw = float(getattr(self.custom_scrollbar, 'scrollbar_width', 40))
+        # Ensure the line stays within the scrollview content area
+        view_right = float(self.x) + float(self.width) - sbw
+        if x_line >= view_right:
+            return
+        line_w = dp(3)
+        # Draw divider only for the rendered content height (stop at last row)
+        h_content = float(self.layout.height)
+        y_start = float(self.layout.y)
+        self._col_group.add(Color(*DARK))  # divider uses the DARK base color
+        self._col_group.add(Rectangle(pos=(x_line - line_w/2.0, y_start), size=(line_w, h_content)))
 
     def _rebuild(self):
         # Capture current pixel scroll so we can restore after rebuild (pack downwards)
@@ -500,8 +569,42 @@ class PropertyTreeEditor(BoxLayout):
             Clock.schedule_once(lambda dt: self.custom_scrollbar.update_layout(), 0)
             return
 
-        # Render root object
-        self._build_object_row(title="SCORE", obj=self._score, path=(), level=0, is_root=True)
+        # Ensure left column is sized before creating rows
+        self._auto_size_left_column()
+
+        # Render header row: Tree | Value (root is not collapsible)
+        self._build_header_row()
+
+        # Render children of SCORE at top level (no extra root indent)
+        root = self._score
+        if is_dataclass(root):
+            for f in fields(root):
+                attr_name = f.name
+                json_name = self._json_field_name(f)
+                try:
+                    val = getattr(root, attr_name)
+                except Exception:
+                    val = None
+                self._build_value_row(
+                    key_label=json_name,
+                    attr_name=attr_name,
+                    value=val,
+                    parent=root,
+                    path=(attr_name,),
+                    level=0,
+                )
+        elif isinstance(root, dict):
+            for k, v in root.items():
+                self._build_value_row(
+                    key_label=str(k), attr_name=str(k), value=v, parent=root, path=(k,), level=0
+                )
+        elif isinstance(root, list):
+            for i, v in enumerate(root):
+                self._build_value_row(
+                    key_label=f"[{i}]", attr_name=i, value=v, parent=root, path=(i,), level=0
+                )
+        else:
+            self._build_scalar_row(key_label="root", value=root, path=(), level=0)
 
         # Immediate background refresh to avoid stripe misalignment after clicks
         self._update_background()
@@ -597,28 +700,44 @@ class PropertyTreeEditor(BoxLayout):
 
     # ---------- Node Builders ----------
 
+    def _build_header_row(self):
+        """Build the non-collapsible header row with 'Tree' and 'Value' labels.
+        Removes the usual indent in the left column for this first row.
+        """
+        tc = self._row_text_color()
+        row = BoxLayout(orientation="horizontal", size_hint_y=None, height=self.STRIPE_HEIGHT, spacing=dp(6))
+
+        # Left fixed column without indent
+        left = BoxLayout(orientation="horizontal", size_hint_x=None, width=self.left_col_width, spacing=dp(6))
+        k = Label(text="[b]File Tree[/b]", markup=True, color=tc, size_hint_x=1, halign="left", valign="middle")
+        k.bind(size=k.setter("text_size"))
+        left.add_widget(k)
+
+        # Right column with the same initial spacer used for values
+        right = BoxLayout(orientation="horizontal", size_hint_x=1, spacing=dp(6))
+        right.add_widget(Widget(size_hint_x=None, width=dp(2.5)))
+        v = Label(text="[b]Value[/b]", markup=True, color=tc, halign="left", valign="middle")
+        v.bind(size=v.setter("text_size"))
+        right.add_widget(v)
+
+        row.add_widget(left)
+        row.add_widget(right)
+        self._finalize_row(row)
+
     def _build_object_row(self, title: str, obj: Any, path: Tuple[Union[str, int], ...], level: int, is_root: bool = False):
         tc = self._row_text_color()
         # Header row with toggle
         row = BoxLayout(orientation="horizontal", size_hint_y=None, height=self.STRIPE_HEIGHT, spacing=dp(6))
 
         # Left fixed column (indent + arrow + title)
-        left = BoxLayout(orientation="horizontal", size_hint_x=None, width=self.LEFT_COL_WIDTH, spacing=dp(6))
+        left = BoxLayout(orientation="horizontal", size_hint_x=None, width=self.left_col_width, spacing=dp(6))
         # indent spacer inside fixed column so editor start aligns across rows
         left.add_widget(Widget(size_hint_x=None, width=self.INDENT * level))
-        # arrow (transparent button)
+        # expand/collapse icon button (uses 'add' for closed, 'sub' for open)
         opened = self._is_open(path)
-        arrow = "<" if not opened else ">"
-        btn = Button(
-            text=arrow,
-            size_hint_x=None,
-            width=dp(28),
-            background_normal="",
-            background_down="",
-            background_color=TRANSPARENT,
-            color=tc,
-        )
-        btn.bind(on_press=lambda *_: self._toggle_node(path))
+        icon_name = "sub" if opened else "add"
+        fallback = "−" if opened else "+"
+        btn = self._icon_button(icon_name, fallback, lambda *_: self._toggle_node(path))
         left.add_widget(btn)
         # title button (transparent, toggles)
         lbl_btn = Button(
@@ -708,7 +827,7 @@ class PropertyTreeEditor(BoxLayout):
 
         self._build_scalar_row(key_label, value, path, level)
 
-    def _make_kv_row(self, level: int, key_text: str) -> Tuple[BoxLayout, BoxLayout]:
+    def _make_kv_row(self, level: int, key_text: str, icon_name: Optional[str] = None) -> Tuple[BoxLayout, BoxLayout]:
         """
         Create a row split into:
         - left fixed column (indent + key label)
@@ -718,20 +837,30 @@ class PropertyTreeEditor(BoxLayout):
         tc = self._row_text_color()
         row = BoxLayout(orientation="horizontal", size_hint_y=None, height=self.STRIPE_HEIGHT, spacing=dp(6))
 
-        left = BoxLayout(orientation="horizontal", size_hint_x=None, width=self.LEFT_COL_WIDTH, spacing=dp(6))
+        left = BoxLayout(orientation="horizontal", size_hint_x=None, width=self.left_col_width, spacing=dp(6))
         left.add_widget(Widget(size_hint_x=None, width=self.INDENT * level))
-        k = Label(text=f"{key_text}:", color=tc, size_hint_x=None, width=dp(260), halign="left", valign="middle")
+        # Optional property icon (non-collapsible rows)
+        if icon_name:
+            try:
+                icon_widget = self._icon_button(icon_name, "·", lambda *_: None)
+            except Exception:
+                icon_widget = None
+            if icon_widget is not None:
+                left.add_widget(icon_widget)
+        k = Label(text=f"{key_text}:", color=tc, size_hint_x=1, halign="left", valign="middle")
         k.bind(size=k.setter("text_size"))
         left.add_widget(k)
 
         right = BoxLayout(orientation="horizontal", size_hint_x=1, spacing=dp(6))
+        # Add left spacer to move value start slightly to the right (better readability vs divider)
+        right.add_widget(Widget(size_hint_x=None, width=dp(5)))
 
         row.add_widget(left)
         row.add_widget(right)
         return row, right
 
     def _build_scalar_row(self, key: str, value: Any, path: Tuple[Union[str, int], ...], level: int):
-        row, right = self._make_kv_row(level, key)
+        row, right = self._make_kv_row(level, key, icon_name="property")
         vtxt = str(value)
         if len(vtxt) > 128:
             vtxt = vtxt[:125] + "..."
@@ -742,62 +871,60 @@ class PropertyTreeEditor(BoxLayout):
         self._finalize_row(row)
 
     def _build_string_row(self, key: str, value: str, path: Tuple[Union[str, int], ...], level: int):
-        row, right = self._make_kv_row(key_text=key, level=level)
-        _bg = self._row_bg_color()
+        row, right = self._make_kv_row(key_text=key, level=level, icon_name="property")
         _tc = self._row_text_color()
-        ti = TextInput(
-            text=value or "",
-            multiline=False,
-            write_tab=False,
-            background_normal="",
-            background_active="",
-            background_color=_bg,
-            foreground_color=_tc,
-            cursor_color=_tc,
-            selection_color=(ACCENT_COLOR[0], ACCENT_COLOR[1], ACCENT_COLOR[2], 0.35),
-            size_hint_y=1,
-            size_hint_x=1,
-        )
-        ti.bind(on_text_validate=lambda *_: self._commit_value(path, ti.text),
-                focus=lambda inst, f: (not f) and self._commit_value(path, ti.text))
-        right.add_widget(ti)
+        lbl = Label(text=value or "", color=_tc, halign="left", valign="middle")
+        lbl.bind(size=lbl.setter("text_size"))
+        right.add_widget(lbl)
+
+        # Make entire row clickable to edit via dialog
+        row.bind(on_touch_down=lambda inst, touch: self._on_row_edit_touch(inst, touch, path, 'str', value))
         self._finalize_row(row)
 
     def _build_color_row(self, key: str, value: str, path: Tuple[Union[str, int], ...], level: int):
-        row, right = self._make_kv_row(key_text=key, level=level)
-        field = ColorField(hex_value=value or "#000000", on_commit=lambda hx: self._commit_value(path, hx),
-                           label_color=self._row_text_color())
-        right.add_widget(field)
+        row, right = self._make_kv_row(key_text=key, level=level, icon_name="colorproperty")
+        # Draw a color bar as a padded button-like area that spans the right column height
+        container = BoxLayout(orientation="vertical", size_hint=(1, 1), padding=dp(4))
+        color_widget = Widget(size_hint=(1, 1))
+        rgba = _hex_to_rgba(value or "#000000")
+        inv = (1.0 - rgba[0], 1.0 - rgba[1], 1.0 - rgba[2], 1.0)
+        with color_widget.canvas:
+            cf = Color(*rgba)
+            r = Rectangle(pos=color_widget.pos, size=color_widget.size)
+            cb = Color(*inv)
+            # Border rectangle uses complementary color and is half the previous thickness
+            border_w = dp(1.5)
+            ln = Line(rectangle=(color_widget.x, color_widget.y, color_widget.width, color_widget.height), width=border_w)
+        def _sync_color_rect(*_):
+            r.pos = color_widget.pos
+            r.size = color_widget.size
+            ln.rectangle = (color_widget.x, color_widget.y, color_widget.width, color_widget.height)
+        color_widget.bind(pos=_sync_color_rect, size=_sync_color_rect)
+        container.add_widget(color_widget)
+        right.add_widget(container)
+
+        # Entire row acts as color picker button
+        row.bind(on_touch_down=lambda inst, touch: self._on_row_edit_touch(inst, touch, path, 'color', value))
         self._finalize_row(row)
 
     def _build_int_row(self, key: str, value: int, path: Tuple[Union[str, int], ...], level: int):
-        row, right = self._make_kv_row(key_text=key, level=level)
-        spin = NumericSpinBox(
-            value=value,
-            is_float=False,
-            step=1.0,
-            on_commit=lambda v: self._commit_value(path, int(v)),
-            input_bg_color=self._row_bg_color(),
-            input_fg_color=self._row_text_color(),
-        )
-        right.add_widget(spin)
+        row, right = self._make_kv_row(key_text=key, level=level, icon_name="property")
+        lbl = Label(text=str(int(value)), color=self._row_text_color(), halign="left", valign="middle")
+        lbl.bind(size=lbl.setter("text_size"))
+        right.add_widget(lbl)
+        row.bind(on_touch_down=lambda inst, touch: self._on_row_edit_touch(inst, touch, path, 'int', value))
         self._finalize_row(row)
 
     def _build_float_row(self, key: str, value: float, path: Tuple[Union[str, int], ...], level: int):
-        row, right = self._make_kv_row(key_text=key, level=level)
-        spin = NumericSpinBox(
-            value=value,
-            is_float=True,
-            step=0.05,
-            on_commit=lambda v: self._commit_value(path, float(v)),
-            input_bg_color=self._row_bg_color(),
-            input_fg_color=self._row_text_color(),
-        )
-        right.add_widget(spin)
+        row, right = self._make_kv_row(key_text=key, level=level, icon_name="property")
+        lbl = Label(text=_fmt_float(float(value)), color=self._row_text_color(), halign="left", valign="middle")
+        lbl.bind(size=lbl.setter("text_size"))
+        right.add_widget(lbl)
+        row.bind(on_touch_down=lambda inst, touch: self._on_row_edit_touch(inst, touch, path, 'float', value))
         self._finalize_row(row)
 
     def _build_bool_row(self, key: str, value01: int, path: Tuple[Union[str, int], ...], level: int):
-        row, right = self._make_kv_row(key_text=key, level=level)
+        row, right = self._make_kv_row(key_text=key, level=level, icon_name="property")
         cb = CheckBox(active=bool(value01), size_hint=(None, None), size=(dp(22), dp(22)))
         cb.bind(active=lambda inst, a: self._commit_value(path, 1 if a else 0))
         right.add_widget(cb)
@@ -805,65 +932,115 @@ class PropertyTreeEditor(BoxLayout):
 
     def _build_number_list_row(self, key: str, values: List[Union[int, float]],
                                path: Tuple[Union[str, int], ...], level: int):
-        row, right = self._make_kv_row(key_text=key, level=level)
+        row, right = self._make_kv_row(key_text=key, level=level, icon_name="property")
 
-        # left bracket + text + right bracket
+        # Show a compact preview like: [ 1 2 3 ] and open a dialog on click
         bl = Label(text="[", color=self._row_text_color(), size_hint_x=None, width=dp(10), halign="center", valign="middle")
         bl.bind(size=bl.setter("text_size"))
         right.add_widget(bl)
 
-        txt = " ".join(
+        preview = " ".join(
             _fmt_float(v) if isinstance(v, float) and not float(v).is_integer() else str(int(v))
             if isinstance(v, (int, float)) else str(v)
             for v in values
         )
-        _bg = self._row_bg_color()
-        _tc = self._row_text_color()
-        ti = TextInput(
-            text=txt,
-            multiline=False,
-            write_tab=False,
-            background_normal="",
-            background_active="",
-            background_color=_bg,
-            foreground_color=_tc,
-            cursor_color=_tc,
-            selection_color=(ACCENT_COLOR[0], ACCENT_COLOR[1], ACCENT_COLOR[2], 0.35),
-            size_hint_y=1,
-            size_hint_x=1,
-        )
-
-        def _parse_list_text_to_values(s: str) -> List[Union[int, float]]:
-            parts = [p for p in s.strip().split() if p]
-            parsed: List[Union[int, float]] = []
-            saw_float = False
-            for p in parts:
-                try:
-                    fv = float(p)
-                    if fv.is_integer():
-                        parsed.append(int(fv))
-                    else:
-                        parsed.append(fv)
-                        saw_float = True
-                except Exception:
-                    # ignore invalid tokens
-                    pass
-            if saw_float:
-                # promote ints to float to preserve type consistency
-                parsed = [float(v) if isinstance(v, int) else v for v in parsed]
-            return parsed
-
-        ti.bind(
-            on_text_validate=lambda *_: self._commit_value(path, _parse_list_text_to_values(ti.text)),
-            focus=lambda inst, f: (not f) and self._commit_value(path, _parse_list_text_to_values(ti.text))
-        )
-        right.add_widget(ti)
+        pv_lbl = Label(text=preview, color=self._row_text_color(), halign="left", valign="middle")
+        pv_lbl.bind(size=pv_lbl.setter("text_size"))
+        right.add_widget(pv_lbl)
 
         br = Label(text="]", color=self._row_text_color(), size_hint_x=None, width=dp(10), halign="center", valign="middle")
         br.bind(size=br.setter("text_size"))
         right.add_widget(br)
 
+        # Determine if this list should be treated as float list
+        is_float_list = any(isinstance(v, float) and not float(v).is_integer() for v in values)
+
+        # Whole row opens the dialog editor
+        row.bind(on_touch_down=lambda inst, touch: self._on_row_number_list_touch(inst, touch, path, values, is_float_list))
         self._finalize_row(row)
+
+    def _on_row_number_list_touch(self, row: Widget, touch, path, values, is_float_list: bool):
+        if not row.collide_point(*touch.pos):
+            return False
+        # Avoid triggering when clicking on interactive children
+        if hasattr(touch, 'grab_current') and touch.grab_current is not None:
+            return False
+        self._open_number_list_dialog(path, values, is_float_list)
+        return True
+
+    def _open_number_list_dialog(self, path: Tuple[Union[str, int], ...], values: List[Union[int, float]], is_float_list: bool):
+        hint = "(Give numbers seperated by <space> e.g. 256.0 512.0 768.0)"
+        prompt = f"Set {self._path_to_prompt(path)}: {hint}"
+        txt = " ".join(
+            _fmt_float(v) if isinstance(v, float) and not float(v).is_integer() else str(int(v))
+            if isinstance(v, (int, float)) else str(v)
+            for v in values
+        )
+        ti = ListNumericTextInput(
+            allow_float=is_float_list,
+            text=txt,
+            multiline=False,
+            size_hint_y=None,
+            height=dp(36),
+            halign="left",
+            cursor_blink=True,
+        )
+        self._style_dialog_input(ti, font_points=18.0)
+
+        btns = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), spacing=dp(8))
+        cancel = Button(text='Cancel')
+        ok = Button(text='OK')
+        btns.add_widget(Widget())
+        btns.add_widget(cancel)
+        btns.add_widget(ok)
+        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(10))
+        content.add_widget(ti)
+        content.add_widget(btns)
+        popup = Popup(title=prompt, content=content, size_hint=(None, None), size=(dp(560), dp(180)))
+
+        def parse_int_list(s: str) -> List[int]:
+            parts = [p for p in s.strip().split() if p and p != "."]
+            out: List[int] = []
+            for p in parts:
+                try:
+                    # Round floats to nearest int if provided
+                    v = int(round(float(p)))
+                    out.append(v)
+                except Exception:
+                    # ignore invalid tokens
+                    pass
+            return out
+
+        def parse_float_list(s: str) -> List[float]:
+            parts = [p for p in s.strip().split() if p and p != "."]
+            out: List[float] = []
+            for p in parts:
+                try:
+                    v = float(p)
+                    out.append(v)
+                except Exception:
+                    pass
+            return out
+
+        def do_ok(*_):
+            s = ti.text or ""
+            if is_float_list:
+                parsed = parse_float_list(s)
+            else:
+                parsed = parse_int_list(s)
+            self._commit_value(path, parsed)
+            popup.dismiss()
+
+        cancel.bind(on_press=lambda *_: popup.dismiss())
+        ok.bind(on_press=do_ok)
+        ti.bind(on_text_validate=do_ok)
+        popup.open()
+        # Focus input immediately and on next frame to ensure focus sticks
+        try:
+            ti.focus = True
+            Clock.schedule_once(lambda dt: setattr(ti, 'focus', True), 0)
+        except Exception:
+            pass
 
 
     def _build_list_object_row(self, key: str, lst: List[Any], path: Tuple[Union[str, int], ...], level: int):
@@ -872,20 +1049,11 @@ class PropertyTreeEditor(BoxLayout):
         header_path = path
         row = BoxLayout(orientation="horizontal", size_hint_y=None, height=self.STRIPE_HEIGHT, spacing=dp(6))
 
-        left = BoxLayout(orientation="horizontal", size_hint_x=None, width=self.LEFT_COL_WIDTH, spacing=dp(6))
+        left = BoxLayout(orientation="horizontal", size_hint_x=None, width=self.left_col_width, spacing=dp(6))
         left.add_widget(Widget(size_hint_x=None, width=self.INDENT * level))
         opened = self._is_open(header_path)
         arrow = "<" if not opened else ">"
-        btn = Button(
-            text=arrow,
-            size_hint_x=None,
-            width=dp(28),
-            background_normal="",
-            background_down="",
-            background_color=TRANSPARENT,
-            color=tc,
-        )
-        btn.bind(on_press=lambda *_: self._toggle_node(header_path))
+        btn = self._icon_button("sub" if opened else "add", "−" if opened else "+", lambda *_: self._toggle_node(header_path))
         left.add_widget(btn)
 
         title_btn = Button(
@@ -909,14 +1077,14 @@ class PropertyTreeEditor(BoxLayout):
             stave_idx = self._path_to_stave_index(path)
             right.add_widget(Widget(size_hint_x=1))
             minus_btn = Button(
-                text="−",
-                size_hint_x=None,
-                width=dp(28),
-                background_normal="",
-                background_down="",
-                background_color=TRANSPARENT,
-                color=tc,
-            )
+                    text="-",
+                    size_hint_x=None,
+                    width=dp(28),
+                    background_normal="",
+                    background_down="",
+                    background_color=TRANSPARENT,
+                    color=tc,
+                )
             minus_btn.bind(on_press=lambda *_: self._event_remove_last(lst))
             plus_btn = Button(
                 text="+",
@@ -989,6 +1157,127 @@ class PropertyTreeEditor(BoxLayout):
         except Exception:
             pass
         return 0
+
+    # ---------- Icon helpers ----------
+
+    class IconImageButton(ButtonBehavior, Image):
+        pass
+
+    def _icon_button(self, icon_name: str, fallback_text: str, on_press: Callable[[Any], None]) -> Widget:
+        """Create a clickable icon centered in a fixed-width container; fallback to text button.
+        icon_name: key in icons.icons_data ICONS
+        fallback_text: shown if icon not found
+        on_press: callback
+        """
+        try:
+            icon = IconLoader.load_icon(icon_name)
+        except Exception:
+            icon = None
+        if icon is not None and getattr(icon, "texture", None) is not None:
+            container = AnchorLayout(size_hint_x=None, width=dp(28), anchor_x='center', anchor_y='center')
+            imgbtn = PropertyTreeEditor.IconImageButton(texture=icon.texture, size_hint=(None, None), size=(dp(20), dp(20)))
+            imgbtn.bind(on_press=on_press)
+            container.add_widget(imgbtn)
+            return container
+        # Fallback to simple text button
+        btn = Button(
+            text=fallback_text,
+            size_hint_x=None,
+            width=dp(28),
+            background_normal="",
+            background_down="",
+            background_color=TRANSPARENT,
+            color=self._row_text_color(),
+        )
+        btn.bind(on_press=on_press)
+        return btn
+
+    # ---------- Auto-size left column ----------
+
+    def _compute_max_row_level(self, obj: Any, level: int = 0) -> int:
+        """Compute the maximum indentation level needed for any row if fully expanded.
+        - Dataclass/dict/list containers increase level for their children.
+        - Numeric lists are treated as scalar rows (no deeper rows).
+        Returns the maximum 'level' value used by any row.
+        """
+        try:
+            max_level = level
+            if is_dataclass(obj):
+                for f in fields(obj):
+                    try:
+                        v = getattr(obj, f.name)
+                    except Exception:
+                        v = None
+                    max_level = max(max_level, self._compute_max_row_level(v, level + 1))
+                return max_level
+            if isinstance(obj, dict):
+                for v in obj.values():
+                    max_level = max(max_level, self._compute_max_row_level(v, level + 1))
+                return max_level
+            if isinstance(obj, list):
+                if self._list_is_numeric(obj):
+                    return max_level  # numeric list renders at current level only
+                for v in obj:
+                    max_level = max(max_level, self._compute_max_row_level(v, level + 1))
+                return max_level
+            # Scalars: level stays as is for this row
+            return max_level
+        except Exception:
+            return level
+
+    def _auto_size_left_column(self):
+        """Auto-set left_col_width based on model depth and view width constraints.
+        Keeps a minimum right-column width so editors remain usable.
+        """
+        try:
+            # Baselines
+            min_left = float(self.MIN_LEFT_COL_WIDTH)
+            # Keep the right editor column usable
+            min_right = float(dp(260))
+            view_w = float(max(1, getattr(self, "_view_w", 0)))
+            # Compute max model depth across entire SCORE to avoid jumps when expanding
+            max_level = 0
+            if self._score is not None:
+                max_level = max(0, int(self._compute_max_row_level(self._score, 0)))
+            # Space needed: indent*depth + arrow + inner spacings + baseline label width
+            arrow_w = float(dp(28))
+            inner_spacings = float(dp(12))  # dp(6) between indent/arrow and arrow/label
+            baseline_label = float(dp(260))
+            required = float(self.INDENT) * float(max_level) + arrow_w + inner_spacings + baseline_label
+            # Clamp to keep right column >= min_right
+            max_left_allowed = max(float(dp(200)), view_w - min_right)
+            new_w = max(min_left, min(required, max_left_allowed))
+            if abs(float(self.left_col_width) - new_w) > 0.5:
+                self.left_col_width = new_w
+        except Exception:
+            # Fallback to minimum if anything goes wrong
+            try:
+                self.left_col_width = float(self.MIN_LEFT_COL_WIDTH)
+            except Exception:
+                pass
+
+    def _apply_left_col_width_to_rows(self):
+        """Apply current left_col_width to all existing row left containers."""
+        try:
+            for row in getattr(self, "layout", None).children if hasattr(self, "layout") else []:
+                if isinstance(row, BoxLayout) and getattr(row, "orientation", "horizontal") == "horizontal":
+                    # Identify left container: BoxLayout child with size_hint_x=None
+                    for child in row.children:
+                        if isinstance(child, BoxLayout) and child.size_hint_x is None:
+                            child.width = float(self.left_col_width)
+                            break
+        except Exception:
+            pass
+
+    def _on_left_col_width_change(self, *_):
+        # Update existing rows and divider when width changes
+        self._apply_left_col_width_to_rows()
+        self._update_value_column_divider()
+        try:
+            self.layout.canvas.ask_update()
+            self.container.canvas.ask_update()
+        except Exception:
+            pass
 
     def _event_add(self, event_key: str, stave_idx: int):
         """Add a new event of type event_key to given stave via SCORE factory."""
@@ -1069,6 +1358,182 @@ class PropertyTreeEditor(BoxLayout):
         self._update_background()
         self._update_view_and_graphics()
         Clock.schedule_once(lambda dt: self._update_view_and_graphics(), 0)
+
+    # ---------- Row editing via dialogs ----------
+
+    def _on_row_edit_touch(self, row: Widget, touch, path: Tuple[Union[str, int], ...], kind: str, current: Any):
+        if not row.collide_point(*touch.pos):
+            return False
+        # Avoid triggering when clicking on interactive children (e.g., arrow buttons or checkboxes)
+        if hasattr(touch, 'grab_current') and touch.grab_current is not None:
+            return False
+        if kind == 'str':
+            self._open_text_dialog(path, str(current) if current is not None else "")
+            return True
+        if kind == 'int':
+            self._open_number_dialog(path, str(int(current)), allow_float=False)
+            return True
+        if kind == 'float':
+            self._open_number_dialog(path, _fmt_float(float(current)), allow_float=True)
+            return True
+        if kind == 'color':
+            self._open_color_dialog(path, str(current) if current else "#000000")
+            return True
+        return False
+
+    # ---------- Dialog input styling ----------
+
+    def _style_dialog_input(self, ti: TextInput, font_points: float = 18.0):
+        """Increase font size a bit and vertically center text via padding within current height.
+        Keeps the existing widget height; padding makes the text slightly smaller than the entry.
+        """
+        try:
+            ti.font_size = sp(font_points)
+            ti.foreground_color = BLACK
+            ti.cursor_color = BLACK
+            ti.background_normal = ""
+            ti.background_active = ""
+            ti.background_color = (1, 1, 1, 1)
+            ti.write_tab = False
+
+            # Recompute padding to vertically center based on line height; use a safe fallback
+            def _repad(*_):
+                try:
+                    lh = float(getattr(ti, 'line_height', 0.0))
+                    if lh <= 0.0:
+                        # conservative fallback for line height before the label is laid out
+                        lh = float(ti.font_size) * 1.15
+                    h = float(ti.height)
+                    pad_y = max(0.0, (h - lh) / 2.0)
+                    # Use 4-tuple padding: (left, top, right, bottom)
+                    ti.padding = (dp(10), pad_y, dp(10), pad_y)
+                except Exception:
+                    ti.padding = (dp(10), dp(6), dp(10), dp(6))
+
+            # Apply now, schedule once for next frame (when textures exist), and bind to changes
+            _repad()
+            Clock.schedule_once(lambda dt: _repad(), 0)
+            ti.bind(size=lambda *_: _repad(), font_size=lambda *_: _repad())
+        except Exception:
+            pass
+
+    def _path_to_prompt(self, path: Tuple[Union[str, int], ...]) -> str:
+        parts: List[str] = []
+        for p in path:
+            if isinstance(p, int):
+                parts.append(f"[{p}]")
+            else:
+                if parts:
+                    parts.append(".")
+                parts.append(str(p))
+        return "".join(parts) or "value"
+
+    def _open_text_dialog(self, path: Tuple[Union[str, int], ...], current: str):
+        prompt = f"Set {self._path_to_prompt(path)}:"
+        ti = TextInput(
+            text=current or "",
+            multiline=False,
+            size_hint_y=None,
+            height=dp(36),
+            halign="left",
+            cursor_blink=True,
+        )
+        self._style_dialog_input(ti, font_points=18.0)
+        btns = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), spacing=dp(8))
+        cancel = Button(text='Cancel')
+        ok = Button(text='OK')
+        btns.add_widget(Widget())
+        btns.add_widget(cancel)
+        btns.add_widget(ok)
+        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(10))
+        content.add_widget(ti)
+        content.add_widget(btns)
+        popup = Popup(title=prompt, content=content, size_hint=(None, None), size=(dp(520), dp(160)))
+
+        def do_ok(*_):
+            self._commit_value(path, ti.text)
+            popup.dismiss()
+
+        cancel.bind(on_press=lambda *_: popup.dismiss())
+        ok.bind(on_press=do_ok)
+        ti.bind(on_text_validate=do_ok)
+        popup.open()
+        # Focus input immediately and on next frame to ensure focus sticks
+        try:
+            ti.focus = True
+            Clock.schedule_once(lambda dt: setattr(ti, 'focus', True), 0)
+        except Exception:
+            pass
+
+    def _open_number_dialog(self, path: Tuple[Union[str, int], ...], current: str, allow_float: bool):
+        prompt = f"Set {self._path_to_prompt(path)}:"
+        ti = NumericTextInput(
+            allow_float=allow_float,
+            text=current or "",
+            multiline=False,
+            size_hint_y=None,
+            height=dp(36),
+            halign="left",
+            cursor_blink=True,
+        )
+        self._style_dialog_input(ti, font_points=18.0)
+        btns = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), spacing=dp(8))
+        cancel = Button(text='Cancel')
+        ok = Button(text='OK')
+        btns.add_widget(Widget())
+        btns.add_widget(cancel)
+        btns.add_widget(ok)
+        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(10))
+        content.add_widget(ti)
+        content.add_widget(btns)
+        popup = Popup(title=prompt, content=content, size_hint=(None, None), size=(dp(520), dp(160)))
+
+        def do_ok(*_):
+            txt = ti.text.strip()
+            try:
+                val = float(txt) if allow_float else int(txt)
+                if not allow_float:
+                    self._commit_value(path, int(val))
+                else:
+                    self._commit_value(path, float(val))
+                popup.dismiss()
+            except Exception:
+                # Invalid input -> no commit; keep dialog open or dismiss silently
+                pass
+
+        cancel.bind(on_press=lambda *_: popup.dismiss())
+        ok.bind(on_press=do_ok)
+        ti.bind(on_text_validate=do_ok)
+        popup.open()
+        # Focus input immediately and on next frame to ensure focus sticks
+        try:
+            ti.focus = True
+            Clock.schedule_once(lambda dt: setattr(ti, 'focus', True), 0)
+        except Exception:
+            pass
+
+    def _open_color_dialog(self, path: Tuple[Union[str, int], ...], current_hex: str):
+        prompt = f"Set {self._path_to_prompt(path)}:"
+        picker = ColorPicker(color=_hex_to_rgba(current_hex), size_hint=(1, 1))
+        btns = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), spacing=dp(8), padding=(dp(8), 0))
+        cancel = Button(text='Cancel', size_hint_x=None, width=dp(100))
+        ok = Button(text='OK', size_hint_x=None, width=dp(100))
+        btns.add_widget(Widget())
+        btns.add_widget(cancel)
+        btns.add_widget(ok)
+        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(8))
+        content.add_widget(picker)
+        content.add_widget(btns)
+        popup = Popup(title=prompt, content=content, size_hint=(None, None), size=(dp(500), dp(420)))
+
+        def do_ok(*_):
+            hx = _rgba_to_hex(picker.color)
+            self._commit_value(path, hx)
+            popup.dismiss()
+
+        cancel.bind(on_press=lambda *_: popup.dismiss())
+        ok.bind(on_press=do_ok)
+        popup.open()
 
     def _write_at_path(self, root: Any, path: Tuple[Union[str, int], ...], value: Any):
         """Traverse dataclass/list attributes by attr/index path and set the value."""

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PianoTab - Music Notation Editor
+pianoTAB - Music Notation Editor
 Main application entry point for Kivy version.
 """
 import sys

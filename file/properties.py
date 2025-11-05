@@ -6,7 +6,7 @@ from file.globalProperties import (
         GlobalGraceNote, GlobalCountLine, GlobalSlur, 
         GlobalText, GlobalBarline, GlobalBasegrid, 
         GlobalStave, GlobalPage, GlobalSection,
-        GlobalStartRepeat, GlobalEndRepeat
+        GlobalStartRepeat, GlobalEndRepeat, GlobalMeasureNumbering
     )
 
 @dataclass_json
@@ -21,6 +21,7 @@ class Properties:
     globalText: GlobalText = field(default_factory=GlobalText)
     globalBarLine: GlobalBarline = field(default_factory=GlobalBarline)
     globalBasegrid: GlobalBasegrid = field(default_factory=GlobalBasegrid)
+    globalMeasureNumbering: GlobalMeasureNumbering = field(default_factory=GlobalMeasureNumbering)
     globalStave: GlobalStave = field(default_factory=GlobalStave)
     globalPage: GlobalPage = field(default_factory=GlobalPage)
     globalSection: GlobalSection = field(default_factory=GlobalSection)
