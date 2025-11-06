@@ -10,7 +10,7 @@ from kivy.uix.label import Label
 from kivy.uix.image import Image
 from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.properties import StringProperty, ObjectProperty, ListProperty
-from gui.colors import DARK, DARK_LIGHTER, LIGHT, ACCENT_COLOR
+from gui.colors_hue import DARK, DARK_LIGHTER, LIGHT, ACCENT_COLOR
 from icons.icon import load_icon
 
 

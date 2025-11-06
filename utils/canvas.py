@@ -9,7 +9,7 @@ from kivy.graphics.scissor_instructions import ScissorPush, ScissorPop
 from kivy.clock import Clock
 from kivy.core.window import Window
 from .embedded_font import get_embedded_monospace_font
-from gui.colors import LIGHT, LIGHT_DARKER, DARK_LIGHTER, DARK, ACCENT_COLOR
+from gui.colors_hue import LIGHT, LIGHT_DARKER, DARK_LIGHTER, DARK, ACCENT_COLOR
 
 
 class CustomScrollbar(Widget):
@@ -253,14 +253,14 @@ class Canvas(Widget):
     - Top-left origin (0,0) is top-left of the drawable area (like Tkinter)
     - Auto-fit to widget size with aspect ratio preserved (letterboxing)
     - Background color and border
-    - id/IDs like Tkinter
-    - Click detection, returns top-most item id
+    - Tag-based grouping and z-ordering
+    - Click detection, returns top-most item handle (internal integer)
 
     Units:
     - All coordinates/sizes passed to add_* are in millimeters (mm) relative to top-left.
 
     Events:
-    - bind(on_item_click=callback) -> callback(self, item_id, touch, pos_mm)
+    - bind(on_item_click=callback) -> callback(self, item_handle, touch, pos_mm)
     '''
 
     __events__ = ('on_item_click',)
@@ -334,10 +334,11 @@ class Canvas(Widget):
             # Close clipping
             self._scissor_pop = ScissorPop()
 
-        # Items and id
+        # Items and tags
         self._next_id: int = 1
         self._items: Dict[int, Dict[str, Any]] = {}
-        self._id: Dict[str, set] = {}
+        # Map tag -> set of item handles
+        self._tag_index: Dict[str, set] = {}
         self._draw_order: List[int] = []  # z-order (append = on top)
 
         # Create and add custom scrollbar
@@ -522,7 +523,7 @@ class Canvas(Widget):
         '''Remove all items.'''
         self._items_group.clear()
         self._items.clear()
-        self._id.clear()
+        self._tag_index.clear()
         self._draw_order.clear()
 
     def add_rectangle(
@@ -537,6 +538,8 @@ class Canvas(Widget):
         outline: bool = True,
         outline_color: str = '#000000',
         outline_width_mm: float = 0.25,
+        tags: Optional[Iterable[str]] = None,
+        # Deprecated: allow legacy callers to pass id=[...]
         id: Optional[Iterable[str]] = None,
     ) -> int:
         '''Add a rectangle by two corners (top-left and bottom-right) in mm.
@@ -565,9 +568,9 @@ class Canvas(Widget):
             'outline': bool(outline),
             'outline_color': self._parse_color(outline_color),
             'outline_w_mm': float(outline_width_mm),
-            'id': set(id or []),
+            'tags': set(tags or id or []),
         }
-        self._register_id(item_id)
+        self._register_tags(item_id)
         self._draw_order.append(item_id)
         self._redraw_item(item_id)
         return item_id
@@ -584,6 +587,7 @@ class Canvas(Widget):
         outline: bool = True,
         outline_color: str = '#000000',
         outline_width_mm: float = 0.25,
+        tags: Optional[Iterable[str]] = None,
         id: Optional[Iterable[str]] = None,
     ) -> int:
         '''Add an oval (ellipse) inscribed in the rectangle defined by two corners in mm.
@@ -611,9 +615,9 @@ class Canvas(Widget):
             'outline': bool(outline),
             'outline_color': self._parse_color(outline_color),
             'outline_w_mm': float(outline_width_mm),
-            'id': set(id or []),
+            'tags': set(tags or id or []),
         }
-        self._register_id(item_id)
+        self._register_tags(item_id)
         self._draw_order.append(item_id)
         self._redraw_item(item_id)
         return item_id
@@ -629,6 +633,7 @@ class Canvas(Widget):
         stroke_width_mm: float = 0.25,
         stroke_dash: bool = False,
         stroke_dash_pattern_mm: Tuple[float, float] = (2.0, 2.0),
+        tags: Optional[Iterable[str]] = None,
         id: Optional[Iterable[str]] = None,
     ) -> int:
         '''Add a straight line segment between two points in mm.
@@ -649,9 +654,9 @@ class Canvas(Widget):
             'close': False,
             'dash': bool(stroke_dash),
             'dash_mm': (float(stroke_dash_pattern_mm[0]), float(stroke_dash_pattern_mm[1])),
-            'id': set(id or []),
+            'tags': set(tags or id or []),
         }
-        self._register_id(item_id)
+        self._register_tags(item_id)
         self._draw_order.append(item_id)
         self._redraw_item(item_id)
         return item_id
@@ -664,6 +669,7 @@ class Canvas(Widget):
         width_mm: float = 0.25,
         dash: bool = False,
         dash_pattern_mm: Tuple[float, float] = (2.0, 2.0),
+        tags: Optional[Iterable[str]] = None,
         id: Optional[Iterable[str]] = None,
     ) -> int:
         '''Add a polyline/path defined by a list of mm points [x0,y0,x1,y1,...].
@@ -685,9 +691,9 @@ class Canvas(Widget):
             'w_mm': float(width_mm),
             'dash': bool(dash),
             'dash_mm': (float(dash_pattern_mm[0]), float(dash_pattern_mm[1])),
-            'id': set(id or []),
+            'tags': set(tags or id or []),
         }
-        self._register_id(item_id)
+        self._register_tags(item_id)
         self._draw_order.append(item_id)
         self._redraw_item(item_id)
         return item_id
@@ -701,6 +707,7 @@ class Canvas(Widget):
         outline: bool = True,
         outline_color: str = '#000000',
         outline_width_mm: float = 0.25,
+        tags: Optional[Iterable[str]] = None,
         id: Optional[Iterable[str]] = None,
     ) -> int:
         '''
@@ -723,9 +730,9 @@ class Canvas(Widget):
             'outline': bool(outline),
             'outline_color': self._parse_color(outline_color),
             'outline_w_mm': float(outline_width_mm),
-            'id': set(id or []),
+            'tags': set(tags or id or []),
         }
-        self._register_id(item_id)
+        self._register_tags(item_id)
         self._draw_order.append(item_id)
         self._redraw_item(item_id)
         return item_id
@@ -739,6 +746,7 @@ class Canvas(Widget):
         angle_deg: float = 0.0,
         anchor: str = 'top_left',
         color: str = '#000000',
+        tags: Optional[Iterable[str]] = None,
         id: Optional[Iterable[str]] = None,
     ) -> int:
         '''Add a text label.
@@ -772,42 +780,42 @@ class Canvas(Widget):
             'angle_deg': float(angle_deg),
             'anchor': str(anchor or 'top_left'),
             'color': self._parse_color(color),
-            'id': set(id or []),
+            'tags': set(tags or id or []),
         }
-        self._register_id(item_id)
+        self._register_tags(item_id)
         self._draw_order.append(item_id)
         self._redraw_item(item_id)
         return item_id
 
-    # ----- id/IDs -----
+    # ----- Tags API -----
 
-    def find_by_id(self, item_id: int) -> Optional[Dict[str, Any]]:
-        '''Return the stored item dict by id.'''
-        return self._items.get(item_id)
+    def get_item(self, item_handle: int) -> Optional[Dict[str, Any]]:
+        '''Return the stored item dict by internal handle.'''
+        return self._items.get(item_handle)
 
-    def add_tag(self, item_id: int, tag: str):
-        if item_id in self._items:
-            self._items[item_id]['id'].add(tag)
-            self._id.setdefault(tag, set()).add(item_id)
+    def add_tag(self, item_handle: int, tag: str):
+        if item_handle in self._items:
+            self._items[item_handle]['tags'].add(tag)
+            self._tag_index.setdefault(tag, set()).add(item_handle)
 
-    def remove_by_id(self, item_id: int, tag: str):
-        if item_id in self._items:
-            self._items[item_id]['id'].discard(tag)
-        if tag in self._id:
-            self._id[tag].discard(item_id)
-            if not self._id[tag]:
-                del self._id[tag]
+    def remove_tag(self, item_handle: int, tag: str):
+        if item_handle in self._items:
+            self._items[item_handle]['tags'].discard(tag)
+        if tag in self._tag_index:
+            self._tag_index[tag].discard(item_handle)
+            if not self._tag_index[tag]:
+                del self._tag_index[tag]
 
     def find_by_tag(self, tag: str) -> List[int]:
-        return sorted(self._id.get(tag, set()))
+        return sorted(self._tag_index.get(tag, set()))
 
     def delete_by_tag(self, tag: str):
         '''Delete all items with the specified tag.'''
-        item_ids = list(self._id.get(tag, set()))
+        item_ids = list(self._tag_index.get(tag, set()))
         for item_id in item_ids:
             self.delete(item_id)
 
-    def raise_in_order(self, tags: List[str]):
+    def tag_draw_order(self, tags: List[str]):
         '''Reorder items so that items with the specified tags are drawn in the given order.
         
         Items with tags earlier in the list will be drawn first (behind).
@@ -818,7 +826,7 @@ class Canvas(Widget):
             tags: List of tags in the desired drawing order (first = bottom, last = top)
         
         Example:
-            canvas.raise_in_order(['staveThreeLines', 'staveTwoLines', 'staveClefLines'])
+            canvas.tag_draw_order(['staveThreeLines', 'staveTwoLines', 'staveClefLines'])
             # staveThreeLines will be drawn first (at the back)
             # staveClefLines will be drawn last (on top)
         '''
@@ -848,17 +856,17 @@ class Canvas(Widget):
             if item_id in self._items:
                 self._items_group.add(self._items[item_id]['group'])
 
-    def delete(self, item_id: int):
-        '''Delete an item by id.'''
-        item = self._items.pop(item_id, None)
+    def delete(self, item_handle: int):
+        '''Delete an item by internal handle.'''
+        item = self._items.pop(item_handle, None)
         if not item:
             return
         group: InstructionGroup = item['group']
         self._items_group.remove(group)
-        for tag in list(item.get('id', [])):
-            self.remove_by_id(item_id, tag)
-        if item_id in self._draw_order:
-            self._draw_order.remove(item_id)
+        for tag in list(item.get('tags', [])):
+            self.remove_tag(item_handle, tag)
+        if item_handle in self._draw_order:
+            self._draw_order.remove(item_handle)
 
     # ----- Background / properties -----
 
@@ -1150,9 +1158,9 @@ class Canvas(Widget):
         self._next_id += 1
         return nid
 
-    def _register_id(self, item_id: int):
-        for tag in self._items[item_id]['id']:
-            self._id.setdefault(tag, set()).add(item_id)
+    def _register_tags(self, item_handle: int):
+        for tag in self._items[item_handle]['tags']:
+            self._tag_index.setdefault(tag, set()).add(item_handle)
 
     def _redraw_all(self):
         for item_id in self._items.keys():

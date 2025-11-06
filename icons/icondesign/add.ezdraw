@@ -1,6 +1,6 @@
-<?xml version='1.0' encoding='UTF-8'?>
-<!DOCTYPE plist PUBLIC '-//Apple//DTD PLIST 1.0//EN' 'http://www.apple.com/DTDs/PropertyList-1.0.dtd'>
-<plist version='1.0'>
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
 <dict>
 	<key>AAAA_CurrentOSVersion</key>
 	<string>macOS Tahoe 26: 4040.100000</string>
@@ -105,15 +105,15 @@
 	NTY2LjkyOTFdIC9Db3VudCAxIC9LaWRzIFsgMSAwIFIgXQo+PgplbmRvYmoKOSAwIG9i
 	ago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjEwIDAgb2Jq
 	Cjw8IC9Qcm9kdWNlciAobWFjT1MgVmVyc2lvbiAyNi4wLjEgXChCdWlsZCAyNUEzNjJc
-	KSBRdWFydHogUERGQ29udGV4dCkgL0NyZWF0aW9uRGF0ZQooRDoyMDI1MTEwNTA2MDc1
-	NVowMCcwMCcpIC9Nb2REYXRlIChEOjIwMjUxMTA1MDYwNzU1WjAwJzAwJykgPj4KZW5k
+	KSBRdWFydHogUERGQ29udGV4dCkgL0NyZWF0aW9uRGF0ZQooRDoyMDI1MTEwNTE3MTE0
+	N1owMCcwMCcpIC9Nb2REYXRlIChEOjIwMjUxMTA1MTcxMTQ3WjAwJzAwJykgPj4KZW5k
 	b2JqCnhyZWYKMCAxMQowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAyMzUgMDAwMDAg
 	biAKMDAwMDAwNDQ0MCAwMDAwMCBuIAowMDAwMDAwMDIyIDAwMDAwIG4gCjAwMDAwMDAz
 	NDkgMDAwMDAgbiAKMDAwMDAwMzkxNCAwMDAwMCBuIAowMDAwMDA0NDA1IDAwMDAwIG4g
 	CjAwMDAwMDA0MjggMDAwMDAgbiAKMDAwMDAwMzk0OSAwMDAwMCBuIAowMDAwMDA0NTMz
 	IDAwMDAwIG4gCjAwMDAwMDQ1ODIgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSAxMSAv
-	Um9vdCA5IDAgUiAvSW5mbyAxMCAwIFIgL0lEIFsgPGE3OGEyM2FhMDUwYzRjZTkwZjZi
-	NThlNDYzMjM3MTBlPgo8YTc4YTIzYWEwNTBjNGNlOTBmNmI1OGU0NjMyMzcxMGU+IF0g
+	Um9vdCA5IDAgUiAvSW5mbyAxMCAwIFIgL0lEIFsgPDYxMTk5MTA4OGYyZDAwODhjYTdk
+	NDUxM2VkNTA2OWVlPgo8NjExOTkxMDg4ZjJkMDA4OGNhN2Q0NTEzZWQ1MDY5ZWU+IF0g
 	Pj4Kc3RhcnR4cmVmCjQ3NDcKJSVFT0YK
 	</data>
 	<key>ArchiveMatchStore</key>
@@ -170,7 +170,7 @@
 		</array>
 	</dict>
 	<key>DKDChangeTimeStamp</key>
-	<string>2025-11-05 12:07:44 +0600</string>
+	<string>2025-11-05 23:11:30 +0600</string>
 	<key>DKDCreateTimeStamp</key>
 	<string>2024-03-09 19:04:52 +0600</string>
 	<key>DKDDisplayGraphicDetails</key>
@@ -680,7 +680,7 @@
 		<string>NO</string>
 	</dict>
 	<key>DKDSaveTimeStamp</key>
-	<string>2025-11-05 12:07:55 +0600</string>
+	<string>2025-11-05 23:11:47 +0600</string>
 	<key>DKDTablet</key>
 	<dict>
 		<key>BrushDynamic</key>
@@ -746,9 +746,9 @@
 		<key>CursorMode</key>
 		<string>Nothing</string>
 		<key>DocCenter</key>
-		<string>{425.196846929, 423.116627521}</string>
+		<string>{426.028934692, 439.342338901}</string>
 		<key>DocumentFileName</key>
-		<string>/Users/philipbergwerf/Documents/pianoTAB/icons/icondesign/add.ezdraw</string>
+		<string>/Users/philipbergwerf/Documents/pianoTab/icons/icondesign/add.ezdraw</string>
 		<key>DrawersOnMainView</key>
 		<string>YES</string>
 		<key>GDetailsLayersDrawerEdgePreference</key>
@@ -766,7 +766,7 @@
 		<key>OutlineDrawing</key>
 		<string>NO</string>
 		<key>WindowLocation</key>
-		<string>35 475 435 498 0 0 1920 1049 </string>
+		<string>135 166 785 857 0 0 1920 1049 </string>
 		<key>ZoomPercent</key>
 		<string>120.135498</string>
 	</dict>

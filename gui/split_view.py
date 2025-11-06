@@ -10,7 +10,7 @@ from kivy.graphics import Color, Rectangle
 from kivy.properties import NumericProperty, ObjectProperty, ListProperty
 from kivy.clock import Clock
 from kivy.core.window import Window
-from gui.colors import DARK, LIGHT_DARKER
+from gui.colors_hue import DARK, LIGHT_DARKER
 from typing import Dict, Tuple, Callable, Optional, Any
 from icons.icon import load_icon
 

@@ -135,8 +135,8 @@ class ColorScheme:
 '''
 default_colors = ColorScheme(
     color_light='#FFFFFF',
-    color_dark="#373620",
-    accent_color="#a8c106"
+    color_dark="#372B20",
+    accent_color="#c14406"
 )
 
 # Easy access to colors throughout the app

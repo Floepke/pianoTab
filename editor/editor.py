@@ -256,7 +256,7 @@ class Editor:
         barlines = self._draw_barlines_and_grid()
         
         # Set proper drawing order: stave lines at back, then gridlines, barlines, measure numbers, notes on top
-        self.canvas.raise_in_order([
+        self.canvas.tag_draw_order([
             'staveThreeLines',
             'staveTwoLines',
             'staveClefLines',
@@ -318,7 +318,7 @@ class Editor:
                     stroke_width_mm=width,
                     stroke_dash=is_clef_line,  # Only clef lines are dashed
                     stroke_dash_pattern_mm=tuple(self.clef_dash_pattern) if is_clef_line else (2.0, 2.0),
-                    id=[category_tag]
+                    tags=[category_tag]
                 )
                 lines_drawn += 1
             
@@ -350,7 +350,7 @@ class Editor:
                     x2_mm=self.editor_margin + self.stave_width, y2_mm=y_pos,
                     stroke_color=self.barline_color,
                     stroke_width_mm=self.barline_width,
-                    id=['barlines', f'barline_{measure_number}']
+                    tags=['barlines', f'barline_{measure_number}']
                 )
                 
                 # Measure number (positioned at right edge before scrollbar)
@@ -361,7 +361,7 @@ class Editor:
                     font_size_pt=sp(12) * 2,  # Kivy font * 2, then convert back to pt for canvas
                     color=self.barline_color,
                     anchor='ne',
-                    id=['measureNumbers', f'measure_number_{measure_number}']
+                    tags=['measureNumbers', f'measure_number_{measure_number}']
                 )
         
         # Calculate and draw gridlines (your get_editor_gridline_positions equivalent)
@@ -384,7 +384,7 @@ class Editor:
                             stroke_width_mm=self.gridline_width,
                             stroke_dash=True,  # Dashed gridlines
                             stroke_dash_pattern_mm=tuple(self.gridline_dash_pattern),  # Use SCORE model pattern
-                            id=['gridlines', f'gridline_{total_ticks}_{i}']
+                            tags=['gridlines', f'gridline_{total_ticks}_{i}']
                         )
                 total_ticks += measure_ticks
         
@@ -396,7 +396,7 @@ class Editor:
                 x2_mm=self.editor_margin + self.stave_width, y2_mm=final_y_pos,
                 stroke_color=self.barline_color,
                 stroke_width_mm=self.barline_width * 2,  # Double thickness for end barline
-                id=['barlines', 'endBarline']
+                tags=['barlines', 'endBarline']
             )
     
     # Zoom and interaction methods (simplified for initial implementation)
@@ -530,7 +530,7 @@ class Editor:
         '''Handle click on canvas items.'''
         if item_id in self.canvas._items:
             canvas_item = self.canvas._items[item_id]
-            item_tags = canvas_item.get('id', set())
+            item_tags = canvas_item.get('tags', set())
             
             for tag in item_tags:
                 if tag.startswith('note_'):
@@ -649,7 +649,7 @@ class Editor:
                 stroke_width_mm=0.25,
                 stroke_dash=True,
                 stroke_dash_pattern_mm=(2.0, 2.0),
-                id=['cursorLine']
+                tags=['cursorLine']
             )
             # Kept on top by being added after raise_in_order in render()
         except Exception as e:

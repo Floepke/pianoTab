@@ -51,7 +51,7 @@ from kivy.graphics import Color, Rectangle, InstructionGroup, Line
 from kivy.properties import NumericProperty
 from kivy.clock import Clock
 
-from gui.colors import DARK_LIGHTER, LIGHT_DARKER, DARK, ACCENT_COLOR
+from gui.colors_hue import DARK_LIGHTER, LIGHT_DARKER, DARK, ACCENT_COLOR
 from utils.canvas import CustomScrollbar
 from file.SCORE import SCORE, Event
 from icons.icon import IconLoader
@@ -609,8 +609,9 @@ class PropertyTreeEditor(BoxLayout):
                 )
         elif isinstance(root, list):
             for i, v in enumerate(root):
+                # Display list indices 1-based for users; keep internal index/path 0-based
                 self._build_value_row(
-                    key_label=f'[{i}]', attr_name=i, value=v, parent=root, path=(i,), level=0
+                    key_label=f'[{i + 1}]', attr_name=i, value=v, parent=root, path=(i,), level=0
                 )
         else:
             self._build_scalar_row(key_label='root', value=root, path=(), level=0)
@@ -882,8 +883,9 @@ class PropertyTreeEditor(BoxLayout):
                 )
         elif isinstance(obj, list):
             for i, v in enumerate(obj):
+                # Display list indices 1-based for users; keep internal index/path 0-based
                 self._build_value_row(
-                    key_label=f'[{i}]', attr_name=i, value=v, parent=obj, path=path + (i,), level=level + 1
+                    key_label=f'[{i + 1}]', attr_name=i, value=v, parent=obj, path=path + (i,), level=level + 1
                 )
         else:
             self._build_scalar_row(key_label=title, value=obj, path=path, level=level + 1)
@@ -1320,7 +1322,8 @@ class PropertyTreeEditor(BoxLayout):
 
         # Items
         for i, v in enumerate(lst):
-            title = f'[{i}]'
+            # Display list indices 1-based for users; keep internal index/path 0-based
+            title = f'{i + 1}'
             if is_dataclass(v):
                 self._build_object_row(title, v, path + (i,), level + 1)
             else:

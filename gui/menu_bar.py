@@ -5,12 +5,13 @@ Provides File/Edit/View/Help menus similar to traditional desktop apps.
 
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
+from kivy.uix.label import Label
 from kivy.uix.dropdown import DropDown
 from kivy.uix.widget import Widget
 from kivy.graphics import Color, Rectangle, Line
 from kivy.clock import Clock
 from kivy.core.window import Window
-from gui.colors import DARK, DARK_LIGHTER, LIGHT
+from gui.colors_hue import DARK, DARK_LIGHTER, LIGHT
 
 
 class MenuBar(BoxLayout):
@@ -61,6 +62,27 @@ class MenuBar(BoxLayout):
 
         # Spacer to push menus to the left (add AFTER menus)
         self.add_widget(BoxLayout())
+
+        # Right-aligned clock (HH:MM:SS)
+        self.clock_label = Label(
+            text='00:00:00',
+            size_hint_x=None,
+            width=96,
+            color=LIGHT,
+            halign='right',
+            valign='middle'
+        )
+        # Keep text aligned within label width
+        # set text_size width and height so Kivy doesn't wrap the last char to a new line
+        self.clock_label.bind(size=lambda lbl, s: setattr(lbl, 'text_size', (s[0] - 8, s[1])))
+        self.add_widget(self.clock_label)
+
+        # Start timer to update every second
+        try:
+            Clock.schedule_interval(self._update_clock, 1.0)
+            self._update_clock(0)
+        except Exception:
+            pass
 
     def _build_from_config(self, config):
         '''Build menu structure from configuration dict.'''
@@ -278,4 +300,15 @@ class MenuBar(BoxLayout):
     def _update_bg(self, *args):
         self.bg.pos = self.pos
         self.bg.size = self.size
+
+    # ---------- Clock ----------
+
+    def _update_clock(self, _dt):
+        try:
+            from datetime import datetime
+            now = datetime.now().strftime('%H:%M:%S')
+            if getattr(self, 'clock_label', None) is not None:
+                self.clock_label.text = now
+        except Exception:
+            pass
 

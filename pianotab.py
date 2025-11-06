@@ -56,7 +56,7 @@ from kivy.clock import Clock
 from kivy.logger import Logger
 from kivy.utils import platform
 from gui.gui import GUI
-from gui.colors import DARK
+from gui.colors_hue import DARK
 from editor.editor import Editor
 from file.SCORE import SCORE
 from utils.file_manager import FileManager
