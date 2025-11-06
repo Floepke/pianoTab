@@ -140,13 +140,6 @@ class pianoTAB(App):
         except Exception as e:
             Logger.warning(f'pianoTAB: Could not schedule zoom refresh: {e}')
 
-        # Test: set scroll to time 0, then after 2 seconds to 1024.0 (second barline)
-        try:
-            Clock.schedule_once(self._test_scroll_sequence, 0.8)
-            Logger.info('pianoTAB: Scheduled test scroll sequence (0.0 then 1024.0)')
-        except Exception as e:
-            Logger.warning(f'pianoTAB: Could not schedule test scroll sequence: {e}')
-
         # Optional: bring window to front after background start (macOS)
         try:
             if sys.platform == 'darwin':

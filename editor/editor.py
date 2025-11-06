@@ -110,6 +110,25 @@ class Editor:
 
     # Defer zoom refresh until the canvas attaches us and scale is known.
     
+    def load_score(self, score: SCORE):
+        '''Load a new score into the editor and refresh the display.'''
+        self.score = score
+        self._apply_settings_from_score()
+        # Reset scroll position to the beginning
+        self.scroll_time_offset = 0.0
+        # Trigger a full redraw with the new score
+        self.zoom_refresh()
+    
+    def refresh_display(self):
+        '''Refresh the display after properties have changed.
+        
+        Re-applies settings from the score (zoom, colors, line widths, etc.)
+        and triggers a full redraw. Use this when score properties are edited
+        via the property tree editor.
+        '''
+        self._apply_settings_from_score()
+        self.zoom_refresh()
+    
     def _create_default_score_template(self) -> SCORE:
         '''Create a default score with a single stave and exactly one base grid.'''
         score = SCORE()
@@ -216,7 +235,6 @@ class Editor:
     
     def render(self):
         '''Render the complete piano roll with all elements.'''
-        print('DEBUG: Starting render()')
         
         # Clear any existing content
         self.canvas.clear()
@@ -232,12 +250,6 @@ class Editor:
         ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
         content_height_mm = (total_time / max(1e-6, ql)) * mm_per_quarter
         total_height_mm = content_height_mm + (2.0 * self.editor_margin)  # top + bottom margin equal to editor_margin
-        
-        print(f'DEBUG: Canvas size: {self.width}mm x {self.height}mm')
-        print(f'DEBUG: Piano width: {piano_width}mm (margin: {self.editor_margin}mm)')
-        print(f'DEBUG: Calculated content height: {content_height_mm}mm')
-        print(f'DEBUG: Total logical page height (with margins): {total_height_mm}mm')
-        print(f'DEBUG: Total time in ticks: {total_time}')
         
         # Reconcile canvas height to desired content height (shrink or grow).
         # Use tolerance to avoid thrashing on tiny deltas; preserve scroll position.
@@ -314,10 +326,10 @@ class Editor:
                 self.canvas.add_line(
                     x1_mm=x_pos, y1_mm=self.editor_margin,
                     x2_mm=x_pos, y2_mm=self.editor_margin + stave_height,
-                    stroke_color=color,
-                    stroke_width_mm=width,
-                    stroke_dash=is_clef_line,  # Only clef lines are dashed
-                    stroke_dash_pattern_mm=tuple(self.clef_dash_pattern) if is_clef_line else (2.0, 2.0),
+                    color=color,
+                    width_mm=width,
+                    dash=is_clef_line,  # Only clef lines are dashed
+                    dash_pattern_mm=tuple(self.clef_dash_pattern) if is_clef_line else (2.0, 2.0),
                     tags=[category_tag]
                 )
                 lines_drawn += 1
@@ -340,7 +352,6 @@ class Editor:
                 barline_positions.append((y_pos, len(barline_positions) + 1))  # (position, measure_number)
                 total_ticks += measure_ticks
         
-        barlines_drawn = 0
         # Draw barlines with measure numbers
         for y_pos, measure_number in barline_positions:
             if 0 <= y_pos <= self.canvas.height_mm + self.editor_margin:
@@ -348,19 +359,19 @@ class Editor:
                 self.canvas.add_line(
                     x1_mm=self.editor_margin, y1_mm=y_pos,
                     x2_mm=self.editor_margin + self.stave_width, y2_mm=y_pos,
-                    stroke_color=self.barline_color,
-                    stroke_width_mm=self.barline_width,
+                    color=self.barline_color,
+                    width_mm=self.barline_width,
                     tags=['barlines', f'barline_{measure_number}']
                 )
                 
                 # Measure number (positioned at right edge before scrollbar)
                 self.canvas.add_text(
                     text=str(measure_number),
-                    x_mm=self.editor_width, 
+                    x_mm=1, 
                     y_mm=y_pos,
-                    font_size_pt=sp(12) * 2,  # Kivy font * 2, then convert back to pt for canvas
+                    font_size_pt=sp(12),  # Kivy font * 2, then convert back to pt for canvas
                     color=self.barline_color,
-                    anchor='ne',
+                    anchor='nw',
                     tags=['measureNumbers', f'measure_number_{measure_number}']
                 )
         
@@ -380,10 +391,10 @@ class Editor:
                         self.canvas.add_line(
                             x1_mm=self.editor_margin, y1_mm=y_pos,
                             x2_mm=self.editor_margin + self.stave_width, y2_mm=y_pos,
-                            stroke_color=self.gridline_color,
-                            stroke_width_mm=self.gridline_width,
-                            stroke_dash=True,  # Dashed gridlines
-                            stroke_dash_pattern_mm=tuple(self.gridline_dash_pattern),  # Use SCORE model pattern
+                            color=self.gridline_color,
+                            width_mm=self.gridline_width,
+                            dash=True,  # Dashed gridlines
+                            dash_pattern_mm=tuple(self.gridline_dash_pattern),  # Use SCORE model pattern
                             tags=['gridlines', f'gridline_{total_ticks}_{i}']
                         )
                 total_ticks += measure_ticks
@@ -394,8 +405,8 @@ class Editor:
             self.canvas.add_line(
                 x1_mm=self.editor_margin, y1_mm=final_y_pos,
                 x2_mm=self.editor_margin + self.stave_width, y2_mm=final_y_pos,
-                stroke_color=self.barline_color,
-                stroke_width_mm=self.barline_width * 2,  # Double thickness for end barline
+                color=self.barline_color,
+                width_mm=self.barline_width * 2,  # Double thickness for end barline
                 tags=['barlines', 'endBarline']
             )
     
@@ -645,129 +656,12 @@ class Editor:
                 y1_mm=y_mm,
                 x2_mm=x2,
                 y2_mm=y_mm,
-                stroke_color='#000000',
-                stroke_width_mm=0.25,
-                stroke_dash=True,
-                stroke_dash_pattern_mm=(2.0, 2.0),
+                color='#000000',
+                width_mm=0.25,
+                dash=True,
+                dash_pattern_mm=(2.0, 2.0),
                 tags=['cursorLine']
             )
             # Kept on top by being added after raise_in_order in render()
         except Exception as e:
             print(f'CURSOR DEBUG: draw failed: {e}')
-
-
-# Maintain backward compatibility and integrate with main app
-class Editor(Editor):
-    '''
-    Main Editor class that integrates PianoRollEditor with the pianoTAB application.
-    
-    This class:
-    - Inherits piano roll functionality from PianoRollEditor
-    - Connects to the SCORE model for line thickness and color settings
-    - Integrates with the main GUI and file management system
-    - Handles callbacks for score modifications
-    '''
-    
-    def __init__(self, editor_canvas: Canvas, score: Optional[SCORE] = None):
-        # Initialize the piano roll editor
-        super().__init__(editor_canvas, score)
-        
-        # Callback for when the score is modified
-        self.on_modified: Optional[Callable] = None
-        
-        # Connect to SCORE model line thickness settings
-        self._update_line_settings_from_score()
-        
-        # Schedule initial render
-        Clock.schedule_once(self._initial_render, 0.2)
-    
-    def set_score(self, score: SCORE):
-        '''Set a new score and update the display.'''
-        self.score = score
-        # Sync all visuals and zoom from new score
-        self._apply_settings_from_score()
-        self.render()
-        if self.on_modified:
-            self.on_modified()
-    
-    def _update_line_settings_from_score(self):
-        '''Update settings from SCORE; kept for backward-compatibility.
-
-        Delegates to _apply_settings_from_score() which now syncs both zoom and
-        visual line settings from the model to ensure the editor matches paper output.
-        '''
-        self._apply_settings_from_score()
-        
-    def load_score(self, score: SCORE):
-        '''Load an existing SCORE into the editor and refresh the display.'''
-        try:
-            # Use existing pipeline to apply the new score, zoom, and styles
-            self.set_score(score)
-            # Reset view related state
-            self.scroll_time_offset = 0.0
-            try:
-                self.cursor_time = None
-            except Exception:
-                pass
-        except Exception as e:
-            print(f'Editor: load_score error: {e}')
-
-    def new_score(self):
-        '''Create a new default SCORE and display it.'''
-        try:
-            score = self._create_default_score_template()
-            self.set_score(score)
-            # Reset view related state
-            self.scroll_time_offset = 0.0
-            try:
-                self.cursor_time = None
-            except Exception:
-                pass
-        except Exception as e:
-            print(f'Editor: new_score error: {e}')
-    
-    def _initial_render(self, dt):
-        '''Perform initial render after app has loaded.'''
-        try:
-            self.render()
-            print(f'Editor: Initial render complete for score with {len(self.score.stave)} staves')
-        except Exception as e:
-            print(f'Editor: Initial render error: {e}')
-            import traceback
-            traceback.print_exc()
-    
-    def add_note(self, stave_idx: int, pitch: int, time: float, duration: float, hand: str = '>'):
-        '''Add a new note to the score and update the display.'''
-        try:
-            self.score.new_note(stave_idx, time, pitch, duration, hand)
-            self.render()
-            if self.on_modified:
-                self.on_modified()
-        except Exception as e:
-            print(f'Editor: Error adding note: {e}')
-    
-    def delete_selected_notes(self):
-        '''Delete currently selected notes and update the display.'''
-        if not self.selected_notes:
-            return
-        
-        try:
-            # Remove notes from score
-            for note in self.selected_notes:
-                for stave in self.score.stave:
-                    if note in stave.event.note:
-                        stave.event.note.remove(note)
-                        break
-            
-            # Clear selection and re-render
-            self.selected_notes.clear()
-            self.render()
-            if self.on_modified:
-                self.on_modified()
-        except Exception as e:
-            print(f'Editor: Error deleting notes: {e}')
-    
-    def refresh_display(self):
-        '''Refresh the display after score changes.'''
-        self._apply_settings_from_score()
-        self.render()

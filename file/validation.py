@@ -21,7 +21,16 @@ def get_field_mappings(cls: Type) -> Dict[str, str]:
     for field_obj in fields(cls):
         # Get JSON name from metadata
         metadata = field_obj.metadata.get('dataclasses_json', {})
-        json_name = metadata.get('field_name', field_obj.name)
+        
+        # Check if there's a letter_case function (used by config(field_name=...))
+        if 'letter_case' in metadata and callable(metadata['letter_case']):
+            try:
+                json_name = metadata['letter_case'](field_obj.name)
+            except Exception:
+                json_name = field_obj.name
+        else:
+            # Fallback to field_name or the field's name
+            json_name = metadata.get('field_name', field_obj.name)
         
         # For storage fields (like _color), keep the underscore in the code name
         # because that's how it's defined in the dataclass
@@ -104,13 +113,13 @@ def validate_and_fix_object(obj_dict: Dict[str, Any], cls: Type, obj_type: str =
                 fixed_dict[json_name] = default_value
                 code_name = json_to_code.get(json_name, json_name)
                 warnings.append(
-                    f'{obj_type}: Missing field '{json_name}' (code: '{code_name}'), '
+                    f'{obj_type}: Missing field "{json_name}" (code: "{code_name}"), '
                     f'using default: {default_value}'
                 )
             else:
                 # Required field with no default
                 warnings.append(
-                    f'{obj_type}: REQUIRED field '{json_name}' is missing and has no default!'
+                    f'{obj_type}: REQUIRED field "{json_name}" is missing and has no default!'
                 )
     
     return fixed_dict, warnings

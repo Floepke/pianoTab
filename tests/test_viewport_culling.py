@@ -85,8 +85,8 @@ class ViewportCullingTest(BoxLayout):
                 self.canvas_widget.add_line(
                     0, line_y,
                     210, line_y,
-                    stroke_color='#CCCCCC',
-                    stroke_width_mm=0.2,
+                    color='#CCCCCC',
+                    width_mm=0.2,
                     tags=['staff']
                 )
             

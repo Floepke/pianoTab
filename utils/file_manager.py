@@ -260,6 +260,8 @@ class FileManager:
                 except Exception:
                     pass
             except Exception as e:
+                import traceback
+                traceback.print_exc()  # Print full traceback to console for debugging
                 self._dismiss_popup()
                 self._error(f'Failed to load file:\n{e}')
         
