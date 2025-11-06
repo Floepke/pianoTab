@@ -48,13 +48,13 @@ SIDE_PANEL_WIDTH_PX = 350
 
 
 
-class MainMenu(MenuBar):
-    '''
-    Wrapper around the existing MenuBar. The GUI root should pass in the current
-    menu configuration using the central callbacks configuration.
-    '''
-    def __init__(self, menu_config: Optional[dict] = None, **kwargs):
-        super().__init__(menu_config=menu_config or {}, **kwargs)
+# class MainMenu(MenuBar):
+#     '''
+#     Wrapper around the existing MenuBar. The GUI root should pass in the current
+#     menu configuration using the central callbacks configuration.
+#     '''
+#     def __init__(self, menu_config: Optional[dict] = None, **kwargs):
+#         super().__init__(menu_config=menu_config or {}, **kwargs)
 
 
 class SidePanel(ScrollView):
@@ -210,7 +210,7 @@ class GUI(BoxLayout):
             menu_cfg = create_menu_config(self)
         except Exception:
             menu_cfg = {}
-        self.menu_bar = MainMenu(menu_cfg)
+        self.menu_bar = MenuBar(menu_cfg)
         self.add_widget(self.menu_bar)
 
         # Menu/file integration (wired later by App/FileManager)

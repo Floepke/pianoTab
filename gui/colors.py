@@ -14,6 +14,7 @@ class ColorSchemeHue:
             self._orig[name] = (h, s, v, a)
         self.hue = hue / 360.0  # Store as 0-1
         self.update_colors()
+    
     def update_colors(self):
         # Shift all colors to new hue, keep S/V/A
         self.color_light = self._hue_rgba('light')
@@ -21,16 +22,20 @@ class ColorSchemeHue:
         self.accent_color = self._hue_rgba('accent')
         self.color_light_darker = self._blend(self.color_light, self.color_dark, 0.25)
         self.color_dark_lighter = self._blend(self.color_dark, self.color_light, 0.25)
+    
     def set_hue(self, hue_deg):
         self.hue = hue_deg / 360.0
         self.update_colors()
+    
     def _hue_rgba(self, name):
         h, s, v, a = self._orig[name]
         r, g, b = colorsys.hsv_to_rgb(self.hue, s, v)
         return (r, g, b, a)
+    
     @staticmethod
     def _blend(color1, color2, amount):
         return tuple(color1[i] + (color2[i] - color1[i]) * amount for i in range(4))
+    
     def get_all(self):
         return {
             'light': self.color_light,
@@ -46,7 +51,7 @@ hue_theme = ColorSchemeHue(
     color_light=(1.0, 1.0, 1.0, 1.0),
     color_dark=(0.215, 0.169, 0.125, 1.0),
     accent_color=(0.757, 0.267, 0.024, 1.0),
-    hue=0.0  # initial hue in degrees
+    hue=30.0  # initial hue in degrees
 )
 
 # To change theme hue, call:

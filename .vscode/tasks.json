@@ -11,7 +11,7 @@
 				"command": "${workspaceFolder}/.venv/bin/python"
 			},
 			"linux": {
-				"command": "${workspaceFolder}/.venv/bin/python"
+				"command": "${workspaceFolder}/venv/bin/python"
 			},
 			"args": [
 				"${workspaceFolder}/pianotab.py"

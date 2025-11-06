@@ -158,33 +158,6 @@ class PrintPreviewWidget(Widget):
         self.paper_rect.size = (paper_width, paper_height)
 
 
-class PropertiesPanelWidget(Widget):
-    '''
-    Bottom properties panel placeholder.
-    Will later display/edit settings organized in tabs.
-    '''
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        with self.canvas.before:
-            self.bg_color = Color(*DARK_LIGHTER)
-            self.bg_rect = Rectangle(pos=self.pos, size=self.size)
-        self.bind(pos=self._update_bg, size=self._update_bg)
-
-        # Simple placeholder label
-        self.label = Label(
-            text='Properties Panel\n(coming soon)',
-            color=LIGHT,
-            font_size='18sp',
-            halign='center'
-        )
-        self.add_widget(self.label)
-
-    def _update_bg(self, *args):
-        self.bg_rect.pos = self.pos
-        self.bg_rect.size = self.size
-        self.label.center = self.center
-
-
 class SidePanelWidget(ScrollView):
     '''
     Left side panel widget - a simple scrollable vertical layout.
@@ -317,9 +290,6 @@ class pianoTABGUI(BoxLayout):
             border_color=DARK,
             border_width_px=1.0
         )
-
-        # Properties panel (bottom of inner split)
-        self.properties_panel = PropertiesPanelWidget()
 
         # Inner vertical-orientation split (horizontal sash) between editor (top) and properties (bottom)
         self.editor_properties_split = SplitView(
