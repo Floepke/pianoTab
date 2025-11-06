@@ -227,18 +227,10 @@ class GUI(BoxLayout):
 
     # ----- Layout assembly -----
     def _build_splits(self):
-        # OUTER: 2-panel horizontal split (emulates 3 with a nested split on the right)
-        # Sash width = 0 so left fixed panel cannot be resized by the user
-        self.outer_split = SplitView(
-            orientation='horizontal',
-            sash_width=0,
-            split_ratio=0.25,    # Temporary; we will lock left to 150px at runtime
-            sash_color=DARK,
-            min_left_size=0,
-            min_right_size=0
-        )
+        # OUTER: Simple horizontal BoxLayout with fixed-width left panel
+        self.outer_layout = BoxLayout(orientation='horizontal', spacing=0)
 
-        # LEFT: SidePanel (fixed width ~150px)
+        # LEFT: SidePanel (fixed width)
         self.side_panel = SidePanel(
             grid_callback=self._on_grid_step_changed,
             tool_callback=self._on_tool_selected
@@ -285,52 +277,16 @@ class GUI(BoxLayout):
         except Exception:
             pass
 
-        # Attach to OUTER
-        self.outer_split.set_left(self.side_panel)       # fixed width, non-resizable sash (0px)
-        self.outer_split.set_right(self.mid_right_split) # fills remaining space to the right
+        # Attach to OUTER BoxLayout
+        self.outer_layout.add_widget(self.side_panel)       # fixed width left panel
+        self.outer_layout.add_widget(self.mid_right_split)  # fills remaining space to the right
 
         # Add to GUI root
-        self.add_widget(self.outer_split)
-        # Enforce fixed 150px left panel immediately (not only on next frame)
-        self._enforce_fixed_left_width()
-
-        # After sizes are known, lock the left panel to exactly side_panel.width via split_ratio
-        Clock.schedule_once(self._enforce_fixed_left_width, 0)
-        # Keep it enforced on resize
-        self.outer_split.bind(size=lambda *_: self._enforce_fixed_left_width())
-        # Also enforce when root resizes (accounts for menu bar/shell size changes)
-        self.bind(size=lambda *_: self._enforce_fixed_left_width())
+        self.add_widget(self.outer_layout)
 
         # Setup right-panel snap-to-fit for A4 aspect on the mid-right split and keep updated
         Clock.schedule_once(self._setup_preview_snap_ratio, 0)
         self.mid_right_split.bind(size=lambda *_: self._setup_preview_snap_ratio())
-
-    def _enforce_fixed_left_width(self, *_):
-        '''
-        Keep the OUTER split left area equal to self.side_panel.width (sash=0 prevents user resizing).
-        '''
-        try:
-            total_w = float(self.outer_split.width)
-            if total_w <= 0:
-                return
-            # Ensure the widget itself carries the intended fixed width
-            try:
-                self.side_panel.size_hint_x = None
-                self.side_panel.width = SIDE_PANEL_WIDTH_PX
-            except Exception:
-                pass
-            fixed = float(getattr(self.side_panel, 'width', float(SIDE_PANEL_WIDTH_PX)))
-            sash = float(getattr(self.outer_split, 'sash_width', 0.0))
-            # left_width = total * ratio - sash/2  => ratio = (left_width + sash/2) / total
-            ratio = (fixed + sash / 2.0) / total_w
-            # Clamp to respect minimums
-            min_ratio = float(self.outer_split.min_left_size) / max(1.0, total_w)
-            max_ratio = 1.0 - (float(self.outer_split.min_right_size) / max(1.0, total_w))
-            ratio = max(min_ratio, min(max_ratio, ratio))
-            self.outer_split.split_ratio = ratio
-            self.outer_split.update_layout()
-        except Exception:
-            pass
 
     def _setup_preview_snap_ratio(self, *_):
         '''

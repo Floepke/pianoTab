@@ -1088,24 +1088,10 @@ class Canvas(Widget):
             self._view_h = int(self.height)
             self._scroll_px = 0.0
 
-        # Inform editor about new scale so it can recompute mm-per-quarter from its zoom
-        # and, when appropriate, re-render to update content height based on new scale.
-        try:
-            ed = getattr(self, 'piano_roll_editor', None)
-            if ed is not None:
-                if getattr(self, '_updating_from_editor', False):
-                    # Called due to Editor-driven canvas resize; only recalc layout to keep in sync.
-                    if hasattr(ed, '_calculate_layout'):
-                        ed._calculate_layout()
-                else:
-                    # External layout/scale change (window resize, split view, etc):
-                    # schedule a zoom_refresh so Editor recomputes layout AND content height.
-                    if hasattr(ed, 'zoom_refresh'):
-                        Clock.schedule_once(lambda dt: ed.zoom_refresh(), 0)
-                    elif hasattr(ed, '_calculate_layout'):
-                        Clock.schedule_once(lambda dt: ed._calculate_layout(), 0)
-        except Exception as e:
-            print(f'CANVAS: editor layout update error: {e}')
+        # Canvas handles scaling internally via _px_per_mm and viewport culling.
+        # Items are stored in mm coordinates and auto-scale when _px_per_mm changes.
+        # No need to notify editor or trigger expensive recalculations - _redraw_all() 
+        # handles everything efficiently with viewport culling.
 
         # Update scissor and background rect
         self._scissor.x = int(self._view_x)
@@ -1163,8 +1149,101 @@ class Canvas(Widget):
             self._tag_index.setdefault(tag, set()).add(item_handle)
 
     def _redraw_all(self):
-        for item_id in self._items.keys():
-            self._redraw_item(item_id)
+        '''Redraw all items with viewport culling optimization.
+        
+        Only redraws items that are currently visible in the viewport,
+        significantly improving performance for large vertical piano rolls.
+        '''
+        if self.scale_to_width and self._view_h > 0:
+            # Calculate visible Y range in mm coordinates
+            visible_y_min_mm, visible_y_max_mm = self._get_visible_y_range_mm()
+            
+            # Add buffer zone above and below viewport for smoother scrolling
+            buffer_mm = 50.0  # 50mm buffer (~2 inches) above/below visible area
+            cull_y_min_mm = max(0.0, visible_y_min_mm - buffer_mm)
+            cull_y_max_mm = min(self.height_mm, visible_y_max_mm + buffer_mm)
+            
+            # Only redraw items that intersect the visible range
+            visible_count = 0
+            for item_id in self._items.keys():
+                if self._item_in_y_range(item_id, cull_y_min_mm, cull_y_max_mm):
+                    self._redraw_item(item_id)
+                    visible_count += 1
+                else:
+                    # Clear item group to save GPU memory
+                    item = self._items.get(item_id)
+                    if item and 'group' in item:
+                        item['group'].clear()
+            
+            # Debug: uncomment to monitor culling efficiency
+            # total_items = len(self._items)
+            # if total_items > 0:
+            #     print(f'VIEWPORT CULLING: {visible_count}/{total_items} items visible ({100*visible_count/total_items:.1f}%)')
+        else:
+            # No culling when not in scale_to_width mode or viewport not ready
+            for item_id in self._items.keys():
+                self._redraw_item(item_id)
+
+    def _get_visible_y_range_mm(self) -> Tuple[float, float]:
+        '''Calculate the visible Y range in mm coordinates based on current scroll.
+        
+        Returns (y_min_mm, y_max_mm) where y is measured from top (0) downward.
+        '''
+        if self._view_h <= 0 or self._px_per_mm <= 0:
+            return (0.0, self.height_mm)
+        
+        # Visible viewport in mm
+        viewport_height_mm = self._view_h / self._px_per_mm
+        
+        # Current scroll offset in mm (how far down we've scrolled)
+        scroll_mm = self._scroll_px / self._px_per_mm
+        
+        # Visible Y range in mm coordinates (top-left origin)
+        y_min_mm = scroll_mm
+        y_max_mm = scroll_mm + viewport_height_mm
+        
+        return (y_min_mm, y_max_mm)
+    
+    def _item_in_y_range(self, item_id: int, y_min_mm: float, y_max_mm: float) -> bool:
+        '''Check if an item intersects the given Y range in mm.
+        
+        Returns True if the item should be drawn, False if it can be culled.
+        '''
+        item = self._items.get(item_id)
+        if not item:
+            return False
+        
+        item_type = item.get('type')
+        
+        # Get item Y bounds based on type
+        if item_type in ('rectangle', 'oval'):
+            item_y_min = item['y_mm']
+            item_y_max = item['y_mm'] + item['h_mm']
+        
+        elif item_type in ('line', 'path', 'polygon'):
+            points_mm = item.get('points_mm', [])
+            if not points_mm:
+                return True  # Draw empty items to be safe
+            
+            # Extract all Y coordinates (odd indices in flat list)
+            y_coords = [points_mm[i] for i in range(1, len(points_mm), 2)]
+            item_y_min = min(y_coords)
+            item_y_max = max(y_coords)
+        
+        elif item_type == 'text':
+            # Text baseline is at y_mm; approximate height from font size
+            item_y_min = item['y_mm']
+            # Rough estimate: text height ~= font_size_pt * 0.35mm (assuming ~72 DPI)
+            font_size_mm = item.get('font_pt', 12) * 0.35
+            item_y_max = item['y_mm'] + font_size_mm
+        
+        else:
+            # Unknown type - draw it to be safe
+            return True
+        
+        # Check intersection: item intersects range if NOT (completely above OR completely below)
+        intersects = not (item_y_max < y_min_mm or item_y_min > y_max_mm)
+        return intersects
 
     def _content_height_px(self) -> int:
         '''Height in pixels of the logical content at current scale.'''

@@ -305,6 +305,7 @@ class ToolSash(Widget):
                 self._partner_start_ratio = float(partner.split_ratio) if partner is not None else None
             except Exception:
                 self._partner_start_ratio = None
+            
             touch.grab(self)
             Window.set_system_cursor('size_we' if self.split_view.orientation == 'horizontal' else 'size_ns')
             return True
@@ -384,6 +385,7 @@ class ToolSash(Widget):
             # Clear cross-link drag coupling state
             self._drag_origin_pos = None
             self._partner_start_ratio = None
+            
             touch.ungrab(self)
             Window.set_system_cursor('arrow')
             # One more sync in case final position snapped
