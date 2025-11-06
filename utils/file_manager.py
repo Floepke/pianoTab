@@ -13,7 +13,7 @@ from kivy.uix.button import Button
 from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.textinput import TextInput
 
-from gui.colors_hue import DARK, DARK_LIGHTER, LIGHT
+from gui.colors import DARK, DARK_LIGHTER, LIGHT
 from kivy.core.window import Window
 from file.SCORE import SCORE
 from typing import Any

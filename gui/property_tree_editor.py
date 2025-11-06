@@ -51,7 +51,7 @@ from kivy.graphics import Color, Rectangle, InstructionGroup, Line
 from kivy.properties import NumericProperty
 from kivy.clock import Clock
 
-from gui.colors_hue import DARK_LIGHTER, LIGHT_DARKER, DARK, ACCENT_COLOR
+from gui.colors import DARK_LIGHTER, LIGHT_DARKER, DARK, ACCENT_COLOR
 from utils.canvas import CustomScrollbar
 from file.SCORE import SCORE, Event
 from icons.icon import IconLoader

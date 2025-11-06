@@ -1,122 +1,37 @@
 '''
-Color system for pianoTAB application.
-Generates a 4-color palette from two base colors.
+Color system for pianoTAB with global hue adjustment.
 '''
+import colorsys
 
-
-class ColorScheme:
-    '''Manages application color palette.'''
-    
-    @staticmethod
-    def hex_to_rgba(hex_color, alpha=1.0):
-        '''
-        Convert hex color code to normalized RGBA tuple for Kivy.
-        
-        Args:
-            hex_color: Hex color string (e.g., '#FFFFFF', '#FFF', 'FFFFFF', 'FFF')
-            alpha: Alpha value (0.0 to 1.0), default 1.0
-        
-        Returns:
-            Tuple of (R, G, B, A) with values normalized to 0.0-1.0
-        
-        Examples:
-            >>> ColorScheme.hex_to_rgba('#FFFFFF')
-            (1.0, 1.0, 1.0, 1.0)
-            >>> ColorScheme.hex_to_rgba('#FF0000', alpha=0.5)
-            (1.0, 0.0, 0.0, 0.5)
-            >>> ColorScheme.hex_to_rgba('0A0A0C')
-            (0.039, 0.039, 0.047, 1.0)
-        '''
-        # Remove '#' if present
-        hex_color = hex_color.lstrip('#')
-        
-        # Handle 3-character shorthand (e.g., 'FFF' -> 'FFFFFF')
-        if len(hex_color) == 3:
-            hex_color = ''.join([c*2 for c in hex_color])
-        
-        # Validate length
-        if len(hex_color) != 6:
-            raise ValueError(f'Invalid hex color: {hex_color}. Expected 6 characters.')
-        
-        # Convert to RGB (0-255) then normalize to 0.0-1.0
-        r = int(hex_color[0:2], 16) / 255.0
-        g = int(hex_color[2:4], 16) / 255.0
-        b = int(hex_color[4:6], 16) / 255.0
-        
-        return (r, g, b, alpha)
-    
-    @staticmethod
-    def rgb_to_rgba(r, g, b, a=1.0):
-        '''
-        Convert RGB values (0-255) to normalized RGBA tuple for Kivy.
-        
-        Args:
-            r: Red value (0-255)
-            g: Green value (0-255)
-            b: Blue value (0-255)
-            a: Alpha value (0.0-1.0), default 1.0
-        
-        Returns:
-            Tuple of (R, G, B, A) with values normalized to 0.0-1.0
-        
-        Examples:
-            >>> ColorScheme.rgb_to_rgba(255, 255, 255)
-            (1.0, 1.0, 1.0, 1.0)
-            >>> ColorScheme.rgb_to_rgba(255, 0, 0, 0.5)
-            (1.0, 0.0, 0.0, 0.5)
-        '''
-        return (r / 255.0, g / 255.0, b / 255.0, a)
-    
-    def __init__(self, color_light=(1.0, 1.0, 1.0, 1.0), color_dark=(0.0, 0.0, 0.0, 1.0), 
-                 accent_color=(0.2, 1, .6, 1.0)):
-        '''
-        Initialize color scheme with base colors.
-        
-        Args:
-            color_light: Base light color - RGBA tuple (0.0-1.0) or hex string
-            color_dark: Base dark color - RGBA tuple (0.0-1.0) or hex string
-            accent_color: Accent color for selections - RGBA tuple (0.0-1.0) or hex string
-        
-        Examples:
-            >>> ColorScheme('#FFFFFF', '#000000', '#3399FF')
-            >>> ColorScheme((1.0, 1.0, 1.0, 1.0), (0.0, 0.0, 0.0, 1.0))
-        '''
-        # Convert hex strings to RGBA tuples if needed
-        if isinstance(color_light, str):
-            color_light = self.hex_to_rgba(color_light)
-        if isinstance(color_dark, str):
-            color_dark = self.hex_to_rgba(color_dark)
-        if isinstance(accent_color, str):
-            accent_color = self.hex_to_rgba(accent_color)
-        
-        self.color_light = color_light
-        self.color_dark = color_dark
-        self.accent_color = accent_color
-        
-        # Generate intermediate colors (25% blend)
-        self.color_light_darker = self._blend(color_light, color_dark, 0.25)
-        self.color_dark_lighter = self._blend(color_dark, color_light, 0.25)
-    
+class ColorSchemeHue:
+    '''Manages color palette with global hue control.'''
+    def __init__(self, color_light=(1.0, 1.0, 1.0, 1.0), color_dark=(0.0, 0.0, 0.0, 1.0), accent_color=(0.2, 1, .6, 1.0), hue=30.0):
+        # Store original colors in HSV
+        self._orig = {}
+        for name, rgba in [('light', color_light), ('dark', color_dark), ('accent', accent_color)]:
+            r, g, b, a = rgba
+            h, s, v = colorsys.rgb_to_hsv(r, g, b)
+            self._orig[name] = (h, s, v, a)
+        self.hue = hue / 360.0  # Store as 0-1
+        self.update_colors()
+    def update_colors(self):
+        # Shift all colors to new hue, keep S/V/A
+        self.color_light = self._hue_rgba('light')
+        self.color_dark = self._hue_rgba('dark')
+        self.accent_color = self._hue_rgba('accent')
+        self.color_light_darker = self._blend(self.color_light, self.color_dark, 0.25)
+        self.color_dark_lighter = self._blend(self.color_dark, self.color_light, 0.25)
+    def set_hue(self, hue_deg):
+        self.hue = hue_deg / 360.0
+        self.update_colors()
+    def _hue_rgba(self, name):
+        h, s, v, a = self._orig[name]
+        r, g, b = colorsys.hsv_to_rgb(self.hue, s, v)
+        return (r, g, b, a)
     @staticmethod
     def _blend(color1, color2, amount):
-        '''
-        Blend two colors.
-        
-        Args:
-            color1: Base color (R, G, B, A)
-            color2: Target color to blend towards
-            amount: Blend amount (0.0 to 1.0), where 0.25 = 25% towards color2
-        
-        Returns:
-            Blended color (R, G, B, A)
-        '''
-        return tuple(
-            color1[i] + (color2[i] - color1[i]) * amount
-            for i in range(4)
-        )
-    
+        return tuple(color1[i] + (color2[i] - color1[i]) * amount for i in range(4))
     def get_all(self):
-        '''Return all five colors as a dictionary.'''
         return {
             'light': self.color_light,
             'light_darker': self.color_light_darker,
@@ -125,35 +40,29 @@ class ColorScheme:
             'accent': self.accent_color,
         }
 
-
-'''
-    Here the app colors are defined.
-
-    The colors are used throughout the app for consistent styling.
-    The ColorScheme class generates two extra colors (lighter/darker variants)
-    based on the provided light and dark base colors.
-'''
-default_colors = ColorScheme(
-    color_light='#FFFFFF',
-    color_dark="#372B20",
-    accent_color="#c14406"
+# Example usage: lock S/V balance, change hue only
+# Initial colors from your current theme
+hue_theme = ColorSchemeHue(
+    color_light=(1.0, 1.0, 1.0, 1.0),
+    color_dark=(0.215, 0.169, 0.125, 1.0),
+    accent_color=(0.757, 0.267, 0.024, 1.0),
+    hue=0.0  # initial hue in degrees
 )
 
-# Easy access to colors throughout the app
-LIGHT = default_colors.color_light              # (1.0, 1.0, 1.0, 1.0)
-LIGHT_DARKER = default_colors.color_light_darker  # lighter variant of light
-DARK_LIGHTER = default_colors.color_dark_lighter  # lighter variant of dark
-DARK = default_colors.color_dark                # base dark
+# To change theme hue, call:
+# hue_theme.set_hue(new_hue_deg)
 
-# Accent color derives directly from the configured ColorScheme so changing
-# the 'accent_color' parameter above updates selection/pressed states app-wide.
-ACCENT_COLOR = default_colors.accent_color
-
+LIGHT = hue_theme.color_light
+LIGHT_DARKER = hue_theme.color_light_darker
+DARK_LIGHTER = hue_theme.color_dark_lighter
+DARK = hue_theme.color_dark
+ACCENT_COLOR = hue_theme.accent_color
 
 __all__ = [
     'LIGHT',
     'LIGHT_DARKER',
     'DARK_LIGHTER',
     'DARK',
-    'ACCENT_COLOR'
+    'ACCENT_COLOR',
+    'hue_theme'
 ]

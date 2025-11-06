@@ -28,7 +28,7 @@ from gui.grid_selector import GridSelector
 from gui.tool_selector import ToolSelector
 from gui.menu_bar import MenuBar
 from gui.callbacks import create_menu_config, create_default_toolbar_config, create_contextual_toolbar_config
-from gui.colors_hue import DARK, DARK_LIGHTER, LIGHT_DARKER, LIGHT
+from gui.colors import DARK, DARK_LIGHTER, LIGHT_DARKER, LIGHT
 from utils.canvas import Canvas
 from utils.pymupdfexport import PyMuPDFCanvas
 

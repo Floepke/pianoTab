@@ -34,7 +34,7 @@ from kivy.uix.label import Label
 from kivy.graphics import Color, Rectangle
 from kivy.clock import Clock
 
-from gui.colors_hue import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER
+from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER
 from gui.menu_bar import MenuBar
 from gui.grid_selector import GridSelector
 from gui.tool_selector import ToolSelector

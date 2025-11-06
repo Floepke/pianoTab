@@ -9,7 +9,7 @@ from kivy.graphics.scissor_instructions import ScissorPush, ScissorPop
 from kivy.clock import Clock
 from kivy.core.window import Window
 from .embedded_font import get_embedded_monospace_font
-from gui.colors_hue import LIGHT, LIGHT_DARKER, DARK_LIGHTER, DARK, ACCENT_COLOR
+from gui.colors import LIGHT, LIGHT_DARKER, DARK_LIGHTER, DARK, ACCENT_COLOR
 
 
 class CustomScrollbar(Widget):

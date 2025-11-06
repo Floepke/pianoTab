@@ -10,7 +10,7 @@ from kivy.uix.label import Label
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.properties import NumericProperty, ObjectProperty
-from gui.colors_hue import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER, ACCENT_COLOR
+from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER, ACCENT_COLOR
 
 
 class SpinBox(BoxLayout):
