@@ -263,7 +263,6 @@ def _generate_stub_file():
     try:
         with open(stub_path, 'w', encoding='utf-8') as f:
             f.write(stub_content)
-        print(f'✓ Generated type stub: {stub_path}')
     except Exception as e:
         print(f'Warning: Could not generate stub file: {e}')
 

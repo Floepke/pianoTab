@@ -12,7 +12,7 @@ PHYSICAL_SEMITONE_POSITIONS = 103
 '''Total number of physical semitone positions in the piano layout.'''
 
 # BE gaps - positions where extra visual spacing is added between key groups
-BE_GAPS = [3, 8, 15, 20, 27, 32, 39, 44, 51, 56, 63, 68, 75, 80, 87]
+BE_GAPS = [3, 8, 15, 20, 27, 32, 39, 44, 51, 56, 63, 68, 75, 80]
 '''Key positions where extra spacing (BE gaps) should be added for visual grouping.'''
 
 # Black key positions in the 88-key layout

@@ -51,7 +51,7 @@ hue_theme = ColorSchemeHue(
     color_light=(1.0, 1.0, 1.0, 1.0),
     color_dark=(0.215, 0.169, 0.125, 1.0),
     accent_color=(0.757, 0.267, 0.024, 1.0),
-    hue=30.0  # initial hue in degrees
+    hue=206.0  # initial hue in degrees
 )
 
 # To change theme hue, call:

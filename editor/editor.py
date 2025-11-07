@@ -81,7 +81,6 @@ class Editor:
         if hasattr(properties, 'editorZoomPixelsQuarter') and properties.editorZoomPixelsQuarter:
             try:
                 self.pixels_per_quarter = float(properties.editorZoomPixelsQuarter)
-                print(f'DEBUG: Using SCORE editorZoomPixelsQuarter: {self.pixels_per_quarter} pixels')
             except Exception:
                 # Keep current/default on parse error
                 pass
@@ -257,7 +256,6 @@ class Editor:
         current_height_mm = float(self.canvas.height_mm)
         if abs(desired_height_mm - current_height_mm) > 0.1:
             action = 'Expanding' if desired_height_mm > current_height_mm else 'Shrinking'
-            print(f'DEBUG: {action} canvas height from {current_height_mm}mm to {desired_height_mm}mm')
             # Keep scroll; Canvas clamps if out-of-bounds. Avoid reset to prevent jumpiness.
             self.canvas.set_size_mm(self.canvas.width_mm, desired_height_mm, reset_scroll=False)
         
@@ -295,49 +293,55 @@ class Editor:
         stave_height = (total_ticks / max(1e-6, ql)) * mm_per_quarter
         print(f'   Stave height: {stave_height}mm (score length: {total_ticks} ticks)')
         
-        lines_drawn = 0
         key = 2  # Start from key 2 as in your algorithm
         for k in range(1, PIANO_KEY_COUNT):
             x_pos = self.key_to_x_position(k)
             
             # Determine if we need to draw a line for the current key
-            key_ = key % 12
+            key_ = key % 12  # Use 'key', not 'k' - tracks musical pattern
+            
+            # Check if this is a clef line position (central C# and D#)
+            is_clef_line = (k + 1 in [41, 43])  # C# and D# around middle C
+            
             # Skip drawing lines for the last key position to avoid extra line
-            if key_ in [2, 5, 7, 10, 0] and k < PIANO_KEY_COUNT:  # Don't draw line for last key
+            # Include clef positions (6, 8) in the pattern check for k=41, 43
+            if (key_ in [2, 5, 7, 10, 0] or is_clef_line) and k < PIANO_KEY_COUNT:
                 
                 # Set color, width, dash pattern, and category tag according to your pattern
-                is_clef_line = False
                 category_tag = None
-                if key_ in [2, 10, 0]:  # Three-line (F#, G#, A#)
+                if is_clef_line:
+                    # Central C# and D# lines (clef lines) - always dashed
+                    color = self.stave_clef_color
+                    width = self.stave_clef_width
+                    category_tag = 'staveClefLines'
+                elif key_ in [2, 10, 0]:  # Three-line (F#, G#, A#)
                     color = self.stave_three_color
                     width = self.stave_three_width
                     category_tag = 'staveThreeLines'
-                elif key_ in [5, 7] and k not in [41, 43]:  # Two-line (not central C#, D#)
+                else:  # key_ in [5, 7] - Two-line (C#, D#) but not central
                     color = self.stave_two_color
                     width = self.stave_two_width
                     category_tag = 'staveTwoLines'
-                else:  # Central C# and D# lines (clef lines)
-                    color = self.stave_clef_color
-                    width = self.stave_clef_width
-                    is_clef_line = True
-                    category_tag = 'staveClefLines'
                 
                 # Draw the line with correct dash pattern from SCORE model
+                y1 = self.editor_margin
+                y2 = self.editor_margin + stave_height
+                if is_clef_line and not hasattr(self, '_clef_debug_printed'):
+                    self._clef_debug_printed = True
                 self.canvas.add_line(
-                    x1_mm=x_pos, y1_mm=self.editor_margin,
-                    x2_mm=x_pos, y2_mm=self.editor_margin + stave_height,
+                    x1_mm=x_pos, y1_mm=y1,
+                    x2_mm=x_pos, y2_mm=y2,
                     color=color,
                     width_mm=width,
                     dash=is_clef_line,  # Only clef lines are dashed
                     dash_pattern_mm=tuple(self.clef_dash_pattern) if is_clef_line else (2.0, 2.0),
                     tags=[category_tag]
                 )
-                lines_drawn += 1
             
             key += 1
-        
-        return lines_drawn
-    
+
+        return
+
     def _draw_barlines_and_grid(self):
         '''Draw barlines and grid lines based on your Tkinter algorithm.'''
         # Calculate barline positions (your get_editor_barline_positions equivalent)
@@ -500,7 +504,6 @@ class Editor:
         if (hasattr(self.score, 'properties') and 
             hasattr(self.score.properties, 'editorZoomPixelsQuarter')):
             self.score.properties.editorZoomPixelsQuarter = float(self.pixels_per_quarter)
-            print(f'DEBUG: Updated SCORE editorZoomPixelsQuarter to: {self.pixels_per_quarter} pixels')
     
     def scroll_to_time(self, time_ticks: float):
         '''Scroll to a specific time position (in ticks).'''

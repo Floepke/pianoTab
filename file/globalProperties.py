@@ -101,7 +101,7 @@ class GlobalStave:
     threeLineWidth: float = .25
     clefWidth: float = .125
     visible: int = field(default=1, metadata=config(field_name='visible?'))
-    clefDashPattern: List[float] = field(default_factory=lambda: [.25, .25])
+    clefDashPattern: List[float] = field(default_factory=lambda: [2, 2])
 
 @dataclass_json
 @dataclass

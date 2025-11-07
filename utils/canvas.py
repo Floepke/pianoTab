@@ -461,11 +461,6 @@ class Canvas(Widget):
         if max_scroll_px > 0.0 and snapped_scroll_px >= max_scroll_px - threshold_px:
             snapped_scroll_px = max_scroll_px
 
-        print(
-            f'SCROLL SNAP: {scroll_px:.1f}px -> {snapped_scroll_px:.1f}px '
-            f'(px_per_mm: {px_per_mm:.3f}, anchor_used: {anchor_used_mm:.1f}mm, grid: {grid_spacing_mm:.1f}mm, step: {grid_step_ticks}t)'
-        )
-
         return snapped_scroll_px
 
     def update_scroll_step(self):
@@ -503,12 +498,9 @@ class Canvas(Widget):
                     dpi = 96.0  # Windows default
                 else:  # Linux and others
                     dpi = 96.0  # Common Linux default
-                    
-            print(f'CANVAS DPI: Using {dpi} DPI for pixel-to-mm conversion')
             
             # Convert DPI to mm/pixel: 1 inch = 25.4 mm
             mm_per_pixel = 25.4 / dpi
-            print(f'CANVAS DPI: {mm_per_pixel:.6f} mm/pixel conversion factor')
             
             return mm_per_pixel
             
@@ -1174,11 +1166,6 @@ class Canvas(Widget):
                     item = self._items.get(item_id)
                     if item and 'group' in item:
                         item['group'].clear()
-            
-            # Debug: uncomment to monitor culling efficiency
-            # total_items = len(self._items)
-            # if total_items > 0:
-            #     print(f'VIEWPORT CULLING: {visible_count}/{total_items} items visible ({100*visible_count/total_items:.1f}%)')
         else:
             # No culling when not in scale_to_width mode or viewport not ready
             for item_id in self._items.keys():
@@ -1590,13 +1577,45 @@ class Canvas(Widget):
 
     def _draw_dashed_polyline(self, g: InstructionGroup, pts_px: List[float], width_px: float,
                                on_px: float, off_px: float):
-        '''Render a dashed polyline given points in px using on/off dash lengths.'''
+        '''Render a dashed polyline given points in px using on/off dash lengths.
+        
+        Applies viewport culling to skip creating dash segments outside the visible area,
+        dramatically improving performance for long dashed lines (e.g., stave clef lines).
+        Only applies Y-axis culling to predominantly vertical lines.
+        '''
         if len(pts_px) < 4:
             return
+        
+        # Determine if this is a predominantly vertical line
+        # Only apply Y-axis viewport culling to vertical lines
+        x1, y1 = pts_px[0], pts_px[1]
+        x2, y2 = pts_px[-2], pts_px[-1]
+        dx = abs(x2 - x1)
+        dy = abs(y2 - y1)
+        is_vertical = dy > dx  # More vertical than horizontal
+        
+        # Get visible viewport bounds in pixels for Y-axis culling
+        visible_y_min_px = None
+        visible_y_max_px = None
+        if is_vertical and self.scale_to_width and hasattr(self, '_view_h') and self._view_h > 0:
+            # The pixel coordinates from _mm_to_px_point already include scroll offset in their calculation
+            # So we just need to check against the widget's fixed viewport bounds
+            buffer_px = 200.0  # Buffer zone to draw dashes slightly outside viewport
+            
+            # Viewport in Kivy coordinates (fixed widget bounds)
+            viewport_bottom_y = self._view_y  # Bottom edge of widget viewport
+            viewport_top_y = self._view_y + self._view_h  # Top edge of widget viewport
+            
+            # Visible range with buffer
+            visible_y_min_px = viewport_bottom_y - buffer_px
+            visible_y_max_px = viewport_top_y + buffer_px
+        
         # Iterate segments
         on = True
         remaining = on_px
         cx, cy = pts_px[0], pts_px[1]
+        dash_count = 0
+        culled_count = 0
         for i in range(2, len(pts_px), 2):
             nx, ny = pts_px[i], pts_px[i + 1]
             dx = nx - cx
@@ -1612,7 +1631,21 @@ class Canvas(Widget):
                     y1 = cy + uy * pos
                     x2 = cx + ux * (pos + run)
                     y2 = cy + uy * (pos + run)
-                    g.add(Line(points=[x1, y1, x2, y2], width=width_px))
+                    
+                    # Viewport culling: only create Line if dash segment is visible
+                    create_line = True
+                    if visible_y_min_px is not None and visible_y_max_px is not None:
+                        # Check if dash segment intersects visible Y range
+                        seg_y_min = min(y1, y2)
+                        seg_y_max = max(y1, y2)
+                        if seg_y_max < visible_y_min_px or seg_y_min > visible_y_max_px:
+                            create_line = False  # Skip this dash - outside viewport
+                            culled_count += 1
+                    
+                    if create_line:
+                        g.add(Line(points=[x1, y1, x2, y2], width=width_px))
+                        dash_count += 1
+                
                 pos += run
                 # flip on/off and reset remaining
                 on = not on
@@ -1628,7 +1661,6 @@ class Canvas(Widget):
     
     def set_grid_step(self, grid_step_ticks: float):
         '''Set the grid step for cursor snapping in piano ticks.'''
-        print(f'GRID DEBUG: Setting grid step to {grid_step_ticks} ticks')
         self._grid_step_ticks = grid_step_ticks
         
     def get_grid_step(self) -> float:
@@ -1655,22 +1687,12 @@ class Canvas(Widget):
 
         # DEBUG: Print what's happening with detailed grid step info
         grid_step_ticks = self._get_grid_step_ticks()
-        print(f'SNAP DEBUG: pos={time_position_mm:.1f}mm, grid_step={grid_step_ticks}t, quarters={quarters:.3f}, ticks={ticks:.1f}')
 
         # Snap to grid step
         snapped_ticks = round(ticks / grid_step_ticks) * grid_step_ticks
 
-        # Convert back to quarters and then to mm
-        snapped_quarters = snapped_ticks / quarter_note_length
-
-        # Calculate the visual spacing multiplier based on grid step
-        # If grid step is larger than quarter note, we need to scale the visual spacing
-        grid_step_in_quarters = grid_step_ticks / quarter_note_length
-
         # Convert snapped ticks back to mm using the same quarter spacing
         snapped_mm = (snapped_ticks / quarter_note_length) * mm_per_quarter
-        print(f'SNAP DEBUG: snapped_ticks={snapped_ticks:.1f}, snapped_quarters={snapped_quarters:.3f}, snapped_mm={snapped_mm:.1f}, grid_step_ratio={grid_step_in_quarters:.2f}')
-        print(f'GRID STEP DEBUG: {grid_step_ticks}t = {grid_step_in_quarters:.1f} quarters, visual spacing = {grid_step_in_quarters * mm_per_quarter:.1f}mm')
 
         return snapped_mm
     
@@ -1758,7 +1780,5 @@ class Canvas(Widget):
         # Visual step in pixels should follow current canvas scale
         mm_per_quarter = float(self._quarter_note_spacing_mm)
         grid_step_pixels = grid_step_quarters * mm_per_quarter * max(1e-6, self._px_per_mm)
-
-        print(f'VISUAL SCROLL STEP: {grid_step_ticks} ticks -> {grid_step_quarters:.3f} quarters -> {grid_step_pixels:.1f} pixels (scale-aware)')
 
         return grid_step_pixels

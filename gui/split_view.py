@@ -603,7 +603,6 @@ class SplitView(Widget):
                 # If within threshold, snap to ideal ratio
                 if abs(current_x - snap_x) <= self.snap_threshold:
                     new_ratio = snap_ratio_to_use
-                    print(f'DEBUG: Snapped to ideal ratio {new_ratio:.3f} (using stored: {self.sash._drag_start_snap_ratio is not None})')
         else:
             # Calculate new ratio based on y position
             relative_y = touch_pos[1] - self.y
@@ -689,7 +688,6 @@ class SplitView(Widget):
                 snap_ratio = max(min_ratio, min(max_ratio, snap_ratio))
                 
                 self.snap_ratio = snap_ratio
-                print(f'DEBUG: Set snap_ratio to {snap_ratio:.3f} for perfect fit (required_width: {required_right_width:.1f}, sash: {self.sash_width}, no scrollbar for snap-to-fit)')
             else:
                 self.snap_ratio = None
 

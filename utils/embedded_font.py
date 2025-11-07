@@ -39,7 +39,6 @@ class EmbeddedFontManager:
             with open(self._temp_font_path, 'wb') as f:
                 f.write(font_data)
             
-            print(f'Using embedded Courier New Bold font: {self._temp_font_path}')
             return self._temp_font_path
         except Exception as e:
             # Fallback to system fonts if embedding fails
