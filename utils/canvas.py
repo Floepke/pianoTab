@@ -121,14 +121,17 @@ class CustomScrollbar(Widget):
         is_over_scrollbar = (self.x <= mouse_x <= self.x + self.scrollbar_width and
                             self.y <= mouse_y <= self.y + self.height)
          
-        if is_over_scrollbar and not self.hovering:
+        # Always set cursor based on current position
+        # This prevents edge cases where transitions are missed
+        if is_over_scrollbar:
             self.hovering = True
             self.thumb_color_instr.rgba = self.thumb_hover_color if scrollable else self.thumb_color
             Window.set_system_cursor('hand' if scrollable else 'arrow')
-        elif (not is_over_scrollbar or not scrollable) and self.hovering:
-            self.hovering = False
-            self.thumb_color_instr.rgba = self.thumb_color
-            Window.set_system_cursor('arrow')
+        else:
+            if self.hovering:
+                self.hovering = False
+                self.thumb_color_instr.rgba = self.thumb_color
+                # Don't set cursor to arrow - let other widgets handle it
             
     def on_touch_down(self, touch):
         '''Handle touch down for scrollbar dragging.'''
@@ -358,6 +361,11 @@ class Canvas(Widget):
     def set_piano_roll_editor(self, editor):
         '''Set the piano roll editor reference for accessing score data.'''
         self.piano_roll_editor = editor
+        
+        # Bind canvas click events to editor tool system
+        if editor is not None:
+            self.bind(on_item_click=self._forward_click_to_editor)
+        
         # As soon as the editor is wired, refresh zoom so the canvas' current
         # px-per-mm is reflected in the editor's mm-per-quarter spacing immediately.
         try:
@@ -371,6 +379,31 @@ class Canvas(Widget):
         # Update scrollbar layout now that content sizing may have changed
         if hasattr(self, 'custom_scrollbar') and self.custom_scrollbar:
             self.custom_scrollbar.update_layout()
+    
+    def _forward_click_to_editor(self, instance, item_id, touch, pos_mm):
+        '''Forward click events to the editor's tool system.'''
+        editor = getattr(self, 'piano_roll_editor', None)
+        if editor is None or not hasattr(editor, 'handle_mouse_down'):
+            return
+        
+        x_mm, y_mm = pos_mm
+        button = getattr(touch, 'button', 'left')
+        
+        # Normalize button name
+        if button in ('scrollup', 'scrolldown'):
+            return  # Ignore scroll events
+        
+        # Map button to left/right
+        if button == 'right':
+            button_name = 'right'
+        else:
+            button_name = 'left'
+        
+        # Dispatch to editor
+        if hasattr(touch, 'is_double_tap') and touch.is_double_tap:
+            editor.handle_double_click(x_mm, y_mm)
+        else:
+            editor.handle_mouse_down(x_mm, y_mm, button_name)
 
     # ---------- Grid step source (editor -> grid_selector) ----------
 
@@ -981,23 +1014,26 @@ class Canvas(Widget):
         '''Handle mouse motion and forward snapped Y to editor for horizontal cursor.'''
         mouse_x, mouse_y = pos
 
-        # Check if mouse is over the canvas drawable view area
-        vx, vy, vw, vh = self._view_x, self._view_y, self._view_w, self._view_h
-        inside = (vx <= mouse_x <= vx + vw and
-                  vy <= mouse_y <= vy + vh)
-
-        ed = getattr(self, 'piano_roll_editor', None)
-        if inside:
+        # Check if mouse is over the canvas drawable view area (excluding scrollbar)
+        if self._point_in_view_px(mouse_x, mouse_y):
+            # Mouse is over the canvas content area
+            ed = getattr(self, 'piano_roll_editor', None)
+            
             # Convert to mm (top-left origin)
             mm_x, mm_y = self._px_to_mm(mouse_x, mouse_y)
+            
             # Forward Y in mm to the editor so it can snap to grid and draw its own horizontal cursor
             if ed is not None and hasattr(ed, 'update_cursor_from_mouse_mm'):
                 try:
                     ed.update_cursor_from_mouse_mm(mm_y)
                 except Exception as e:
                     print(f'CANVAS: editor cursor update failed: {e}')
+            else:
+                # This is a non-editor Canvas (e.g., print preview) - set arrow cursor
+                Window.set_system_cursor('arrow')
         else:
             # Outside canvas area: let editor clear its cursor
+            ed = getattr(self, 'piano_roll_editor', None)
             if ed is not None and hasattr(ed, 'clear_cursor'):
                 try:
                     ed.clear_cursor()

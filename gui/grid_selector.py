@@ -262,7 +262,7 @@ class GridSelector(BoxLayout):
         
         # Grid step display label
         self.grid_label = Label(
-            text='Grid Step: 256.0',
+            text='Grid Unit: 256.0',
             size_hint_y=None,
             height=self.widget_height,
             font_size='16sp',
@@ -486,7 +486,7 @@ class GridSelector(BoxLayout):
         if '.' not in grid_text:
             grid_text += '.0'
         
-        self.grid_label.text = f'Grid Step: {grid_text}'
+        self.grid_label.text = f'Grid Unit: {grid_text}'
     
     def get_grid_step(self):
         '''Calculate and return current grid step value in piano ticks.'''

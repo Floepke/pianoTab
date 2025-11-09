@@ -55,7 +55,7 @@ class SCORE:
     baseGrid: List[BaseGrid] = field(default_factory=list)
     lineBreak: List[LineBreak] = field(default_factory=list)
     stave: List[Stave] = field(default_factory=lambda: [Stave()])
-    quarterNoteLength: float = 256.0
+    quarterNoteUnit: float = 256.0
 
     def __post_init__(self):
         # Initialize ID generator starting from 0:

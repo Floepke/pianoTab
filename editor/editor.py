@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Optional, Dict, Any, Tuple, Callable, List
 from kivy.clock import Clock
+from kivy.core.window import Window
 from kivy.metrics import sp
 import math
 
@@ -13,13 +14,15 @@ from utils.CONSTANTS import (
     get_visual_semitone_positions, midi_to_key_number, key_number_to_midi,
     ticks_to_quarters, quarters_to_ticks, is_black_key, has_be_gap
 )
+from editor.tool_manager import ToolManager
 
 class Editor:
     '''
     Vertical Piano Roll Editor based on the original Tkinter design.
     
     Layout follows your specific design patterns:
-    - 88 piano keys with 103 physical semitone positions
+    - 88 piano keys with 103 physical semitone positions meaning that 
+        some key positions (BE_GAPS) are skipped (are no valid positions)
     - BE gaps for visual spacing between key groups
     - Specific line patterns (two-line, three-line, clef-line)
     - Time flows vertically (top to bottom)
@@ -59,6 +62,14 @@ class Editor:
         # Timeline cursor state (ticks from start; None = hidden)
         self.cursor_time: Optional[float] = None
         self._cursor_item_id: Optional[int] = None
+        
+        # Initialize tool system
+        self.tool_manager = ToolManager(self)
+        self.tool_manager.set_active_tool('Note')  # Default tool
+        
+        # Cursor management for hover (restore tool cursor on enter/leave)
+        self._is_hovering = False
+        Window.bind(mouse_pos=self._update_cursor_on_hover)
         
         # Initialize layout
         self._calculate_layout()
@@ -212,7 +223,7 @@ class Editor:
             return x_positions[key_number - 1]
         return self.editor_margin
     
-    def _time_to_y_mm(self, time_ticks: float) -> float:
+    def time_to_y_mm(self, time_ticks: float) -> float:
         '''Convert time in ticks to Y coordinate in millimeters (top-left origin).'''
         mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
         if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
@@ -223,7 +234,7 @@ class Editor:
         time_quarters = time_ticks / max(1e-6, ql)
         return self.editor_margin + (time_quarters * mm_per_quarter) - (self.scroll_time_offset * mm_per_quarter)
     
-    def _get_score_length_in_ticks(self) -> float:
+    def get_score_length_in_ticks(self) -> float:
         '''Calculate total score length in ticks based on your algorithm.'''
         total_ticks = 0.0
         for grid in self.score.baseGrid:
@@ -240,7 +251,7 @@ class Editor:
         
         # Calculate required dimensions
         piano_width = (self.width - 2 * self.editor_margin)
-        total_time = self._get_score_length_in_ticks()
+        total_time = self.get_score_length_in_ticks()
         # Content height must not depend on scroll offset; compute using mm/quarter directly
         mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
         if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
@@ -260,10 +271,13 @@ class Editor:
             self.canvas.set_size_mm(self.canvas.width_mm, desired_height_mm, reset_scroll=False)
         
         # Draw stave lines (piano keys)
-        stave_lines = self._draw_stave()
+        self._draw_stave()
         
         # Draw barlines and grid
-        barlines = self._draw_barlines_and_grid()
+        self._draw_barlines_and_grid()
+
+        # here render notes and other elements...
+        ...
         
         # Set proper drawing order: stave lines at back, then gridlines, barlines, measure numbers, notes on top
         self.canvas.tag_draw_order([
@@ -283,7 +297,7 @@ class Editor:
     
     def _draw_stave(self):
         '''Draw the 88-key stave with your specific line patterns.'''
-        total_ticks = self._get_score_length_in_ticks()
+        total_ticks = self.get_score_length_in_ticks()
         mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
         if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
             px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
@@ -291,7 +305,6 @@ class Editor:
         # Stave height independent of scroll offset
         ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
         stave_height = (total_ticks / max(1e-6, ql)) * mm_per_quarter
-        print(f'   Stave height: {stave_height}mm (score length: {total_ticks} ticks)')
         
         key = 2  # Start from key 2 as in your algorithm
         for k in range(1, PIANO_KEY_COUNT):
@@ -352,7 +365,7 @@ class Editor:
             ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
             measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
             for _ in range(grid.measureAmount):
-                y_pos = self._time_to_y_mm(total_ticks)
+                y_pos = self.time_to_y_mm(total_ticks)
                 barline_positions.append((y_pos, len(barline_positions) + 1))  # (position, measure_number)
                 total_ticks += measure_ticks
         
@@ -389,7 +402,7 @@ class Editor:
             for _ in range(grid.measureAmount):
                 for i in range(1, grid.numerator):  # Skip first beat (that's the barline)
                     grid_ticks = total_ticks + i * subdivision_ticks
-                    y_pos = self._time_to_y_mm(grid_ticks)
+                    y_pos = self.time_to_y_mm(grid_ticks)
                     
                     if 0 <= y_pos <= self.canvas.height_mm + self.editor_margin:
                         self.canvas.add_line(
@@ -404,7 +417,7 @@ class Editor:
                 total_ticks += measure_ticks
         
         # Draw end barline (thicker)
-        final_y_pos = self._time_to_y_mm(self._get_score_length_in_ticks())
+        final_y_pos = self.time_to_y_mm(self.get_score_length_in_ticks())
         if 0 <= final_y_pos <= self.canvas.height_mm + self.editor_margin:
             self.canvas.add_line(
                 x1_mm=self.editor_margin, y1_mm=final_y_pos,
@@ -530,7 +543,7 @@ class Editor:
         return 1
     
     def y_to_ticks(self, y_mm: float) -> float:
-        '''Convert Y coordinate to time in ticks (inverse of _time_to_y_mm).'''
+        '''Convert Y coordinate to time in ticks (inverse of time_to_y_mm).'''
         mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
         if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
             px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
@@ -552,13 +565,13 @@ class Editor:
                     if len(parts) >= 3:
                         stave_idx = int(parts[1])
                         note_id = int(parts[2])
-                        note = self._find_note_by_id(stave_idx, note_id)
+                        note = self.find_note_by_id(stave_idx, note_id)
                         if note:
                             self._select_note(note)
                             return True
         return False
     
-    def _find_note_by_id(self, stave_idx: int, note_id: int) -> Optional[Note]:
+    def find_note_by_id(self, stave_idx: int, note_id: int) -> Optional[Note]:
         '''Find a note by stave index and note ID.'''
         if 0 <= stave_idx < len(self.score.stave):
             for note in self.score.stave[stave_idx].event.note:
@@ -586,7 +599,7 @@ class Editor:
             return new_note
         return None
 
-    def _get_grid_step_ticks(self) -> float:
+    def get_grid_step_ticks(self) -> float:
         '''Return current grid step in ticks from grid_selector/canvas.'''
         try:
             gs = getattr(self, 'grid_selector', None)
@@ -608,17 +621,17 @@ class Editor:
 
     def get_grid_step(self) -> float:
         '''Expose grid step for other components (canvas fallback).'''
-        return self._get_grid_step_ticks()
+        return self.get_grid_step_ticks()
 
     def update_cursor_from_mouse_mm(self, y_mm: float):
         '''Update cursor_time from mouse Y in mm with grid snapping.'''
         try:
             raw_ticks = self.y_to_ticks(float(y_mm))
-            step = max(1e-6, self._get_grid_step_ticks())
+            step = max(1e-6, self.get_grid_step_ticks())
             snapped = math.floor(raw_ticks / step) * step
             # Clamp within score
             snapped = max(0.0, snapped)
-            total = float(self._get_score_length_in_ticks())
+            total = float(self.get_score_length_in_ticks())
             snapped = min(total, snapped)
             self.cursor_time = snapped
             self._draw_cursor()
@@ -647,7 +660,7 @@ class Editor:
         if self.cursor_time is None:
             return
         # Compute Y in mm
-        y_mm = self._time_to_y_mm(self.cursor_time)
+        y_mm = self.time_to_y_mm(self.cursor_time)
         # X extents: full editor view (0 to logical width)
         x1 = 0.0
         x2 = float(self.editor_width)
@@ -668,3 +681,110 @@ class Editor:
             # Kept on top by being added after raise_in_order in render()
         except Exception as e:
             print(f'CURSOR DEBUG: draw failed: {e}')
+
+    # === Tool System Event Handlers ===
+    
+    def handle_mouse_down(self, x: float, y: float, button: str) -> bool:
+        """
+        Handle mouse button press.
+        
+        Args:
+            x, y: Mouse position in mm coordinates
+            button: 'left' or 'right'
+            
+        Returns:
+            True if event was handled
+        """
+        if button == 'left':
+            return self.tool_manager.dispatch_left_press(x, y)
+        elif button == 'right':
+            return self.tool_manager.dispatch_right_click(x, y)
+        return False
+    
+    def handle_mouse_up(self, x: float, y: float, button: str, was_dragging: bool = False) -> bool:
+        """
+        Handle mouse button release.
+        
+        Args:
+            x, y: Mouse position in mm coordinates
+            button: 'left' or 'right'
+            was_dragging: Whether this was a drag operation
+            
+        Returns:
+            True if event was handled
+        """
+        if button == 'left':
+            if was_dragging:
+                return self.tool_manager.dispatch_left_release(x, y)
+            else:
+                return self.tool_manager.dispatch_left_click(x, y)
+        return False
+    
+    def handle_mouse_move(self, x: float, y: float) -> bool:
+        """
+        Handle mouse movement.
+        
+        Args:
+            x, y: Mouse position in mm coordinates
+            
+        Returns:
+            True if event was handled
+        """
+        return self.tool_manager.dispatch_mouse_move(x, y)
+    
+    def handle_double_click(self, x: float, y: float) -> bool:
+        """
+        Handle double-click event.
+        
+        Args:
+            x, y: Mouse position in mm coordinates
+            
+        Returns:
+            True if event was handled
+        """
+        return self.tool_manager.dispatch_double_click(x, y)
+    
+    def set_active_tool(self, tool_name: str) -> bool:
+        """
+        Set the active tool by name.
+        
+        Args:
+            tool_name: Name of the tool to activate
+            
+        Returns:
+            True if tool was activated successfully
+        """
+        result = self.tool_manager.set_active_tool(tool_name)
+        
+        # Update cursor if mouse is currently over editor
+        if result and self._is_hovering:
+            active_tool = self.tool_manager.get_active_tool()
+            if active_tool:
+                Window.set_system_cursor(active_tool.cursor)
+        
+        return result
+    
+    def _update_cursor_on_hover(self, window, pos):
+        """
+        Update cursor based on whether mouse is over editor canvas.
+        
+        Called automatically when mouse position changes.
+        Sets the active tool's cursor when over editor view.
+        Does nothing when outside to preserve other cursor configurations (sash resize, etc.).
+        """
+        # Check if mouse is within the actual editor view area (excluding scrollbar)
+        if not hasattr(self.canvas, '_point_in_view_px'):
+            return
+        
+        # Use Canvas's _point_in_view_px which excludes the scrollbar area
+        is_hovering = self.canvas._point_in_view_px(*pos)
+        
+        # Only set cursor when over editor view
+        # When outside, do nothing to preserve other widget's cursor settings
+        if is_hovering:
+            active_tool = self.tool_manager.get_active_tool()
+            if active_tool:
+                Window.set_system_cursor(active_tool.cursor)
+        
+        # Track state for potential future use
+        self._is_hovering = is_hovering

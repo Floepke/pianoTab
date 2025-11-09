@@ -117,6 +117,10 @@ class pianoTAB(App):
         # Set canvas reference to piano roll editor for scroll snap functionality
         self.gui.get_editor_widget().set_piano_roll_editor(self.editor)
         
+        # Connect editor to GUI for tool system integration
+        if hasattr(self.gui, 'set_editor'):
+            self.gui.set_editor(self.editor)
+        
         # Setup any additional connections/bindings
         self._setup_bindings()
         

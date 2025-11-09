@@ -269,12 +269,15 @@ class ToolSash(Widget):
                 over_button = True
                 break
 
-        if is_hovering and not over_button and not self.hovering:
+        # Always set cursor based on current position
+        # This prevents edge cases where transitions are missed
+        if is_hovering and not over_button:
             self.hovering = True
             Window.set_system_cursor('size_we' if self.split_view.orientation == 'horizontal' else 'size_ns')
-        elif (not is_hovering or over_button) and self.hovering:
-            self.hovering = False
-            Window.set_system_cursor('arrow')
+        else:
+            if self.hovering:
+                self.hovering = False
+                # Don't set cursor to arrow - let other widgets handle it
 
     def on_touch_down(self, touch):
         # Disable dragging if sash width/height is 0
@@ -387,7 +390,7 @@ class ToolSash(Widget):
             self._partner_start_ratio = None
             
             touch.ungrab(self)
-            Window.set_system_cursor('arrow')
+            # Don't set cursor here - let on_mouse_pos handle it continuously
             # One more sync in case final position snapped
             self._update_layout()
             # Recalculate snap ratio after drag is complete

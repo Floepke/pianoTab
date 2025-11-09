@@ -50,6 +50,7 @@ from kivy.metrics import dp, sp
 from kivy.graphics import Color, Rectangle, InstructionGroup, Line
 from kivy.properties import NumericProperty
 from kivy.clock import Clock
+from kivy.core.window import Window
 
 from gui.colors import DARK_LIGHTER, LIGHT_DARKER, DARK, ACCENT_COLOR
 from utils.canvas import CustomScrollbar
@@ -419,6 +420,9 @@ class PropertyTreeEditor(BoxLayout):
 
         # Row index for alternating text color bound to stripes
         self._row_counter: int = 0
+        
+        # Cursor management - set arrow cursor when over property tree
+        Window.bind(mouse_pos=self._update_cursor_on_hover)
 
         # Initial geometry
         self._update_view_and_graphics()
@@ -440,6 +444,16 @@ class PropertyTreeEditor(BoxLayout):
     def _update_border(self):
         # No border for tree editor; method present for CustomScrollbar compatibility.
         pass
+    
+    def _update_cursor_on_hover(self, window, pos):
+        """
+        Set cursor to arrow when mouse is over the property tree editor.
+        
+        Called automatically when mouse position changes.
+        """
+        # Check if mouse is within this widget's bounds
+        if self.collide_point(*pos):
+            Window.set_system_cursor('arrow')
 
     # Map pixel scroll to ScrollView.scroll_y
     def _apply_scroll_px(self):

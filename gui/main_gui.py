@@ -23,6 +23,7 @@ from kivy.graphics.scissor_instructions import ScissorPush, ScissorPop
 from kivy.uix.label import Label
 from kivy.uix.scrollview import ScrollView
 from kivy.clock import Clock
+from kivy.core.window import Window
 from gui.split_view import SplitView
 from gui.grid_selector import GridSelector
 from gui.tool_selector import ToolSelector
@@ -126,6 +127,9 @@ class PrintPreviewWidget(Widget):
         
         self.bind(pos=self.update_graphics, size=self.update_graphics)
         
+        # Cursor management
+        Window.bind(mouse_pos=self._update_cursor_on_hover)
+        
         # Add label
         self.label = Label(
             text='Print Preview Area\n(PDF Output)',
@@ -156,6 +160,11 @@ class PrintPreviewWidget(Widget):
         
         self.paper_rect.pos = (paper_x, paper_y)
         self.paper_rect.size = (paper_width, paper_height)
+    
+    def _update_cursor_on_hover(self, window, pos):
+        '''Update cursor to arrow when hovering over print preview widget.'''
+        if self.collide_point(*pos):
+            Window.set_system_cursor('arrow')
 
 
 class SidePanelWidget(ScrollView):
@@ -165,6 +174,7 @@ class SidePanelWidget(ScrollView):
     '''
     
     def __init__(self, grid_callback=None, tool_callback=None, **kwargs):
+        print("SidePanelWidget.__init__ called!")
         super().__init__(
             size_hint=(1, 1),
             do_scroll_x=False,
@@ -175,6 +185,7 @@ class SidePanelWidget(ScrollView):
             scroll_type=['bars', 'content'],
             **kwargs
         )
+        print("SidePanelWidget: After super().__init__")
         
         self.grid_callback = grid_callback
         self.tool_callback = tool_callback
@@ -196,6 +207,24 @@ class SidePanelWidget(ScrollView):
         # Add Tool Selector below
         self.tool_selector = ToolSelector(callback=self.on_tool_selected)
         self.layout.add_widget(self.tool_selector)
+        
+        # Cursor management - set arrow cursor when over side panel
+        Window.bind(mouse_pos=self._update_cursor_on_hover)
+        print(f"SidePanelWidget: Bound cursor handler to Window.mouse_pos")
+    
+    def _update_cursor_on_hover(self, window, pos):
+        """
+        Set cursor to arrow when mouse is over the side panel.
+        
+        Called automatically when mouse position changes.
+        """
+        print(f"SidePanel _update_cursor_on_hover called with pos={pos}")
+        # Check if mouse is within this widget's bounds
+        # Note: collide_point uses window coordinates
+        if self.collide_point(*pos):
+            # Debug: print when we detect hover
+            print(f"SidePanel hover detected at {pos}, bounds: x={self.x}, y={self.y}, w={self.width}, h={self.height}")
+            Window.set_system_cursor('arrow')
     
     def on_tool_selected(self, tool_name):
         '''Handle tool selection and notify main GUI.'''
@@ -232,6 +261,7 @@ class pianoTABGUI(BoxLayout):
         self.print_preview = None
         self.properties_panel = None
         self.editor_properties_split = None
+        self._editor = None  # Reference to Editor for tool system
          
         self.setup_layout()
     
@@ -242,6 +272,14 @@ class pianoTABGUI(BoxLayout):
     def on_tool_selected(self, tool_name):
         '''Forward tool selection to the sashes to update contextual buttons.'''
         key = self._normalize_tool_key(tool_name)
+        
+        # Notify editor's tool system
+        if hasattr(self, '_editor') and self._editor:
+            try:
+                self._editor.set_active_tool(tool_name)
+            except Exception as e:
+                print(f"Error setting active tool: {e}")
+        
         # Only update contextual toolbar on the horizontal sash (editor|properties)
         # Horizontal sash between editor (top) and properties panel (bottom) - contextual left aligned
         if hasattr(self, 'editor_properties_split') and self.editor_properties_split and hasattr(self.editor_properties_split, 'sash'):
@@ -369,6 +407,10 @@ class pianoTABGUI(BoxLayout):
     def get_editor_widget(self):
         '''Get reference to the editor widget.'''
         return self.editor_area
+    
+    def set_editor(self, editor):
+        '''Set the editor reference for tool system integration.'''
+        self._editor = editor
     
     def get_preview_widget(self):
         '''Get reference to the preview widget.'''

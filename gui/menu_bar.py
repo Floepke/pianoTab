@@ -83,6 +83,14 @@ class MenuBar(BoxLayout):
             self._update_clock(0)
         except Exception:
             pass
+        
+        # Cursor management - set arrow cursor when over menu bar
+        Window.bind(mouse_pos=self._update_cursor_on_hover)
+    
+    def _update_cursor_on_hover(self, window, pos):
+        """Set cursor to arrow when mouse is over the menu bar."""
+        if self.collide_point(*pos):
+            Window.set_system_cursor('arrow')
 
     def _build_from_config(self, config):
         '''Build menu structure from configuration dict.'''
@@ -114,6 +122,22 @@ class MenuBar(BoxLayout):
         )
         
         dropdown = DropDown(auto_width=False, width=180)
+        
+        # Cursor management for dropdown - set arrow cursor when dropdown is open
+        def update_dropdown_cursor(window, pos):
+            if dropdown.parent and dropdown.collide_point(*pos):
+                Window.set_system_cursor('arrow')
+        
+        # Bind cursor handler when dropdown opens
+        def on_dropdown_open(instance):
+            Window.bind(mouse_pos=update_dropdown_cursor)
+        
+        # Unbind cursor handler when dropdown closes
+        def on_dropdown_dismiss(instance):
+            Window.unbind(mouse_pos=update_dropdown_cursor)
+        
+        dropdown.bind(on_open=on_dropdown_open)
+        dropdown.bind(on_dismiss=on_dropdown_dismiss)
         
         # Style dropdown background with border
         with dropdown.canvas.before:

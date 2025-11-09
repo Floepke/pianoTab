@@ -33,6 +33,7 @@ from kivy.uix.widget import Widget
 from kivy.uix.label import Label
 from kivy.graphics import Color, Rectangle
 from kivy.clock import Clock
+from kivy.core.window import Window
 
 from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER
 from gui.menu_bar import MenuBar
@@ -102,6 +103,14 @@ class SidePanel(ScrollView):
 
         self.tool_selector = ToolSelector(callback=self._on_tool_selected)
         self.layout.add_widget(self.tool_selector)
+        
+        # Cursor management - set arrow cursor when over side panel
+        Window.bind(mouse_pos=self._update_cursor_on_hover)
+
+    def _update_cursor_on_hover(self, window, pos):
+        """Set cursor to arrow when mouse is over the side panel."""
+        if self.collide_point(*pos):
+            Window.set_system_cursor('arrow')
 
     def _on_grid_changed(self, grid_step: float):
         if self.grid_callback:
@@ -287,6 +296,28 @@ class GUI(BoxLayout):
         # Setup right-panel snap-to-fit for A4 aspect on the mid-right split and keep updated
         Clock.schedule_once(self._setup_preview_snap_ratio, 0)
         self.mid_right_split.bind(size=lambda *_: self._setup_preview_snap_ratio())
+        
+        # Simulate dragging sash to snap position on startup
+        Clock.schedule_once(self._simulate_snap_drag, 1)
+
+    def _simulate_snap_drag(self, *_):
+        '''Simulate dragging the sash to the snap position programmatically.'''
+        sp = getattr(self, 'mid_right_split', None)
+        if not sp or not hasattr(sp, 'snap_ratio') or sp.snap_ratio is None:
+            return
+        
+        # Calculate the target position based on snap_ratio
+        if sp.orientation == 'horizontal':
+            # For horizontal split, snap_ratio determines X position
+            target_x = sp.x + (sp.snap_ratio * sp.width)
+            target_pos = (target_x, sp.center_y)
+        else:
+            # For vertical split, snap_ratio determines Y position
+            target_y = sp.y + ((1.0 - sp.snap_ratio) * sp.height)
+            target_pos = (sp.center_x, target_y)
+        
+        # Call update_split directly as if user dragged to this position
+        sp.update_split(target_pos)
 
     def _setup_preview_snap_ratio(self, *_):
         '''
