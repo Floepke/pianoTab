@@ -1,0 +1,75 @@
+'''
+Stave drawing mixin for the Editor class.
+
+Handles drawing the 88-key piano stave lines with specific line patterns.
+'''
+
+from utils.CONSTANTS import PIANO_KEY_COUNT, PIANOTICK_QUARTER
+
+
+class StaveDrawerMixin:
+    '''Mixin for drawing piano stave lines.'''
+    
+    def _draw_stave(self):
+        '''Draw the 88-key stave with your specific line patterns.'''
+        total_ticks = self.get_score_length_in_ticks()
+        mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
+        if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
+            px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
+            mm_per_quarter = (self.pixels_per_quarter) / max(1e-6, px_per_mm)
+        # Stave height independent of scroll offset
+        ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
+        stave_height = (total_ticks / max(1e-6, ql)) * mm_per_quarter
+        
+        # Set stave boundaries (useful for cursor and other tools)
+        self.stave_left = self.editor_margin
+        self.stave_right = self.editor_margin + self.stave_width
+        
+        key = 2  # Start from key 2 as in your algorithm
+        for k in range(1, PIANO_KEY_COUNT):
+            x_pos = self.key_to_x_position(k)
+            
+            # Determine if we need to draw a line for the current key
+            key_ = key % 12  # Use 'key', not 'k' - tracks musical pattern
+            
+            # Check if this is a clef line position (central C# and D#)
+            is_clef_line = (k + 1 in [41, 43])  # C# and D# around middle C
+            
+            # Skip drawing lines for the last key position to avoid extra line
+            # Include clef positions (6, 8) in the pattern check for k=41, 43
+            if (key_ in [2, 5, 7, 10, 0] or is_clef_line) and k < PIANO_KEY_COUNT:
+                
+                # Set color, width, dash pattern, and category tag according to your pattern
+                category_tag = None
+                if is_clef_line:
+                    # Central C# and D# lines (clef lines) - always dashed
+                    color = self.stave_clef_color
+                    width = self.stave_clef_width
+                    category_tag = 'staveClefLines'
+                elif key_ in [2, 10, 0]:  # Three-line (F#, G#, A#)
+                    color = self.stave_three_color
+                    width = self.stave_three_width
+                    category_tag = 'staveThreeLines'
+                else:  # key_ in [5, 7] - Two-line (C#, D#) but not central
+                    color = self.stave_two_color
+                    width = self.stave_two_width
+                    category_tag = 'staveTwoLines'
+                
+                # Draw the line with correct dash pattern from SCORE model
+                y1 = self.editor_margin
+                y2 = self.editor_margin + stave_height
+                if is_clef_line and not hasattr(self, '_clef_debug_printed'):
+                    self._clef_debug_printed = True
+                self.canvas.add_line(
+                    x1_mm=x_pos, y1_mm=y1,
+                    x2_mm=x_pos, y2_mm=y2,
+                    color=color,
+                    width_mm=width,
+                    dash=is_clef_line,  # Only clef lines are dashed
+                    dash_pattern_mm=tuple(self.clef_dash_pattern) if is_clef_line else (2.0, 2.0),
+                    tags=[category_tag]
+                )
+            
+            key += 1
+
+        return

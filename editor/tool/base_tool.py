@@ -27,10 +27,13 @@ class BaseTool(ABC):
         self.score: SCORE = editor.score
         self.canvas = editor.canvas
         
-        # Track mouse state
+        # Track mouse state for drag detection
         self._mouse_down_pos: Optional[Tuple[float, float]] = None
         self._is_dragging = False
-        self._drag_threshold = 5  # pixels before considering it a drag
+        self._drag_threshold = 3  # pixels before considering it a drag
+        
+        # Cursor state (shared by all tools - horizontal time line)
+        self._cursor_time: Optional[float] = None
     
     # === Event Handlers (called by Editor) ===
     
@@ -141,6 +144,9 @@ class BaseTool(ABC):
         Returns:
             True if event was handled, False otherwise
         """
+        # Update and draw the horizontal time cursor
+        self._update_time_cursor(y)
+        
         # Check if we should start a drag
         if self._mouse_down_pos is not None:
             start_x, start_y = self._mouse_down_pos
@@ -201,6 +207,213 @@ class BaseTool(ABC):
         # Clean up any temporary visual feedback
         self._mouse_down_pos = None
         self._is_dragging = False
+        # Clear the time cursor
+        self._clear_time_cursor()
+
+    # === Time Cursor Methods (shared by all tools) ===
+    
+    def _update_time_cursor(self, y_mm: float):
+        """
+        Update and draw the horizontal time cursor at the mouse Y position.
+        Snaps to grid and clamps to score bounds.
+        
+        Args:
+            y_mm: Mouse Y position in millimeters
+        """
+        import math
+        try:
+            # Convert Y to ticks with grid snapping
+            raw_ticks = self.editor.y_to_ticks(float(y_mm))
+            step = max(1e-6, self.editor.get_grid_step_ticks())
+            snapped = math.floor(raw_ticks / step) * step
+            
+            # Clamp within score bounds
+            snapped = max(0.0, snapped)
+            total = float(self.editor.get_score_length_in_ticks())
+            snapped = min(total, snapped)
+            
+            # Update cursor position
+            self._cursor_time = snapped
+            self._draw_cursor()
+        except Exception as e:
+            print(f'CURSOR: update failed: {e}')
+    
+    def _clear_time_cursor(self):
+        """Remove the time cursor from the canvas."""
+        self._cursor_time = None
+        # Delete all cursor lines by tag
+        self.canvas.delete_by_tag('cursorLine')
+    
+    def _draw_cursor(self):
+        """Draw or update the horizontal dashed cursor line at the current time.
+        
+        Draws two separate lines:
+        1. From left edge to left side of piano staves
+        2. From right side of piano staves to right edge
+        This creates a gap where the piano keys are displayed.
+        """
+        # Remove existing cursor lines by tag
+        self.canvas.delete_by_tag('cursorLine')
+
+        if self._cursor_time is None:
+            return
+        
+        # Compute Y in mm from cursor time
+        y_mm = self.editor.time_to_y_mm(self._cursor_time)
+        
+        # Get stave boundaries from editor
+        stave_left = float(getattr(self.editor, 'stave_left', 0.0))
+        stave_right = float(getattr(self.editor, 'stave_right', 0.0))
+        editor_width = float(self.editor.editor_width)
+        
+        # Left line: from 0 to stave_left
+        left_x1 = 0.0
+        left_x2 = stave_left
+        
+        # Right line: from stave_right to editor_width
+        right_x1 = stave_right
+        right_x2 = editor_width
+        
+        if left_x2 <= left_x1 and right_x2 <= right_x1:
+            return
+        
+        try:
+            # Draw left line (if there's space)
+            if left_x2 > left_x1:
+                self.canvas.add_line(
+                    x1_mm=left_x1,
+                    y1_mm=y_mm,
+                    x2_mm=left_x2,
+                    y2_mm=y_mm,
+                    color='#000000',
+                    width_mm=0.25,
+                    dash=True,
+                    dash_pattern_mm=(2.0, 2.0),
+                    tags=['cursorLine']
+                )
+            
+            # Draw right line (if there's space)
+            if right_x2 > right_x1:
+                self.canvas.add_line(
+                    x1_mm=right_x1,
+                    y1_mm=y_mm,
+                    x2_mm=right_x2,
+                    y2_mm=y_mm,
+                    color='#000000',
+                    width_mm=0.25,
+                    dash=True,
+                    dash_pattern_mm=(2.0, 2.0),
+                    tags=['cursorLine']
+                )
+        except Exception as e:
+            print(f'CURSOR: draw failed: {e}')
+
+    # === Helper Methods for Musical Coordinate Conversion ===
+
+    def get_pitch_from_x(self, x_mm: float) -> int:
+        """
+        Convert X coordinate (mm) to piano pitch number (1-88).
+        
+        Args:
+            x_mm: X position in millimeters
+            
+        Returns:
+            Pitch number from 1 (A0) to 88 (C8), or None if out of range
+        """
+        pitch = self.editor.x_to_key_number(x_mm)
+        
+        # Clamp to valid piano range (1-88)
+        if pitch < 1:
+            return 1
+        elif pitch > 88:
+            return 88
+        
+        return pitch
+
+    def get_time_from_y(self, y_mm: float) -> float:
+        """
+        Convert Y coordinate (mm) to time in ticks.
+        
+        Args:
+            y_mm: Y position in millimeters
+            
+        Returns:
+            Time in ticks (using score's time unit)
+        """
+        ticks = self.editor.y_to_ticks(y_mm)
+        
+        # Clamp to valid range (non-negative)
+        if ticks < 0:
+            return 0.0
+        
+        return ticks
+
+    def get_snapped_time_from_y(self, y_mm: float) -> float:
+        """
+        Convert Y coordinate (mm) to time in ticks, snapped to grid.
+        Snaps down (floor) to the grid line you just passed, not the nearest one.
+        
+        Args:
+            y_mm: Y position in millimeters
+            
+        Returns:
+            Time in ticks, snapped to the current grid step (floor)
+        """
+        import math
+        ticks = self.get_time_from_y(y_mm)
+        grid_step = self.editor.get_grid_step_ticks()
+        
+        if grid_step > 0:
+            # Snap down to the grid line (floor) - captures as soon as you enter the grid cell
+            snapped_ticks = math.floor(ticks / grid_step) * grid_step
+            return snapped_ticks
+        
+        return ticks
+
+    def get_pitch_and_time(self, x_mm: float, y_mm: float, snap_to_grid: bool = True):
+        """
+        Convert mouse position to musical coordinates.
+        
+        Args:
+            x_mm: X position in millimeters
+            y_mm: Y position in millimeters
+            snap_to_grid: Whether to snap time to grid (default: True)
+            
+        Returns:
+            Tuple of (pitch: int, time_ticks: float)
+        """
+        pitch = self.get_pitch_from_x(x_mm)
+        
+        if snap_to_grid:
+            time_ticks = self.get_snapped_time_from_y(y_mm)
+        else:
+            time_ticks = self.get_time_from_y(y_mm)
+        
+        return (pitch, time_ticks)
+
+    def get_x_from_pitch(self, pitch: int) -> float:
+        """
+        Convert pitch number to X coordinate (mm).
+        
+        Args:
+            pitch: Piano pitch number (1-88)
+            
+        Returns:
+            X position in millimeters
+        """
+        return self.editor.key_to_x_position(pitch)
+
+    def get_y_from_time(self, time_ticks: float) -> float:
+        """
+        Convert time in ticks to Y coordinate (mm).
+        
+        Args:
+            time_ticks: Time in ticks
+            
+        Returns:
+            Y position in millimeters
+        """
+        return self.editor.time_to_y_mm(time_ticks)
     
     # === Abstract Methods (optional to override) ===
     

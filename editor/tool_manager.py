@@ -26,14 +26,14 @@ class ToolManager:
         """Automatically import and register all tool classes."""
         # Map tool module names to their class names
         tool_definitions = {
-            'note': 'NoteTool',
-            'gracenote': 'GraceNoteTool',
-            'beam': 'BeamTool',
-            'linebreak': 'LineBreakTool',
-            'countline': 'CountLineTool',
-            'text': 'TextTool',
-            'slur': 'SlurTool',
-            'tempo': 'TempoTool',
+            'note_tool': 'NoteTool',
+            'gracenote_tool': 'GraceNoteTool',
+            'beam_tool': 'BeamTool',
+            'linebreak_tool': 'LineBreakTool',
+            'countline_tool': 'CountLineTool',
+            'text_tool': 'TextTool',
+            'slur_tool': 'SlurTool',
+            'tempo_tool': 'TempoTool',
         }
         
         for tool_module_name, class_name in tool_definitions.items():

@@ -365,6 +365,9 @@ class Canvas(Widget):
         # Bind canvas click events to editor tool system
         if editor is not None:
             self.bind(on_item_click=self._forward_click_to_editor)
+            # Also bind touch up events for editor drag detection
+            self._original_on_touch_up = self.on_touch_up
+            self.on_touch_up = self._on_touch_up_with_editor_forward
         
         # As soon as the editor is wired, refresh zoom so the canvas' current
         # px-per-mm is reflected in the editor's mm-per-quarter spacing immediately.
@@ -404,6 +407,36 @@ class Canvas(Widget):
             editor.handle_double_click(x_mm, y_mm)
         else:
             editor.handle_mouse_down(x_mm, y_mm, button_name)
+    
+    def _on_touch_up_with_editor_forward(self, touch):
+        '''Wrap on_touch_up to forward mouse up events to editor tool system.'''
+        # Call original on_touch_up first
+        result = self._original_on_touch_up(touch)
+        
+        # Forward mouse up to editor if it has the handler
+        editor = getattr(self, 'piano_roll_editor', None)
+        if editor is not None and hasattr(editor, 'handle_mouse_up'):
+            # Check if touch was within view area
+            if self._point_in_view_px(*touch.pos):
+                # Convert to mm
+                mm_x, mm_y = self._px_to_mm(*touch.pos)
+                button = getattr(touch, 'button', 'left')
+                
+                # Normalize button name
+                if button in ('scrollup', 'scrolldown'):
+                    pass  # Ignore scroll events
+                elif button == 'right':
+                    button_name = 'right'
+                else:
+                    button_name = 'left'
+                
+                # Dispatch to editor
+                try:
+                    editor.handle_mouse_up(mm_x, mm_y, button_name)
+                except Exception as e:
+                    print(f'CANVAS: mouse up dispatch failed: {e}')
+        
+        return result
 
     # ---------- Grid step source (editor -> grid_selector) ----------
 
@@ -1011,7 +1044,7 @@ class Canvas(Widget):
         return super().on_touch_up(touch)
 
     def on_mouse_motion(self, window, pos):
-        '''Handle mouse motion and forward snapped Y to editor for horizontal cursor.'''
+        '''Handle mouse motion - set cursor for non-editor canvases.'''
         mouse_x, mouse_y = pos
 
         # Check if mouse is over the canvas drawable view area (excluding scrollbar)
@@ -1019,26 +1052,10 @@ class Canvas(Widget):
             # Mouse is over the canvas content area
             ed = getattr(self, 'piano_roll_editor', None)
             
-            # Convert to mm (top-left origin)
-            mm_x, mm_y = self._px_to_mm(mouse_x, mouse_y)
-            
-            # Forward Y in mm to the editor so it can snap to grid and draw its own horizontal cursor
-            if ed is not None and hasattr(ed, 'update_cursor_from_mouse_mm'):
-                try:
-                    ed.update_cursor_from_mouse_mm(mm_y)
-                except Exception as e:
-                    print(f'CANVAS: editor cursor update failed: {e}')
-            else:
-                # This is a non-editor Canvas (e.g., print preview) - set arrow cursor
+            # For non-editor Canvas (e.g., print preview) - set arrow cursor
+            # Editor canvas cursor is handled by Editor._update_cursor_on_hover
+            if ed is None:
                 Window.set_system_cursor('arrow')
-        else:
-            # Outside canvas area: let editor clear its cursor
-            ed = getattr(self, 'piano_roll_editor', None)
-            if ed is not None and hasattr(ed, 'clear_cursor'):
-                try:
-                    ed.clear_cursor()
-                except Exception as e:
-                    print(f'CANVAS: editor cursor clear failed: {e}')
 
     # ---------- Internal: layout / transforms ----------
 

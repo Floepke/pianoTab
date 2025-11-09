@@ -15,8 +15,24 @@ from utils.CONSTANTS import (
     ticks_to_quarters, quarters_to_ticks, is_black_key, has_be_gap
 )
 from editor.tool_manager import ToolManager
+from editor.drawer import (
+    StaveDrawerMixin, GridDrawerMixin, NoteDrawerMixin, GraceNoteDrawerMixin,
+    BeamDrawerMixin, SlurDrawerMixin, TextDrawerMixin, TempoDrawerMixin,
+    CountLineDrawerMixin, LineBreakDrawerMixin
+)
 
-class Editor:
+class Editor(
+    StaveDrawerMixin, 
+    GridDrawerMixin,
+    NoteDrawerMixin,
+    GraceNoteDrawerMixin,
+    BeamDrawerMixin,
+    SlurDrawerMixin,
+    TextDrawerMixin,
+    TempoDrawerMixin,
+    CountLineDrawerMixin,
+    LineBreakDrawerMixin
+):
     '''
     Vertical Piano Roll Editor based on the original Tkinter design.
     
@@ -59,17 +75,21 @@ class Editor:
         # Current view state
         self.scroll_time_offset: float = 0.0
         self.selected_notes: List[Note] = []
-        # Timeline cursor state (ticks from start; None = hidden)
-        self.cursor_time: Optional[float] = None
-        self._cursor_item_id: Optional[int] = None
         
         # Initialize tool system
         self.tool_manager = ToolManager(self)
         self.tool_manager.set_active_tool('Note')  # Default tool
         
+        # Mouse tracking for drag detection
+        self._mouse_button_down: Optional[str] = None  # 'left' or 'right' when button is down
+        self._mouse_down_pos: Optional[Tuple[float, float]] = None  # (x_mm, y_mm) where button went down
+        
         # Cursor management for hover (restore tool cursor on enter/leave)
         self._is_hovering = False
         Window.bind(mouse_pos=self._update_cursor_on_hover)
+
+        # all pianoroll variables here:
+        self.total_time: float = 0.0
         
         # Initialize layout
         self._calculate_layout()
@@ -243,22 +263,21 @@ class Editor:
             total_ticks += measure_ticks * grid.measureAmount
         return total_ticks
     
-    def render(self):
-        '''Render the complete piano roll with all elements.'''
+    def redraw_pianoroll(self):
+        '''Redraw the complete piano roll with all elements.'''
         
         # Clear any existing content
         self.canvas.clear()
         
         # Calculate required dimensions
-        piano_width = (self.width - 2 * self.editor_margin)
-        total_time = self.get_score_length_in_ticks()
+        self.total_time = self.get_score_length_in_ticks()
         # Content height must not depend on scroll offset; compute using mm/quarter directly
         mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
         if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
             px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
             mm_per_quarter = (self.pixels_per_quarter) / max(1e-6, px_per_mm)
         ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
-        content_height_mm = (total_time / max(1e-6, ql)) * mm_per_quarter
+        content_height_mm = (self.total_time / max(1e-6, ql)) * mm_per_quarter
         total_height_mm = content_height_mm + (2.0 * self.editor_margin)  # top + bottom margin equal to editor_margin
         
         # Reconcile canvas height to desired content height (shrink or grow).
@@ -270,162 +289,38 @@ class Editor:
             # Keep scroll; Canvas clamps if out-of-bounds. Avoid reset to prevent jumpiness.
             self.canvas.set_size_mm(self.canvas.width_mm, desired_height_mm, reset_scroll=False)
         
-        # Draw stave lines (piano keys)
+        # Draw all elements:
         self._draw_stave()
-        
-        # Draw barlines and grid
         self._draw_barlines_and_grid()
-
-        # here render notes and other elements...
-        ...
-        
-        # Set proper drawing order: stave lines at back, then gridlines, barlines, measure numbers, notes on top
+        self._draw_notes()
+        self._draw_grace_notes()
+        self._draw_beams()
+        self._draw_slurs()
+        self._draw_texts()
+        self._draw_tempos()
+        self._draw_count_lines()
+        self._draw_line_breaks()
+    
+    def _update_drawing_order(self):
+        '''Set the proper drawing order of canvas elements.'''
         self.canvas.tag_draw_order([
-            'staveThreeLines',
-            'staveTwoLines',
-            'staveClefLines',
-            'gridlines',
-            'barlines',
-            'measureNumbers',
-            'notes'
+            'midinote',
+            # stave
+            'stavethreeline',
+            'stavetwoline',
+            'staveclefline',
+            'gridline',
+            'barline',
+            'measurenumber',
+            # note
+            'notehead',
+            'stem',
+            'connectstem',
+            'accidental',
+            'continuationdot',
+            'stopsign',
+            'gracenote',
         ])
-
-        # Draw horizontal timeline cursor on top if present
-        self._draw_cursor()
-        
-    
-    
-    def _draw_stave(self):
-        '''Draw the 88-key stave with your specific line patterns.'''
-        total_ticks = self.get_score_length_in_ticks()
-        mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
-        if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
-            px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
-            mm_per_quarter = (self.pixels_per_quarter) / max(1e-6, px_per_mm)
-        # Stave height independent of scroll offset
-        ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
-        stave_height = (total_ticks / max(1e-6, ql)) * mm_per_quarter
-        
-        key = 2  # Start from key 2 as in your algorithm
-        for k in range(1, PIANO_KEY_COUNT):
-            x_pos = self.key_to_x_position(k)
-            
-            # Determine if we need to draw a line for the current key
-            key_ = key % 12  # Use 'key', not 'k' - tracks musical pattern
-            
-            # Check if this is a clef line position (central C# and D#)
-            is_clef_line = (k + 1 in [41, 43])  # C# and D# around middle C
-            
-            # Skip drawing lines for the last key position to avoid extra line
-            # Include clef positions (6, 8) in the pattern check for k=41, 43
-            if (key_ in [2, 5, 7, 10, 0] or is_clef_line) and k < PIANO_KEY_COUNT:
-                
-                # Set color, width, dash pattern, and category tag according to your pattern
-                category_tag = None
-                if is_clef_line:
-                    # Central C# and D# lines (clef lines) - always dashed
-                    color = self.stave_clef_color
-                    width = self.stave_clef_width
-                    category_tag = 'staveClefLines'
-                elif key_ in [2, 10, 0]:  # Three-line (F#, G#, A#)
-                    color = self.stave_three_color
-                    width = self.stave_three_width
-                    category_tag = 'staveThreeLines'
-                else:  # key_ in [5, 7] - Two-line (C#, D#) but not central
-                    color = self.stave_two_color
-                    width = self.stave_two_width
-                    category_tag = 'staveTwoLines'
-                
-                # Draw the line with correct dash pattern from SCORE model
-                y1 = self.editor_margin
-                y2 = self.editor_margin + stave_height
-                if is_clef_line and not hasattr(self, '_clef_debug_printed'):
-                    self._clef_debug_printed = True
-                self.canvas.add_line(
-                    x1_mm=x_pos, y1_mm=y1,
-                    x2_mm=x_pos, y2_mm=y2,
-                    color=color,
-                    width_mm=width,
-                    dash=is_clef_line,  # Only clef lines are dashed
-                    dash_pattern_mm=tuple(self.clef_dash_pattern) if is_clef_line else (2.0, 2.0),
-                    tags=[category_tag]
-                )
-            
-            key += 1
-
-        return
-
-    def _draw_barlines_and_grid(self):
-        '''Draw barlines and grid lines based on your Tkinter algorithm.'''
-        # Calculate barline positions (your get_editor_barline_positions equivalent)
-        barline_positions = []
-        total_ticks = 0.0
-        
-        for grid in self.score.baseGrid:
-            ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
-            measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
-            for _ in range(grid.measureAmount):
-                y_pos = self.time_to_y_mm(total_ticks)
-                barline_positions.append((y_pos, len(barline_positions) + 1))  # (position, measure_number)
-                total_ticks += measure_ticks
-        
-        # Draw barlines with measure numbers
-        for y_pos, measure_number in barline_positions:
-            if 0 <= y_pos <= self.canvas.height_mm + self.editor_margin:
-                # Barline
-                self.canvas.add_line(
-                    x1_mm=self.editor_margin, y1_mm=y_pos,
-                    x2_mm=self.editor_margin + self.stave_width, y2_mm=y_pos,
-                    color=self.barline_color,
-                    width_mm=self.barline_width,
-                    tags=['barlines', f'barline_{measure_number}']
-                )
-                
-                # Measure number (positioned at right edge before scrollbar)
-                self.canvas.add_text(
-                    text=str(measure_number),
-                    x_mm=1, 
-                    y_mm=y_pos,
-                    font_size_pt=sp(12),  # Kivy font * 2, then convert back to pt for canvas
-                    color=self.barline_color,
-                    anchor='nw',
-                    tags=['measureNumbers', f'measure_number_{measure_number}']
-                )
-        
-        # Calculate and draw gridlines (your get_editor_gridline_positions equivalent)
-        total_ticks = 0.0
-        for grid in self.score.baseGrid:
-            ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
-            measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
-            subdivision_ticks = measure_ticks / grid.numerator
-            
-            for _ in range(grid.measureAmount):
-                for i in range(1, grid.numerator):  # Skip first beat (that's the barline)
-                    grid_ticks = total_ticks + i * subdivision_ticks
-                    y_pos = self.time_to_y_mm(grid_ticks)
-                    
-                    if 0 <= y_pos <= self.canvas.height_mm + self.editor_margin:
-                        self.canvas.add_line(
-                            x1_mm=self.editor_margin, y1_mm=y_pos,
-                            x2_mm=self.editor_margin + self.stave_width, y2_mm=y_pos,
-                            color=self.gridline_color,
-                            width_mm=self.gridline_width,
-                            dash=True,  # Dashed gridlines
-                            dash_pattern_mm=tuple(self.gridline_dash_pattern),  # Use SCORE model pattern
-                            tags=['gridlines', f'gridline_{total_ticks}_{i}']
-                        )
-                total_ticks += measure_ticks
-        
-        # Draw end barline (thicker)
-        final_y_pos = self.time_to_y_mm(self.get_score_length_in_ticks())
-        if 0 <= final_y_pos <= self.canvas.height_mm + self.editor_margin:
-            self.canvas.add_line(
-                x1_mm=self.editor_margin, y1_mm=final_y_pos,
-                x2_mm=self.editor_margin + self.stave_width, y2_mm=final_y_pos,
-                color=self.barline_color,
-                width_mm=self.barline_width * 2,  # Double thickness for end barline
-                tags=['barlines', 'endBarline']
-            )
     
     # Zoom and interaction methods (simplified for initial implementation)
     def zoom_in(self, factor: float = 1.2):
@@ -436,7 +331,7 @@ class Editor:
             self.pixels_per_quarter = new_ppq
             self._update_score_zoom()
             self._calculate_layout()
-            self.render()
+            self.redraw_pianoroll()
         except Exception as e:
             print(f'DEBUG: zoom_in failed: {e}')
     
@@ -448,7 +343,7 @@ class Editor:
             self.pixels_per_quarter = new_ppq
             self._update_score_zoom()
             self._calculate_layout()
-            self.render()
+            self.redraw_pianoroll()
         except Exception as e:
             print(f'DEBUG: zoom_out failed: {e}')
     
@@ -458,7 +353,7 @@ class Editor:
             self.pixels_per_quarter = max(1.0, float(pixels))
             self._update_score_zoom()
             self._calculate_layout()
-            self.render()
+            self.redraw_pianoroll()
         except Exception as e:
             print(f'DEBUG: set_zoom_pixels_per_quarter failed: {e}')
 
@@ -503,7 +398,7 @@ class Editor:
 
                     # Recompute layout with current canvas scale and re-render content height
                     self._calculate_layout()
-                    self.render()
+                    self.redraw_pianoroll()
                 except Exception as inner_e:
                     print(f'DEBUG: zoom_refresh inner failed: {inner_e}')
 
@@ -518,24 +413,20 @@ class Editor:
             hasattr(self.score.properties, 'editorZoomPixelsQuarter')):
             self.score.properties.editorZoomPixelsQuarter = float(self.pixels_per_quarter)
     
-    def scroll_to_time(self, time_ticks: float):
-        '''Scroll to a specific time position (in ticks).'''
-        self.scroll_time_offset = ticks_to_quarters(time_ticks)
-        self.render()
-    
     def x_to_key_number(self, x_mm: float) -> int:
         '''Convert X coordinate to piano key number (1-88) using your algorithm.'''
         # Recreate the x_positions list from your Tkinter code
-        x_positions = []
         x_pos = self.editor_margin - self.semitone_width
+        x_positions = [x_pos]
         
+        # create center positions for all 88 keys
         for n in range(1, PIANO_KEY_COUNT + 1):
             if has_be_gap(n):
                 x_pos += self.semitone_width
             x_pos += self.semitone_width
             x_positions.append(x_pos)
-        
-        # Find the closest position
+
+        # Find the closest center position
         if x_positions:
             closest_x = min(x_positions, key=lambda y: abs(y - x_mm))
             closest_x_index = x_positions.index(closest_x)
@@ -584,20 +475,6 @@ class Editor:
         self.selected_notes.clear()
         self.selected_notes.append(note)
         print(f'Selected note: Key={note.pitch-20}, Time={note.time}, Duration={note.duration}')
-    
-    def add_note_at_position(self, key_number: int, time_ticks: float, duration_ticks: float = PIANOTICK_QUARTER, stave_idx: int = 0):
-        '''Add a new note at the specified position.'''
-        if 1 <= key_number <= PIANO_KEY_COUNT and 0 <= stave_idx < len(self.score.stave):
-            midi_pitch = key_number_to_midi(key_number)
-            new_note = self.score.new_note(
-                stave_idx=stave_idx,
-                time=time_ticks,
-                pitch=midi_pitch,
-                duration=duration_ticks
-            )
-            self.render()
-            return new_note
-        return None
 
     def get_grid_step_ticks(self) -> float:
         '''Return current grid step in ticks from grid_selector/canvas.'''
@@ -623,65 +500,6 @@ class Editor:
         '''Expose grid step for other components (canvas fallback).'''
         return self.get_grid_step_ticks()
 
-    def update_cursor_from_mouse_mm(self, y_mm: float):
-        '''Update cursor_time from mouse Y in mm with grid snapping.'''
-        try:
-            raw_ticks = self.y_to_ticks(float(y_mm))
-            step = max(1e-6, self.get_grid_step_ticks())
-            snapped = math.floor(raw_ticks / step) * step
-            # Clamp within score
-            snapped = max(0.0, snapped)
-            total = float(self.get_score_length_in_ticks())
-            snapped = min(total, snapped)
-            self.cursor_time = snapped
-            self._draw_cursor()
-        except Exception as e:
-            print(f'CURSOR DEBUG: update failed: {e}')
-
-    def clear_cursor(self):
-        '''Hide cursor and remove from canvas.'''
-        self.cursor_time = None
-        if getattr(self, '_cursor_item_id', None):
-            try:
-                self.canvas.delete(self._cursor_item_id)
-            except Exception:
-                pass
-            self._cursor_item_id = None
-
-    def _draw_cursor(self):
-        '''Draw or update the dashed horizontal cursor at cursor_time.'''
-        # Remove existing
-        if getattr(self, '_cursor_item_id', None):
-            try:
-                self.canvas.delete(self._cursor_item_id)
-            except Exception:
-                pass
-            self._cursor_item_id = None
-        if self.cursor_time is None:
-            return
-        # Compute Y in mm
-        y_mm = self.time_to_y_mm(self.cursor_time)
-        # X extents: full editor view (0 to logical width)
-        x1 = 0.0
-        x2 = float(self.editor_width)
-        if x2 <= x1:
-            return
-        try:
-            self._cursor_item_id = self.canvas.add_line(
-                x1_mm=x1,
-                y1_mm=y_mm,
-                x2_mm=x2,
-                y2_mm=y_mm,
-                color='#000000',
-                width_mm=0.25,
-                dash=True,
-                dash_pattern_mm=(2.0, 2.0),
-                tags=['cursorLine']
-            )
-            # Kept on top by being added after raise_in_order in render()
-        except Exception as e:
-            print(f'CURSOR DEBUG: draw failed: {e}')
-
     # === Tool System Event Handlers ===
     
     def handle_mouse_down(self, x: float, y: float, button: str) -> bool:
@@ -695,6 +513,10 @@ class Editor:
         Returns:
             True if event was handled
         """
+        # Track which button is down and where
+        self._mouse_button_down = button
+        self._mouse_down_pos = (x, y)
+        
         if button == 'left':
             return self.tool_manager.dispatch_left_press(x, y)
         elif button == 'right':
@@ -713,12 +535,27 @@ class Editor:
         Returns:
             True if event was handled
         """
+        # Check if this was the button that was down
+        if self._mouse_button_down != button:
+            return False
+        
+        # Determine if it was a drag based on tool's internal state
+        # The tool's on_mouse_move already detected and handled dragging
+        # We just need to dispatch the release event
         if button == 'left':
-            if was_dragging:
-                return self.tool_manager.dispatch_left_release(x, y)
-            else:
-                return self.tool_manager.dispatch_left_click(x, y)
-        return False
+            result = self.tool_manager.dispatch_left_release(x, y)
+            # If not dragging, also dispatch click
+            active_tool = self.tool_manager.get_active_tool()
+            if active_tool and not active_tool._is_dragging:
+                self.tool_manager.dispatch_left_click(x, y)
+        else:
+            result = False
+        
+        # Clear tracking state
+        self._mouse_button_down = None
+        self._mouse_down_pos = None
+        
+        return result
     
     def handle_mouse_move(self, x: float, y: float) -> bool:
         """
@@ -771,6 +608,7 @@ class Editor:
         Called automatically when mouse position changes.
         Sets the active tool's cursor when over editor view.
         Does nothing when outside to preserve other cursor configurations (sash resize, etc.).
+        Also forwards mouse movement to the active tool for hover previews.
         """
         # Check if mouse is within the actual editor view area (excluding scrollbar)
         if not hasattr(self.canvas, '_point_in_view_px'):
@@ -785,6 +623,16 @@ class Editor:
             active_tool = self.tool_manager.get_active_tool()
             if active_tool:
                 Window.set_system_cursor(active_tool.cursor)
+            
+            # Forward mouse position to tool system (for hover previews, etc.)
+            if hasattr(self.canvas, '_px_to_mm'):
+                try:
+                    # Convert pixel coordinates to mm
+                    mm_x, mm_y = self.canvas._px_to_mm(*pos)
+                    # Dispatch to active tool
+                    self.handle_mouse_move(mm_x, mm_y)
+                except Exception as e:
+                    print(f'EDITOR: mouse move dispatch failed: {e}')
         
         # Track state for potential future use
         self._is_hovering = is_hovering

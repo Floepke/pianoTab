@@ -424,6 +424,13 @@ class PropertyTreeEditor(BoxLayout):
         # Cursor management - set arrow cursor when over property tree
         Window.bind(mouse_pos=self._update_cursor_on_hover)
 
+        # Track property values for change detection
+        self._tracked_properties: dict[Tuple[Union[str, int], ...], Any] = {}
+        self._change_check_event = None
+        
+        # Start polling for property changes (check every second)
+        self._start_change_polling()
+
         # Initial geometry
         self._update_view_and_graphics()
 
@@ -517,6 +524,75 @@ class PropertyTreeEditor(BoxLayout):
         # Recompute left column width against the bound model
         self._auto_size_left_column()
         self._rebuild()
+        # Reset tracked properties when score changes
+        self._snapshot_tracked_properties()
+
+    # ---------- Change Detection Polling ----------
+
+    def _start_change_polling(self):
+        '''Start periodic polling to detect SCORE property changes.'''
+        if self._change_check_event is None:
+            self._change_check_event = Clock.schedule_interval(self._check_for_changes, 1.0)
+
+    def _stop_change_polling(self):
+        '''Stop the polling mechanism.'''
+        if self._change_check_event is not None:
+            self._change_check_event.cancel()
+            self._change_check_event = None
+
+    def _snapshot_tracked_properties(self):
+        '''Capture current values of all visible properties for comparison.
+        
+        This scans all visible rows (those with property_path metadata) and stores
+        their current values from the SCORE model.
+        '''
+        self._tracked_properties.clear()
+        if self._score is None:
+            return
+        
+        # Scan all visible rows in the layout
+        for row in self.layout.children:
+            if not hasattr(row, 'property_path'):
+                continue
+            
+            path = row.property_path
+            if not path:
+                continue
+            
+            try:
+                # Read the current value from SCORE model
+                value = self._read_at_path(self._score, path)
+                # Store it for later comparison
+                self._tracked_properties[path] = value
+            except Exception:
+                # Property might not exist or be accessible
+                pass
+
+    def _check_for_changes(self, dt):
+        '''Periodic check for property changes and update display if needed.
+        
+        This compares the current SCORE model values against the snapshot taken
+        during the last rebuild or check. Only changed values that are currently
+        visible get their display updated.
+        '''
+        if self._score is None:
+            return
+        
+        # Check each tracked property for changes
+        for path, old_value in list(self._tracked_properties.items()):
+            try:
+                # Read current value from SCORE model
+                current_value = self._read_at_path(self._score, path)
+                
+                # Compare with tracked value
+                if current_value != old_value:
+                    # Value changed! Update the display
+                    self.update_property_value_display(path, current_value)
+                    # Update tracked value to new value
+                    self._tracked_properties[path] = current_value
+            except Exception:
+                # Property might have been removed or is inaccessible
+                pass
 
     # ---------- Rendering ----------
 
@@ -645,6 +721,9 @@ class PropertyTreeEditor(BoxLayout):
 
         # Update scrollbar after content size change
         Clock.schedule_once(lambda dt: self._restore_scroll_after_rebuild(prev_px), 0)
+        
+        # Snapshot property values for change detection
+        self._snapshot_tracked_properties()
 
     def _rebuild_debounced(self, delay: float = 0.0):
         '''Schedule a rebuild once per frame to coalesce rapid updates.'''
@@ -755,7 +834,11 @@ class PropertyTreeEditor(BoxLayout):
 
         ti.bind(on_text_validate=_do_commit_immediate, focus=_on_focus)
 
-    def _finalize_row(self, row: Widget):
+    def _finalize_row(self, row: Widget, path: Optional[Tuple[Union[str, int], ...]] = None):
+        '''Add row to layout and optionally store path metadata for efficient updates.'''
+        if path is not None:
+            # Store path as custom property for later lookup
+            row.property_path = path
         self.layout.add_widget(row)
         self._row_counter += 1
 
@@ -1020,7 +1103,7 @@ class PropertyTreeEditor(BoxLayout):
 
         # Make entire row clickable to edit via dialog
         row.bind(on_touch_down=lambda inst, touch: self._on_row_edit_touch(inst, touch, path, 'str', value))
-        self._finalize_row(row)
+        self._finalize_row(row, path)
 
     def _build_color_row(self, key: str, value: str, path: Tuple[Union[str, int], ...], level: int):
         row, right = self._make_kv_row(key_text=key, level=level, icon_name='colorproperty')
@@ -1054,7 +1137,7 @@ class PropertyTreeEditor(BoxLayout):
         lbl.bind(size=lbl.setter('text_size'))
         right.add_widget(lbl)
         row.bind(on_touch_down=lambda inst, touch: self._on_row_edit_touch(inst, touch, path, 'int', value))
-        self._finalize_row(row)
+        self._finalize_row(row, path)
 
     def _build_float_row(self, key: str, value: float, path: Tuple[Union[str, int], ...], level: int):
         row, right = self._make_kv_row(key_text=key, level=level, icon_name='property')
@@ -1062,7 +1145,7 @@ class PropertyTreeEditor(BoxLayout):
         lbl.bind(size=lbl.setter('text_size'))
         right.add_widget(lbl)
         row.bind(on_touch_down=lambda inst, touch: self._on_row_edit_touch(inst, touch, path, 'float', value))
-        self._finalize_row(row)
+        self._finalize_row(row, path)
 
     def _build_literal_choice_row(self, key: str, current: str, choices: List[str], parent: Any,
                                   attr_name: str, path: Tuple[Union[str, int], ...], level: int):
@@ -1664,6 +1747,45 @@ class PropertyTreeEditor(BoxLayout):
         # Debounce rebuild to one per frame
         self._rebuild_debounced(0)
 
+    def update_property_value_display(self, path: Tuple[Union[str, int], ...], new_value: Any):
+        '''Efficiently update a single property's display value if the row is currently visible.
+        
+        This method updates only the Label widget showing the value, avoiding a full tree rebuild.
+        Use this for external changes (like zoom updates) where the SCORE has already been modified.
+        
+        Args:
+            path: Tuple path to the property (e.g., ('properties', 'editorZoomPixelsQuarter'))
+            new_value: The new value to display
+        '''
+        if not path:
+            return
+        
+        try:
+            # Search through visible rows in layout for matching path
+            for row in self.layout.children:
+                # Check if this row has the matching path metadata
+                if not hasattr(row, 'property_path') or row.property_path != path:
+                    continue
+                
+                # Found the row! Now find and update the value Label
+                # Row structure: BoxLayout(horizontal) with left (tree column) and right (value column)
+                for child in row.children:
+                    if isinstance(child, BoxLayout) and child.size_hint_x == 1:
+                        # This is the right column (value column)
+                        for value_widget in child.children:
+                            if isinstance(value_widget, Label):
+                                # Update the label text based on value type
+                                if isinstance(new_value, float):
+                                    value_widget.text = _fmt_float(float(new_value))
+                                elif isinstance(new_value, int):
+                                    value_widget.text = str(int(new_value))
+                                else:
+                                    value_widget.text = str(new_value)
+                                return  # Updated successfully
+        except Exception:
+            # If update fails, silently ignore (row might not be visible/expanded)
+            pass
+
     # ---------- Row editing via dialogs ----------
 
     def _on_row_edit_touch(self, row: Widget, touch, path: Tuple[Union[str, int], ...], kind: str, current: Any):
@@ -1839,6 +1961,18 @@ class PropertyTreeEditor(BoxLayout):
         cancel.bind(on_press=lambda *_: popup.dismiss())
         ok.bind(on_press=do_ok)
         popup.open()
+
+    def _read_at_path(self, root: Any, path: Tuple[Union[str, int], ...]) -> Any:
+        '''Traverse dataclass/list attributes by attr/index path and read the value.'''
+        if not path:
+            return root
+        obj = root
+        for step in path:
+            if isinstance(step, int):
+                obj = obj[step]
+            else:
+                obj = getattr(obj, step)
+        return obj
 
     def _write_at_path(self, root: Any, path: Tuple[Union[str, int], ...], value: Any):
         '''Traverse dataclass/list attributes by attr/index path and set the value.'''
