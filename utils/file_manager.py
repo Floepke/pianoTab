@@ -122,6 +122,29 @@ class LoadDialog(BoxLayout):
         btn_row.add_widget(load_btn)
         
         self.add_widget(btn_row)
+        
+        # Set up keyboard handling when added to window
+        self._keyboard_bound = False
+        self.bind(on_parent=self._on_parent_change)
+    
+    def _on_parent_change(self, instance, value):
+        '''Handle keyboard binding when added/removed from window.'''
+        if value and not self._keyboard_bound:
+            Window.bind(on_keyboard=self._on_keyboard)
+            self._keyboard_bound = True
+        elif not value and self._keyboard_bound:
+            Window.unbind(on_keyboard=self._on_keyboard)
+            self._keyboard_bound = False
+    
+    def _on_keyboard(self, instance, key, scancode, codepoint, modifier):
+        '''Handle keyboard shortcuts for main dialog.'''
+        if key == 27:  # Escape
+            self._on_cancel(None)
+            return True
+        elif key == 13:  # Return/Enter
+            self._on_load(None)
+            return True
+        return False
 
     def _update_path_label(self, instance, value):
         '''Update path label when directory changes.'''
@@ -156,6 +179,10 @@ class LoadDialog(BoxLayout):
         if not new_name or new_name == os.path.basename(old_path):
             return
         try:
+            # For files, ensure .piano extension
+            if os.path.isfile(old_path) and not new_name.endswith('.piano'):
+                new_name = new_name + '.piano'
+            
             new_path = os.path.join(os.path.dirname(old_path), new_name)
             os.rename(old_path, new_path)
             self.file_chooser._update_files()
@@ -265,16 +292,19 @@ class LoadDialog(BoxLayout):
     
     def _prompt_input(self, title, label_text, default_text, callback):
         '''Show input dialog.'''
-        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(8))
+        # Left, Top, Right, Bottom padding - increase TOP
+        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=[dp(8), dp(20), dp(8), dp(8)])
+        
         content.add_widget(Label(text=label_text, size_hint_y=None, height=dp(30), color=LIGHT))
         
         text_input = TextInput(
             text=default_text,
             size_hint_y=None,
-            height=dp(36),
+            height=dp(30),
             multiline=False,
             background_color=DARK_LIGHTER,
-            foreground_color=LIGHT
+            foreground_color=LIGHT,
+            padding=[dp(6), dp(6), dp(6), dp(6)]
         )
         content.add_widget(text_input)
         
@@ -285,14 +315,29 @@ class LoadDialog(BoxLayout):
         btn_row.add_widget(ok_btn)
         content.add_widget(btn_row)
         
-        popup = Popup(title=title, content=content, size_hint=(None, None), size=(dp(400), dp(180)))
+        popup = Popup(title=title, content=content, size_hint=(None, None), size=(dp(400), dp(200)))
         cancel_btn.bind(on_release=popup.dismiss)
         ok_btn.bind(on_release=lambda *args: (callback(text_input.text), popup.dismiss()))
+        
+        # Keyboard handling
+        def on_keyboard(instance, key, scancode, codepoint, modifier):
+            if key == 27:  # Escape
+                popup.dismiss()
+                return True
+            elif key == 13:  # Return/Enter
+                callback(text_input.text)
+                popup.dismiss()
+                return True
+            return False
+        
+        popup.bind(on_open=lambda *args: Window.bind(on_keyboard=on_keyboard))
+        popup.bind(on_dismiss=lambda *args: Window.unbind(on_keyboard=on_keyboard))
         popup.open()
     
     def _confirm(self, message, callback):
         '''Show confirmation dialog.'''
-        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(8))
+        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=[dp(8), dp(20), dp(8), dp(8)])
+        
         content.add_widget(Label(text=message, size_hint_y=None, height=dp(50), color=LIGHT))
         
         btn_row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), spacing=dp(8))
@@ -302,21 +347,46 @@ class LoadDialog(BoxLayout):
         btn_row.add_widget(yes_btn)
         content.add_widget(btn_row)
         
-        popup = Popup(title='Confirm', content=content, size_hint=(None, None), size=(dp(350), dp(150)))
+        popup = Popup(title='Confirm', content=content, size_hint=(None, None), size=(dp(350), dp(170)))
         no_btn.bind(on_release=popup.dismiss)
         yes_btn.bind(on_release=lambda *args: (callback(), popup.dismiss()))
+        
+        # Keyboard handling
+        def on_keyboard(instance, key, scancode, codepoint, modifier):
+            if key == 27:  # Escape = No/Cancel
+                popup.dismiss()
+                return True
+            elif key == 13:  # Return/Enter = Yes/Confirm
+                callback()
+                popup.dismiss()
+                return True
+            return False
+        
+        popup.bind(on_open=lambda *args: Window.bind(on_keyboard=on_keyboard))
+        popup.bind(on_dismiss=lambda *args: Window.unbind(on_keyboard=on_keyboard))
         popup.open()
     
     def _show_error(self, message):
         '''Show error message.'''
-        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(8))
+        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=[dp(8), dp(20), dp(8), dp(8)])
+        
         content.add_widget(Label(text=message, size_hint_y=None, height=dp(50), color=LIGHT))
         
         ok_btn = Button(text='OK', size_hint_y=None, height=dp(40), background_normal='', background_color=DARK, color=LIGHT)
         content.add_widget(ok_btn)
         
-        popup = Popup(title='Error', content=content, size_hint=(None, None), size=(dp(350), dp(150)))
+        popup = Popup(title='Error', content=content, size_hint=(None, None), size=(dp(350), dp(170)))
         ok_btn.bind(on_release=popup.dismiss)
+        
+        # Keyboard handling
+        def on_keyboard(instance, key, scancode, codepoint, modifier):
+            if key in (27, 13):  # Escape or Return/Enter
+                popup.dismiss()
+                return True
+            return False
+        
+        popup.bind(on_open=lambda *args: Window.bind(on_keyboard=on_keyboard))
+        popup.bind(on_dismiss=lambda *args: Window.unbind(on_keyboard=on_keyboard))
         popup.open()
 
 
@@ -360,11 +430,11 @@ class SaveDialog(BoxLayout):
         self.text_input = TextInput(
             text=suggested_name,
             size_hint_y=None,
-            height=dp(40),
+            height=dp(30),
             multiline=False,
             background_color=DARK_LIGHTER,
             foreground_color=LIGHT,
-            padding=[10, 10, 10, 10]
+            padding=[dp(6), dp(6), dp(6), dp(6)]
         )
         self.add_widget(self.text_input)
         
@@ -425,6 +495,29 @@ class SaveDialog(BoxLayout):
         btn_row.add_widget(save_btn)
         
         self.add_widget(btn_row)
+        
+        # Set up keyboard handling when added to window
+        self._keyboard_bound = False
+        self.bind(on_parent=self._on_parent_change)
+    
+    def _on_parent_change(self, instance, value):
+        '''Handle keyboard binding when added/removed from window.'''
+        if value and not self._keyboard_bound:
+            Window.bind(on_keyboard=self._on_keyboard)
+            self._keyboard_bound = True
+        elif not value and self._keyboard_bound:
+            Window.unbind(on_keyboard=self._on_keyboard)
+            self._keyboard_bound = False
+    
+    def _on_keyboard(self, instance, key, scancode, codepoint, modifier):
+        '''Handle keyboard shortcuts for main dialog.'''
+        if key == 27:  # Escape
+            self._on_cancel(None)
+            return True
+        elif key == 13:  # Return/Enter
+            self._on_save(None)
+            return True
+        return False
 
     def _update_path_label(self, instance, value):
         '''Update path label when directory changes.'''
@@ -459,6 +552,10 @@ class SaveDialog(BoxLayout):
         if not new_name or new_name == os.path.basename(old_path):
             return
         try:
+            # For files, ensure .piano extension
+            if os.path.isfile(old_path) and not new_name.endswith('.piano'):
+                new_name = new_name + '.piano'
+            
             new_path = os.path.join(os.path.dirname(old_path), new_name)
             os.rename(old_path, new_path)
             self.file_chooser._update_files()
@@ -572,16 +669,18 @@ class SaveDialog(BoxLayout):
     
     def _prompt_input(self, title, label_text, default_text, callback):
         '''Show input dialog.'''
-        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(8))
+        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=[dp(8), dp(20), dp(8), dp(8)])
+        
         content.add_widget(Label(text=label_text, size_hint_y=None, height=dp(30), color=LIGHT))
         
         text_input = TextInput(
             text=default_text,
             size_hint_y=None,
-            height=dp(36),
+            height=dp(30),
             multiline=False,
             background_color=DARK_LIGHTER,
-            foreground_color=LIGHT
+            foreground_color=LIGHT,
+            padding=[dp(6), dp(6), dp(6), dp(6)]
         )
         content.add_widget(text_input)
         
@@ -592,14 +691,29 @@ class SaveDialog(BoxLayout):
         btn_row.add_widget(ok_btn)
         content.add_widget(btn_row)
         
-        popup = Popup(title=title, content=content, size_hint=(None, None), size=(dp(400), dp(180)))
+        popup = Popup(title=title, content=content, size_hint=(None, None), size=(dp(400), dp(200)))
         cancel_btn.bind(on_release=popup.dismiss)
         ok_btn.bind(on_release=lambda *args: (callback(text_input.text), popup.dismiss()))
+        
+        # Keyboard handling
+        def on_keyboard(instance, key, scancode, codepoint, modifier):
+            if key == 27:  # Escape
+                popup.dismiss()
+                return True
+            elif key == 13:  # Return/Enter
+                callback(text_input.text)
+                popup.dismiss()
+                return True
+            return False
+        
+        popup.bind(on_open=lambda *args: Window.bind(on_keyboard=on_keyboard))
+        popup.bind(on_dismiss=lambda *args: Window.unbind(on_keyboard=on_keyboard))
         popup.open()
     
     def _confirm(self, message, callback):
         '''Show confirmation dialog.'''
-        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(8))
+        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=[dp(8), dp(20), dp(8), dp(8)])
+        
         content.add_widget(Label(text=message, size_hint_y=None, height=dp(50), color=LIGHT))
         
         btn_row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), spacing=dp(8))
@@ -609,21 +723,46 @@ class SaveDialog(BoxLayout):
         btn_row.add_widget(yes_btn)
         content.add_widget(btn_row)
         
-        popup = Popup(title='Confirm', content=content, size_hint=(None, None), size=(dp(350), dp(150)))
+        popup = Popup(title='Confirm', content=content, size_hint=(None, None), size=(dp(350), dp(170)))
         no_btn.bind(on_release=popup.dismiss)
         yes_btn.bind(on_release=lambda *args: (callback(), popup.dismiss()))
+        
+        # Keyboard handling
+        def on_keyboard(instance, key, scancode, codepoint, modifier):
+            if key == 27:  # Escape = No/Cancel
+                popup.dismiss()
+                return True
+            elif key == 13:  # Return/Enter = Yes/Confirm
+                callback()
+                popup.dismiss()
+                return True
+            return False
+        
+        popup.bind(on_open=lambda *args: Window.bind(on_keyboard=on_keyboard))
+        popup.bind(on_dismiss=lambda *args: Window.unbind(on_keyboard=on_keyboard))
         popup.open()
     
     def _show_error(self, message):
         '''Show error message.'''
-        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(8))
+        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=[dp(8), dp(20), dp(8), dp(8)])
+        
         content.add_widget(Label(text=message, size_hint_y=None, height=dp(50), color=LIGHT))
         
         ok_btn = Button(text='OK', size_hint_y=None, height=dp(40), background_normal='', background_color=DARK, color=LIGHT)
         content.add_widget(ok_btn)
         
-        popup = Popup(title='Error', content=content, size_hint=(None, None), size=(dp(350), dp(150)))
+        popup = Popup(title='Error', content=content, size_hint=(None, None), size=(dp(350), dp(170)))
         ok_btn.bind(on_release=popup.dismiss)
+        
+        # Keyboard handling
+        def on_keyboard(instance, key, scancode, codepoint, modifier):
+            if key in (27, 13):  # Escape or Return/Enter
+                popup.dismiss()
+                return True
+            return False
+        
+        popup.bind(on_open=lambda *args: Window.bind(on_keyboard=on_keyboard))
+        popup.bind(on_dismiss=lambda *args: Window.unbind(on_keyboard=on_keyboard))
         popup.open()
 
 

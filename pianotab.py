@@ -52,6 +52,12 @@ Config.set('graphics', 'vsync', '0')
 # Disable multitouch emulation (prevents red circle on right-click)
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 
+# Disable Escape key exit behavior only when deployed (PyInstaller bundle)
+# Keep it enabled during development for convenience
+if getattr(sys, 'frozen', False):
+    # Running from PyInstaller bundle - disable Escape exit
+    Config.set('kivy', 'exit_on_escape', '0')
+
 from kivy.app import App
 from kivy.core.window import Window
 from kivy.clock import Clock
