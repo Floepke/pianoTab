@@ -10,6 +10,7 @@ from kivy.clock import Clock
 from kivy.core.window import Window
 from .embedded_font import get_embedded_monospace_font
 from gui.colors import LIGHT, LIGHT_DARKER, DARK_LIGHTER, DARK, ACCENT_COLOR
+from utils.CONSTANTS import DEFAULT_GRID_STEP_TICKS
 
 
 class CustomScrollbar(Widget):
@@ -311,8 +312,7 @@ class Canvas(Widget):
         # Editor feedback loop guard (set True when editor triggers canvas resizing)
         self._updating_from_editor: bool = False
 
-        # Grid-based cursor snapping
-        self._grid_step_ticks: float = 256.0  # Default to quarter note (256 ticks)
+        # Grid-based cursor snapping (cursor position state only)
         self._cursor_visible: bool = False
         self._cursor_x_mm: float = 0.0  # Cursor position in mm coordinates
         self._cursor_line_instr = None  # Will be created when needed
@@ -424,7 +424,8 @@ class Canvas(Widget):
                 
                 # Normalize button name
                 if button in ('scrollup', 'scrolldown'):
-                    pass  # Ignore scroll events
+                    # Ignore scroll events - don't dispatch to editor
+                    return result
                 elif button == 'right':
                     button_name = 'right'
                 else:
@@ -441,9 +442,9 @@ class Canvas(Widget):
     # ---------- Grid step source (editor -> grid_selector) ----------
 
     def _get_grid_step_ticks(self) -> float:
-        '''Return current grid step in ticks from editor.grid_selector when available.
+        '''Return current grid step in ticks from editor.grid_selector.
 
-        Falls back to Canvas._grid_step_ticks when editor or grid_selector is not present.
+        Returns DEFAULT_GRID_STEP_TICKS as fallback when editor or grid_selector is not available.
         '''
         try:
             ed = getattr(self, 'piano_roll_editor', None)
@@ -461,7 +462,8 @@ class Canvas(Widget):
                         return float(ticks)
         except Exception as e:
             print(f'GRID DEBUG: failed to read grid step from editor: {e}')
-        return float(getattr(self, '_grid_step_ticks', 256.0))
+        # Fallback to default from constants
+        return DEFAULT_GRID_STEP_TICKS
 
     def _snap_scroll_to_grid(self, scroll_px: float) -> float:
         '''Snap scroll position to align with visual grid in the editor based on current grid step.
@@ -533,7 +535,8 @@ class Canvas(Widget):
         '''Update scroll step calculation when score data changes (e.g., quarterNoteLength).'''
         if hasattr(self, 'custom_scrollbar') and self.custom_scrollbar:
             self.custom_scrollbar.update_layout()
-            print(f'SCROLL STEP UPDATED: Grid step {self._grid_step_ticks} -> {self._calculate_grid_step_pixels():.1f} pixels')
+            grid_step = self._get_grid_step_ticks()
+            print(f'SCROLL STEP UPDATED: Grid step {grid_step} -> {self._calculate_grid_step_pixels():.1f} pixels')
 
     # ---------- Internal: font resolution ----------
 
@@ -1711,14 +1714,6 @@ class Canvas(Widget):
             cx, cy = nx, ny
 
     # ---------- Grid-based cursor snapping ----------
-    
-    def set_grid_step(self, grid_step_ticks: float):
-        '''Set the grid step for cursor snapping in piano ticks.'''
-        self._grid_step_ticks = grid_step_ticks
-        
-    def get_grid_step(self) -> float:
-        '''Get the current grid step in piano ticks.'''
-        return self._grid_step_ticks
     
     def _snap_to_grid(self, time_position_mm: float) -> float:
         '''Snap a time position to the current grid step.'''

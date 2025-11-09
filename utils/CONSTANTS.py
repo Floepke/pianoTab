@@ -41,6 +41,29 @@ MIDI_PITCH_MAX = 108
 DEFAULT_PIXELS_PER_QUARTER = 100.0
 '''Default zoom level in pixels per quarter note when no score setting is available.'''
 
+# Grid system defaults (single source of truth)
+QUARTER_NOTE_TICKS = 256.0
+'''Standard quarter note length in ticks (same as PIANOTICK_QUARTER).'''
+
+# Calculate all grid lengths from quarter note for consistency
+GRID_LENGTHS = [
+    ('1 - Whole', QUARTER_NOTE_TICKS * 4),      # 1024.0
+    ('2 - Half', QUARTER_NOTE_TICKS * 2),       # 512.0
+    ('4 - Quarter', QUARTER_NOTE_TICKS),        # 256.0
+    ('8 - Eighth', QUARTER_NOTE_TICKS / 2),     # 128.0
+    ('16 - Sixteenth', QUARTER_NOTE_TICKS / 4), # 64.0
+    ('32 - 32nd', QUARTER_NOTE_TICKS / 8),      # 32.0
+    ('64 - 64th', QUARTER_NOTE_TICKS / 16),     # 16.0
+    ('128 - 128th', QUARTER_NOTE_TICKS / 32),   # 8.0
+]
+'''Available grid lengths with their tick values.'''
+
+DEFAULT_GRID_NAME = '8 - Eighth'
+'''Initial grid selection on application startup.'''
+
+DEFAULT_GRID_STEP_TICKS = QUARTER_NOTE_TICKS / 2  # 128.0 (eighth note)
+'''Default grid step in ticks when grid selector is not available (fallback).'''
+
 # Key layout calculation constants
 VISUAL_SEMITONE_POSITIONS_OFFSET = 5
 '''Number of semitone positions outside the editor margins (not visible).'''
@@ -68,7 +91,3 @@ def quarters_to_ticks(quarters: float) -> float:
 def is_black_key(key_number: int) -> bool:
     '''Check if a piano key number corresponds to a black key.'''
     return key_number in BLACK_KEYS
-
-def has_be_gap(key_number: int) -> bool:
-    '''Check if a piano key number has a BE gap before it.'''
-    return key_number in BE_GAPS

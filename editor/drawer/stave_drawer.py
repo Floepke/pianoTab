@@ -3,12 +3,36 @@ Stave drawing mixin for the Editor class.
 
 Handles drawing the 88-key piano stave lines with specific line patterns.
 '''
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from file.SCORE import SCORE
+    from utils.canvas import Canvas
 
 from utils.CONSTANTS import PIANO_KEY_COUNT, PIANOTICK_QUARTER
 
 
 class StaveDrawerMixin:
     '''Mixin for drawing piano stave lines.'''
+    
+    # Type hints for Editor attributes used by this mixin
+    if TYPE_CHECKING:
+        score: SCORE
+        canvas: Canvas
+        editor_margin: float
+        stave_width: float
+        pixels_per_quarter: float
+        stave_two_color: str
+        stave_two_width: float
+        stave_three_color: str
+        stave_three_width: float
+        stave_clef_color: str
+        stave_clef_width: float
+        clef_dash_pattern: list
+        
+        def key_number_to_x_mm(self, key_number: int) -> float: ...
+        def get_score_length_in_ticks(self) -> float: ...
     
     def _draw_stave(self):
         '''Draw the 88-key stave with your specific line patterns.'''
@@ -27,7 +51,7 @@ class StaveDrawerMixin:
         
         key = 2  # Start from key 2 as in your algorithm
         for k in range(1, PIANO_KEY_COUNT):
-            x_pos = self.key_to_x_position(k)
+            x_pos = self.key_number_to_x_mm(k)
             
             # Determine if we need to draw a line for the current key
             key_ = key % 12  # Use 'key', not 'k' - tracks musical pattern

@@ -11,7 +11,9 @@ from kivy.uix.behaviors import ButtonBehavior
 from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.properties import NumericProperty, ObjectProperty
 from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER, ACCENT_COLOR
-
+from utils.CONSTANTS import (
+    DEFAULT_GRID_NAME, DEFAULT_GRID_STEP_TICKS, GRID_LENGTHS, QUARTER_NOTE_TICKS
+)
 
 class SpinBox(BoxLayout):
     '''
@@ -203,8 +205,8 @@ class GridSelector(BoxLayout):
     - Callback when grid changes
     '''
     
-    quarter_note_ticks = NumericProperty(256.0)
-    current_grid_step = NumericProperty(256.0)
+    quarter_note_ticks = NumericProperty(QUARTER_NOTE_TICKS)
+    current_grid_step = NumericProperty(DEFAULT_GRID_STEP_TICKS)
     callback = ObjectProperty(None, allownone=True)
     
     def __init__(self, callback=None, **kwargs):
@@ -218,20 +220,11 @@ class GridSelector(BoxLayout):
         self.widget_height = 48  # Button height - half of standard 96px
         
         self.callback = callback
-        self.current_grid_name = '4 - Quarter'
+        self.current_grid_name = DEFAULT_GRID_NAME
         self.subdivision = 1
         
-        # Define grid lengths with their pianotick values
-        self.grid_lengths = [
-            ('1 - Whole', 1024.0),
-            ('2 - Half', 512.0),
-            ('4 - Quarter', 256.0),
-            ('8 - Eighth', 128.0),
-            ('16 - Sixteenth', 64.0),
-            ('32 - 32nd', 32.0),
-            ('64 - 64th', 16.0),
-            ('128 - 128th', 8.0)
-        ]
+        # Use grid lengths from constants (single source of truth)
+        self.grid_lengths = GRID_LENGTHS
         
         # Background
         with self.canvas.before:
@@ -244,8 +237,17 @@ class GridSelector(BoxLayout):
         # Bind to size/pos changes for background
         self.bind(pos=self.update_graphics, size=self.update_graphics)
         
+        # Temporarily disable callback during widget creation to avoid spurious events
+        saved_callback = self.callback
+        self.callback = None
+        
         self.create_widgets()
         self.update_grid_step_label()
+        
+        # Restore callback and trigger it once with the initial grid step
+        self.callback = saved_callback
+        if self.callback:
+            self.callback(self.current_grid_step)
 
     def _get_grid_lengths(self):
         '''calculates the right grid lengths based on the file models pianoTick value.'''
@@ -425,8 +427,9 @@ class GridSelector(BoxLayout):
         
         self.add_widget(subdiv_container)
         
-        # Update initial selection
-        self.update_selection()
+        # Initialize selection to current_grid_name (set in __init__)
+        # Note: callback is already disabled in __init__ during initialization
+        self.select_grid(self.current_grid_name)
     
     def update_scroll_bg(self, instance, value):
         '''Update scroll background.'''
@@ -520,6 +523,21 @@ class GridSelector(BoxLayout):
                 print(f'Warning: Subdivision value {value} out of range (1-99)')
         except (ValueError, TypeError):
             print(f'Warning: Invalid subdivision value: {value}')
+    
+    def set_grid(self, grid_name):
+        '''Set the grid length selection programmatically.
+        
+        Args:
+            grid_name: Name of the grid to select (e.g., '8 - Eighth', '4 - Quarter')
+        '''
+        # Validate grid name exists
+        valid_names = [name for name, _ in self.grid_lengths]
+        if grid_name not in valid_names:
+            print(f'Warning: Invalid grid name "{grid_name}". Valid options: {valid_names}')
+            return
+        
+        # Update selection (this will also trigger callback and update UI)
+        self.select_grid(grid_name)
 
     def _update_subdiv_combo_bg(self, *args):
         if hasattr(self, '_subdiv_combo_bg') and hasattr(self, 'subdiv_combo_label'):

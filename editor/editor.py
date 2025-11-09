@@ -12,7 +12,7 @@ from utils.CONSTANTS import (
     PHYSICAL_SEMITONE_POSITIONS, BE_GAPS, BLACK_KEYS, PIANOTICK_QUARTER,
     MIDI_KEY_OFFSET, PIANO_KEY_COUNT, DEFAULT_PIXELS_PER_QUARTER,
     get_visual_semitone_positions, midi_to_key_number, key_number_to_midi,
-    ticks_to_quarters, quarters_to_ticks, is_black_key, has_be_gap
+    ticks_to_quarters, quarters_to_ticks, is_black_key
 )
 from editor.tool_manager import ToolManager
 from editor.drawer import (
@@ -227,20 +227,22 @@ class Editor(
         '''Canvas height in mm.'''
         return self.canvas.height_mm
     
-    def key_to_x_position(self, key_number: int) -> float:
+    def key_number_to_x_mm(self, key_number: int) -> float:
         '''Convert piano key number (1-88) to X position using your spacing algorithm.'''
-        x_positions = []
+        # Build x_positions list exactly like x_to_key_number does
         x_pos = self.editor_margin - self.semitone_width
+        x_positions = [x_pos]  # Start with initial position at index 0
         
         for n in range(1, PIANO_KEY_COUNT + 1):
             # Add extra space at BE gaps (your specific spacing)
-            if has_be_gap(n):
+            if n in BE_GAPS:
                 x_pos += self.semitone_width
             x_pos += self.semitone_width
             x_positions.append(x_pos)
         
+        # Key numbers 1-88 map to indices 1-88 (index 0 is before first key)
         if 1 <= key_number <= PIANO_KEY_COUNT:
-            return x_positions[key_number - 1]
+            return x_positions[key_number]
         return self.editor_margin
     
     def time_to_y_mm(self, time_ticks: float) -> float:
@@ -421,7 +423,7 @@ class Editor(
         
         # create center positions for all 88 keys
         for n in range(1, PIANO_KEY_COUNT + 1):
-            if has_be_gap(n):
+            if n in BE_GAPS:
                 x_pos += self.semitone_width
             x_pos += self.semitone_width
             x_positions.append(x_pos)
@@ -433,7 +435,7 @@ class Editor(
             return closest_x_index + 1
         return 1
     
-    def y_to_ticks(self, y_mm: float) -> float:
+    def y_to_time(self, y_mm: float) -> float:
         '''Convert Y coordinate to time in ticks (inverse of time_to_y_mm).'''
         mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
         if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:

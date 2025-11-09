@@ -382,27 +382,19 @@ class pianoTABGUI(BoxLayout):
         # This allows the user to snap to this position when dragging the sash
         Clock.schedule_once(self._setup_snap_ratio, 0)
         
-        # Initialize editor with current grid step
-        Clock.schedule_once(self._init_grid_step, 0.1)
-
+        # Initialize editor with current grid step (no action needed - Canvas reads from grid_selector directly)
         # File management is owned by App; GUI receives a setter later.
         self.file_manager = None
     
     def _init_grid_step(self, dt):
         '''Initialize the editor with the current grid step from the side panel.'''
-        if self.editor_area and self.side_panel:
-            # Get the current grid step from the grid selector
-            grid_step = self.side_panel.grid_selector.get_grid_step()
-            self.editor_area.set_grid_step(grid_step)
-            print(f'Initialized editor with grid step: {grid_step} piano ticks')
+        # No longer needed - Canvas reads grid step directly from editor.grid_selector
+        pass
     
     def on_grid_step_changed(self, grid_step):
         '''Handle grid step change from the side panel.'''
         print(f'Main GUI received grid step change: {grid_step} piano ticks')
-        
-        # Update editor cursor snapping behavior
-        if self.editor_area:
-            self.editor_area.set_grid_step(grid_step)
+        # No action needed - Canvas reads grid step directly from editor.grid_selector
     
     def get_editor_widget(self):
         '''Get reference to the editor widget.'''

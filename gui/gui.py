@@ -434,13 +434,8 @@ class GUI(BoxLayout):
         pass
 
     def _on_grid_step_changed(self, grid_step: float):
-        try:
-            if self.editor and isinstance(self.editor, Editor):
-                cv = self.editor.get_canvas()
-                if cv:
-                    cv.set_grid_step(grid_step)
-        except Exception:
-            pass
+        # No action needed - Canvas reads grid step directly from editor.grid_selector
+        pass
 
 
 __all__ = [

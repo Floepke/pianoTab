@@ -223,7 +223,7 @@ class BaseTool(ABC):
         import math
         try:
             # Convert Y to ticks with grid snapping
-            raw_ticks = self.editor.y_to_ticks(float(y_mm))
+            raw_ticks = self.editor.y_to_time(float(y_mm))
             step = max(1e-6, self.editor.get_grid_step_ticks())
             snapped = math.floor(raw_ticks / step) * step
             
@@ -340,7 +340,7 @@ class BaseTool(ABC):
         Returns:
             Time in ticks (using score's time unit)
         """
-        ticks = self.editor.y_to_ticks(y_mm)
+        ticks = self.editor.y_to_time(y_mm)
         
         # Clamp to valid range (non-negative)
         if ticks < 0:
@@ -401,7 +401,7 @@ class BaseTool(ABC):
         Returns:
             X position in millimeters
         """
-        return self.editor.key_to_x_position(pitch)
+        return self.editor.key_number_to_x_mm(pitch)
 
     def get_y_from_time(self, time_ticks: float) -> float:
         """

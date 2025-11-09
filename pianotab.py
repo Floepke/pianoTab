@@ -114,6 +114,10 @@ class pianoTAB(App):
         # Initialize Editor (which owns the SCORE)
         self.editor = Editor(self.gui.get_editor_widget())
         
+        # Connect editor to grid_selector for cursor snapping
+        if hasattr(self.gui, 'side_panel') and hasattr(self.gui.side_panel, 'grid_selector'):
+            self.editor.grid_selector = self.gui.side_panel.grid_selector
+        
         # Set canvas reference to piano roll editor for scroll snap functionality
         self.gui.get_editor_widget().set_piano_roll_editor(self.editor)
         
