@@ -49,6 +49,8 @@ else:
 Config.set('kivy', 'keyboard_mode', '')
 # Disable vsync
 Config.set('graphics', 'vsync', '0')
+# Disable multitouch emulation (prevents red circle on right-click)
+Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 
 from kivy.app import App
 from kivy.core.window import Window
@@ -60,7 +62,7 @@ from gui.colors import DARK
 from editor.editor import Editor
 from file.SCORE import SCORE
 from utils.file_manager import FileManager
-from utils.settings import SettingsManager
+from utils.settings_manager import SettingsManager
 from utils.embedded_font import cleanup_embedded_fonts
 
 class pianoTAB(App):

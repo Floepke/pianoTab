@@ -12,6 +12,8 @@ from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.textinput import TextInput
+from kivy.metrics import dp
+import shutil
 
 from gui.colors import DARK, DARK_LIGHTER, LIGHT
 from kivy.core.window import Window
@@ -28,7 +30,7 @@ LOAD_SAVE_MAX_HEIGHT = 900
 
 
 class LoadDialog(BoxLayout):
-    '''Load file dialog using FileChooserListView.'''
+    '''Load file dialog with file management features.'''
     
     def __init__(self, start_path: str, load_callback: Callable, cancel_callback: Callable, **kwargs):
         super().__init__(**kwargs)
@@ -38,22 +40,64 @@ class LoadDialog(BoxLayout):
         
         self._load_callback = load_callback
         self._cancel_callback = cancel_callback
+        self._clipboard = None  # Stores (operation, filepath) where operation is 'copy' or 'cut'
         
-        # File chooser (plain Kivy FileChooserListView)
+        # Current path label
+        self.path_label = Label(
+            text=f'Path: {start_path}',
+            size_hint_y=None,
+            height=dp(30),
+            color=LIGHT,
+            halign='left',
+            valign='middle',
+            text_size=(None, None)
+        )
+        self.path_label.bind(size=lambda *args: setattr(self.path_label, 'text_size', (self.path_label.width - 20, None)))
+        self.add_widget(self.path_label)
+        
+        # File chooser
         self.file_chooser = FileChooserListView(
             path=start_path,
             filters=FILE_FILTERS,
-            size_hint=(1, 1)
+            size_hint=(1, 1),
+            dirselect=True  # Allow folder selection
         )
-        # Accept double-click / Enter to confirm selection
-        self.file_chooser.bind(on_submit=self._on_submit)
+        self.file_chooser.bind(on_submit=self._on_submit, path=self._update_path_label)
         self.add_widget(self.file_chooser)
         
-        # Button row
+        # File management button row
+        mgmt_row = BoxLayout(
+            orientation='horizontal',
+            size_hint_y=None,
+            height=dp(36),
+            spacing=4
+        )
+        
+        for text, callback in [
+            ('New Folder', self._new_folder),
+            ('Rename', self._rename),
+            ('Delete', self._delete),
+            ('Cut', self._cut),
+            ('Copy', self._copy),
+            ('Paste', self._paste)
+        ]:
+            btn = Button(
+                text=text,
+                size_hint_x=1,
+                background_normal='',
+                background_color=DARK_LIGHTER,
+                color=LIGHT
+            )
+            btn.bind(on_release=callback)
+            mgmt_row.add_widget(btn)
+        
+        self.add_widget(mgmt_row)
+        
+        # Main button row
         btn_row = BoxLayout(
             orientation='horizontal',
             size_hint_y=None,
-            height=42,
+            height=dp(42),
             spacing=8
         )
         
@@ -79,19 +123,133 @@ class LoadDialog(BoxLayout):
         
         self.add_widget(btn_row)
 
+    def _update_path_label(self, instance, value):
+        '''Update path label when directory changes.'''
+        self.path_label.text = f'Path: {value}'
+
+    def _new_folder(self, instance):
+        '''Create a new folder in current directory.'''
+        self._prompt_input('New Folder', 'Folder name:', 'New Folder', self._do_new_folder)
+    
+    def _do_new_folder(self, name):
+        '''Actually create the folder.'''
+        if not name:
+            return
+        try:
+            new_path = os.path.join(self.file_chooser.path, name)
+            os.makedirs(new_path, exist_ok=False)
+            self.file_chooser._update_files()  # Refresh the view
+        except Exception as e:
+            self._show_error(f'Failed to create folder: {e}')
+    
+    def _rename(self, instance):
+        '''Rename selected file or folder.'''
+        if not self.file_chooser.selection:
+            self._show_error('Please select a file or folder to rename')
+            return
+        old_path = self.file_chooser.selection[0]
+        old_name = os.path.basename(old_path)
+        self._prompt_input('Rename', 'New name:', old_name, lambda new_name: self._do_rename(old_path, new_name))
+    
+    def _do_rename(self, old_path, new_name):
+        '''Actually rename the file/folder.'''
+        if not new_name or new_name == os.path.basename(old_path):
+            return
+        try:
+            new_path = os.path.join(os.path.dirname(old_path), new_name)
+            os.rename(old_path, new_path)
+            self.file_chooser._update_files()
+        except Exception as e:
+            self._show_error(f'Failed to rename: {e}')
+    
+    def _delete(self, instance):
+        '''Delete selected file (folders are not deletable for safety).'''
+        if not self.file_chooser.selection:
+            self._show_error('Please select a file to delete')
+            return
+        path = self.file_chooser.selection[0]
+        
+        # Don't allow folder deletion for safety
+        if os.path.isdir(path):
+            self._show_error('Cannot delete folders for safety reasons')
+            return
+            
+        name = os.path.basename(path)
+        self._confirm(f'Delete "{name}"?', lambda: self._do_delete(path))
+    
+    def _do_delete(self, path):
+        '''Actually delete the file.'''
+        try:
+            os.remove(path)
+            self.file_chooser._update_files()
+        except Exception as e:
+            self._show_error(f'Failed to delete: {e}')
+    
+    def _cut(self, instance):
+        '''Cut selected file or folder.'''
+        if not self.file_chooser.selection:
+            self._show_error('Please select a file or folder to cut')
+            return
+        path = self.file_chooser.selection[0]
+        self._clipboard = ('cut', path)
+    
+    def _copy(self, instance):
+        '''Copy selected file or folder.'''
+        if not self.file_chooser.selection:
+            self._show_error('Please select a file or folder to copy')
+            return
+        path = self.file_chooser.selection[0]
+        self._clipboard = ('copy', path)
+    
+    def _paste(self, instance):
+        '''Paste file or folder from clipboard.'''
+        if not self._clipboard:
+            return
+        operation, src_path = self._clipboard
+        try:
+            dest_dir = self.file_chooser.path
+            base_name = os.path.basename(src_path)
+            dest_path = os.path.join(dest_dir, base_name)
+            
+            # Handle name conflicts - add (copy N) suffix
+            if os.path.exists(dest_path):
+                if os.path.isdir(src_path):
+                    # For folders, don't add extension
+                    counter = 1
+                    while os.path.exists(dest_path):
+                        dest_path = os.path.join(dest_dir, f'{base_name} (copy {counter})')
+                        counter += 1
+                else:
+                    # For files, preserve extension
+                    name, ext = os.path.splitext(base_name)
+                    counter = 1
+                    while os.path.exists(dest_path):
+                        dest_path = os.path.join(dest_dir, f'{name} (copy {counter}){ext}')
+                        counter += 1
+            
+            if operation == 'copy':
+                if os.path.isdir(src_path):
+                    shutil.copytree(src_path, dest_path)
+                else:
+                    shutil.copy2(src_path, dest_path)
+            elif operation == 'cut':
+                shutil.move(src_path, dest_path)
+                self._clipboard = None  # Clear clipboard after cut
+            
+            self.file_chooser._update_files()
+        except Exception as e:
+            self._show_error(f'Failed to paste: {e}')
+
     def _on_submit(self, chooser, selection, touch=None):
         """Handle double-click/enter on a file to confirm load immediately."""
         try:
             if not selection:
                 return
             filepath = selection[0]
-            # Ignore directories (FileChooser will navigate into them)
             if os.path.isdir(filepath):
                 return
-            # Reuse existing logic
             self._on_load(None)
         except Exception:
-            # Keep dialog resilient
             pass
     
     def _on_cancel(self, instance):
@@ -100,15 +258,70 @@ class LoadDialog(BoxLayout):
     
     def _on_load(self, instance):
         if self._load_callback and self.file_chooser.selection:
-            # Call load callback with full filepath
             filepath = self.file_chooser.selection[0]
             if not os.path.isabs(filepath):
                 filepath = os.path.join(self.file_chooser.path, filepath)
             self._load_callback(filepath)
+    
+    def _prompt_input(self, title, label_text, default_text, callback):
+        '''Show input dialog.'''
+        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(8))
+        content.add_widget(Label(text=label_text, size_hint_y=None, height=dp(30), color=LIGHT))
+        
+        text_input = TextInput(
+            text=default_text,
+            size_hint_y=None,
+            height=dp(36),
+            multiline=False,
+            background_color=DARK_LIGHTER,
+            foreground_color=LIGHT
+        )
+        content.add_widget(text_input)
+        
+        btn_row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), spacing=dp(8))
+        cancel_btn = Button(text='Cancel', background_normal='', background_color=DARK, color=LIGHT)
+        ok_btn = Button(text='OK', background_normal='', background_color=DARK, color=LIGHT)
+        btn_row.add_widget(cancel_btn)
+        btn_row.add_widget(ok_btn)
+        content.add_widget(btn_row)
+        
+        popup = Popup(title=title, content=content, size_hint=(None, None), size=(dp(400), dp(180)))
+        cancel_btn.bind(on_release=popup.dismiss)
+        ok_btn.bind(on_release=lambda *args: (callback(text_input.text), popup.dismiss()))
+        popup.open()
+    
+    def _confirm(self, message, callback):
+        '''Show confirmation dialog.'''
+        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(8))
+        content.add_widget(Label(text=message, size_hint_y=None, height=dp(50), color=LIGHT))
+        
+        btn_row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), spacing=dp(8))
+        no_btn = Button(text='No', background_normal='', background_color=DARK, color=LIGHT)
+        yes_btn = Button(text='Yes', background_normal='', background_color=DARK, color=LIGHT)
+        btn_row.add_widget(no_btn)
+        btn_row.add_widget(yes_btn)
+        content.add_widget(btn_row)
+        
+        popup = Popup(title='Confirm', content=content, size_hint=(None, None), size=(dp(350), dp(150)))
+        no_btn.bind(on_release=popup.dismiss)
+        yes_btn.bind(on_release=lambda *args: (callback(), popup.dismiss()))
+        popup.open()
+    
+    def _show_error(self, message):
+        '''Show error message.'''
+        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(8))
+        content.add_widget(Label(text=message, size_hint_y=None, height=dp(50), color=LIGHT))
+        
+        ok_btn = Button(text='OK', size_hint_y=None, height=dp(40), background_normal='', background_color=DARK, color=LIGHT)
+        content.add_widget(ok_btn)
+        
+        popup = Popup(title='Error', content=content, size_hint=(None, None), size=(dp(350), dp(150)))
+        ok_btn.bind(on_release=popup.dismiss)
+        popup.open()
 
 
 class SaveDialog(BoxLayout):
-    '''Save file dialog using FileChooserListView.'''
+    '''Save file dialog with file management features.'''
     
     def __init__(self, start_path: str, suggested_name: str, save_callback: Callable, cancel_callback: Callable, **kwargs):
         super().__init__(**kwargs)
@@ -118,37 +331,76 @@ class SaveDialog(BoxLayout):
         
         self._save_callback = save_callback
         self._cancel_callback = cancel_callback
+        self._clipboard = None  # Stores (operation, filepath) where operation is 'copy' or 'cut'
         
-        # File chooser (plain Kivy FileChooserListView)
+        # Current path label
+        self.path_label = Label(
+            text=f'Path: {start_path}',
+            size_hint_y=None,
+            height=dp(30),
+            color=LIGHT,
+            halign='left',
+            valign='middle',
+            text_size=(None, None)
+        )
+        self.path_label.bind(size=lambda *args: setattr(self.path_label, 'text_size', (self.path_label.width - 20, None)))
+        self.add_widget(self.path_label)
+        
+        # File chooser
         self.file_chooser = FileChooserListView(
             path=start_path,
             filters=FILE_FILTERS,
-            dirselect=False,
+            dirselect=True,  # Allow folder selection
             size_hint=(1, 1)
         )
-        # Update text input when selection changes
-        self.file_chooser.bind(selection=self._on_selection)
-        # Accept double-click / Enter to confirm save immediately
-        self.file_chooser.bind(on_submit=self._on_submit)
+        self.file_chooser.bind(selection=self._on_selection, on_submit=self._on_submit, path=self._update_path_label)
         self.add_widget(self.file_chooser)
         
-        # Filename input - height matches FileChooser row height
+        # Filename input
         self.text_input = TextInput(
             text=suggested_name,
             size_hint_y=None,
-            height=96,
+            height=dp(40),
             multiline=False,
             background_color=DARK_LIGHTER,
             foreground_color=LIGHT,
-            padding=[10, 30, 10, 30]  # [left, top, right, bottom] - centers text vertically
+            padding=[10, 10, 10, 10]
         )
         self.add_widget(self.text_input)
         
-        # Button row
+        # File management button row
+        mgmt_row = BoxLayout(
+            orientation='horizontal',
+            size_hint_y=None,
+            height=dp(36),
+            spacing=4
+        )
+        
+        for text, callback in [
+            ('New Folder', self._new_folder),
+            ('Rename', self._rename),
+            ('Delete', self._delete),
+            ('Cut', self._cut),
+            ('Copy', self._copy),
+            ('Paste', self._paste)
+        ]:
+            btn = Button(
+                text=text,
+                size_hint_x=1,
+                background_normal='',
+                background_color=DARK_LIGHTER,
+                color=LIGHT
+            )
+            btn.bind(on_release=callback)
+            mgmt_row.add_widget(btn)
+        
+        self.add_widget(mgmt_row)
+        
+        # Main button row
         btn_row = BoxLayout(
             orientation='horizontal',
             size_hint_y=None,
-            height=42,
+            height=dp(42),
             spacing=8
         )
         
@@ -174,22 +426,134 @@ class SaveDialog(BoxLayout):
         
         self.add_widget(btn_row)
 
+    def _update_path_label(self, instance, value):
+        '''Update path label when directory changes.'''
+        self.path_label.text = f'Path: {value}'
+
+    def _new_folder(self, instance):
+        '''Create a new folder in current directory.'''
+        self._prompt_input('New Folder', 'Folder name:', 'New Folder', self._do_new_folder)
+    
+    def _do_new_folder(self, name):
+        '''Actually create the folder.'''
+        if not name:
+            return
+        try:
+            new_path = os.path.join(self.file_chooser.path, name)
+            os.makedirs(new_path, exist_ok=False)
+            self.file_chooser._update_files()
+        except Exception as e:
+            self._show_error(f'Failed to create folder: {e}')
+    
+    def _rename(self, instance):
+        '''Rename selected file or folder.'''
+        if not self.file_chooser.selection:
+            self._show_error('Please select a file or folder to rename')
+            return
+        old_path = self.file_chooser.selection[0]
+        old_name = os.path.basename(old_path)
+        self._prompt_input('Rename', 'New name:', old_name, lambda new_name: self._do_rename(old_path, new_name))
+    
+    def _do_rename(self, old_path, new_name):
+        '''Actually rename the file/folder.'''
+        if not new_name or new_name == os.path.basename(old_path):
+            return
+        try:
+            new_path = os.path.join(os.path.dirname(old_path), new_name)
+            os.rename(old_path, new_path)
+            self.file_chooser._update_files()
+        except Exception as e:
+            self._show_error(f'Failed to rename: {e}')
+    
+    def _delete(self, instance):
+        '''Delete selected file (folders are not deletable for safety).'''
+        if not self.file_chooser.selection:
+            self._show_error('Please select a file to delete')
+            return
+        path = self.file_chooser.selection[0]
+        
+        # Don't allow folder deletion for safety
+        if os.path.isdir(path):
+            self._show_error('Cannot delete folders for safety reasons')
+            return
+            
+        name = os.path.basename(path)
+        self._confirm(f'Delete "{name}"?', lambda: self._do_delete(path))
+    
+    def _do_delete(self, path):
+        '''Actually delete the file.'''
+        try:
+            os.remove(path)
+            self.file_chooser._update_files()
+        except Exception as e:
+            self._show_error(f'Failed to delete: {e}')
+    
+    def _cut(self, instance):
+        '''Cut selected file or folder.'''
+        if not self.file_chooser.selection:
+            self._show_error('Please select a file or folder to cut')
+            return
+        path = self.file_chooser.selection[0]
+        self._clipboard = ('cut', path)
+    
+    def _copy(self, instance):
+        '''Copy selected file or folder.'''
+        if not self.file_chooser.selection:
+            self._show_error('Please select a file or folder to copy')
+            return
+        path = self.file_chooser.selection[0]
+        self._clipboard = ('copy', path)
+    
+    def _paste(self, instance):
+        '''Paste file or folder from clipboard.'''
+        if not self._clipboard:
+            return
+        operation, src_path = self._clipboard
+        try:
+            dest_dir = self.file_chooser.path
+            base_name = os.path.basename(src_path)
+            dest_path = os.path.join(dest_dir, base_name)
+            
+            # Handle name conflicts - add (copy N) suffix
+            if os.path.exists(dest_path):
+                if os.path.isdir(src_path):
+                    # For folders, don't add extension
+                    counter = 1
+                    while os.path.exists(dest_path):
+                        dest_path = os.path.join(dest_dir, f'{base_name} (copy {counter})')
+                        counter += 1
+                else:
+                    # For files, preserve extension
+                    name, ext = os.path.splitext(base_name)
+                    counter = 1
+                    while os.path.exists(dest_path):
+                        dest_path = os.path.join(dest_dir, f'{name} (copy {counter}){ext}')
+                        counter += 1
+            
+            if operation == 'copy':
+                if os.path.isdir(src_path):
+                    shutil.copytree(src_path, dest_path)
+                else:
+                    shutil.copy2(src_path, dest_path)
+            elif operation == 'cut':
+                shutil.move(src_path, dest_path)
+                self._clipboard = None
+            
+            self.file_chooser._update_files()
+        except Exception as e:
+            self._show_error(f'Failed to paste: {e}')
+
     def _on_submit(self, chooser, selection, touch=None):
-        """Handle double-click/enter on a file to confirm save immediately.
-        This will trigger the normal overwrite confirmation flow upstream.
-        """
+        """Handle double-click/enter on a file to confirm save immediately."""
         try:
             if not selection:
                 return
             filepath = selection[0]
-            # Ignore directories; double-click on a folder navigates
             if os.path.isdir(filepath):
                 return
-            # Ensure filename is reflected in input, then trigger save
             self.text_input.text = os.path.basename(filepath)
             self._on_save(None)
         except Exception:
-            # Keep dialog resilient
             pass
     
     def _on_selection(self, instance, selection):
@@ -203,9 +567,64 @@ class SaveDialog(BoxLayout):
     
     def _on_save(self, instance):
         if self._save_callback and self.text_input.text:
-            # Call save callback with full filepath
             filepath = os.path.join(self.file_chooser.path, self.text_input.text)
             self._save_callback(filepath)
+    
+    def _prompt_input(self, title, label_text, default_text, callback):
+        '''Show input dialog.'''
+        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(8))
+        content.add_widget(Label(text=label_text, size_hint_y=None, height=dp(30), color=LIGHT))
+        
+        text_input = TextInput(
+            text=default_text,
+            size_hint_y=None,
+            height=dp(36),
+            multiline=False,
+            background_color=DARK_LIGHTER,
+            foreground_color=LIGHT
+        )
+        content.add_widget(text_input)
+        
+        btn_row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), spacing=dp(8))
+        cancel_btn = Button(text='Cancel', background_normal='', background_color=DARK, color=LIGHT)
+        ok_btn = Button(text='OK', background_normal='', background_color=DARK, color=LIGHT)
+        btn_row.add_widget(cancel_btn)
+        btn_row.add_widget(ok_btn)
+        content.add_widget(btn_row)
+        
+        popup = Popup(title=title, content=content, size_hint=(None, None), size=(dp(400), dp(180)))
+        cancel_btn.bind(on_release=popup.dismiss)
+        ok_btn.bind(on_release=lambda *args: (callback(text_input.text), popup.dismiss()))
+        popup.open()
+    
+    def _confirm(self, message, callback):
+        '''Show confirmation dialog.'''
+        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(8))
+        content.add_widget(Label(text=message, size_hint_y=None, height=dp(50), color=LIGHT))
+        
+        btn_row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), spacing=dp(8))
+        no_btn = Button(text='No', background_normal='', background_color=DARK, color=LIGHT)
+        yes_btn = Button(text='Yes', background_normal='', background_color=DARK, color=LIGHT)
+        btn_row.add_widget(no_btn)
+        btn_row.add_widget(yes_btn)
+        content.add_widget(btn_row)
+        
+        popup = Popup(title='Confirm', content=content, size_hint=(None, None), size=(dp(350), dp(150)))
+        no_btn.bind(on_release=popup.dismiss)
+        yes_btn.bind(on_release=lambda *args: (callback(), popup.dismiss()))
+        popup.open()
+    
+    def _show_error(self, message):
+        '''Show error message.'''
+        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(8))
+        content.add_widget(Label(text=message, size_hint_y=None, height=dp(50), color=LIGHT))
+        
+        ok_btn = Button(text='OK', size_hint_y=None, height=dp(40), background_normal='', background_color=DARK, color=LIGHT)
+        content.add_widget(ok_btn)
+        
+        popup = Popup(title='Error', content=content, size_hint=(None, None), size=(dp(350), dp(150)))
+        ok_btn.bind(on_release=popup.dismiss)
+        popup.open()
 
 
 class FileManager:
@@ -217,7 +636,13 @@ class FileManager:
         self.editor = editor
         self.current_path: Optional[str] = None
         self.dirty: bool = False
-        self._last_dir: str = os.path.expanduser('~')
+        # Load last dialog path from settings, fallback to home directory
+        try:
+            settings = getattr(self.app, 'settings', None)
+            saved_path = settings.get('last_file_dialog_path', '') if settings else ''
+            self._last_dir = saved_path if saved_path and os.path.isdir(saved_path) else os.path.expanduser('~')
+        except Exception:
+            self._last_dir = os.path.expanduser('~')
         self._popup: Optional[Popup] = None
 
     def new_file(self):
@@ -251,12 +676,13 @@ class FileManager:
                 self._last_dir = os.path.dirname(filepath)
                 self.dirty = False
                 self._dismiss_popup()
-                self._info(f'Loaded: {os.path.basename(filepath)}')
-                # Update settings: last opened + recent files
+                # self._info(f'Loaded: {os.path.basename(filepath)}')  # Info dialog removed
+                # Update settings: last opened + recent files + dialog path
                 try:
                     settings = getattr(self.app, 'settings', None)
                     if settings is not None:
                         settings.add_recent_file(filepath)
+                        settings.set('last_file_dialog_path', self._last_dir)
                 except Exception:
                     pass
             except Exception as e:
@@ -353,12 +779,13 @@ class FileManager:
             self.current_path = path
             self._last_dir = os.path.dirname(path) or self._last_dir
             self.dirty = False
-            self._info(f'Saved: {os.path.basename(path)}')
-            # Update settings: last opened + recent files
+            # self._info(f'Saved: {os.path.basename(path)}')  # Info dialog removed
+            # Update settings: last opened + recent files + dialog path
             try:
                 settings = getattr(self.app, 'settings', None)
                 if settings is not None:
                     settings.add_recent_file(path)
+                    settings.set('last_file_dialog_path', self._last_dir)
             except Exception:
                 pass
         except Exception as e:

@@ -29,6 +29,7 @@ except Exception:  # pragma: no cover - falls back for non-kivy contexts
 
 DEFAULTS: Dict[str, Any] = {
     'last_opened_file': '',
+    'last_file_dialog_path': '',  # Last directory used in file open/save dialogs
     'auto_save': True,
     # Use a clean key name in file; accept legacy verbose key when loading
     'auto_save_interval_in_seconds': 30,  # 0 = instant autosave; >0 = interval in seconds
