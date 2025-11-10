@@ -154,7 +154,7 @@ class ToolSelector(BoxLayout):
     def _create_widgets(self):
         # Header label showing selected tool
         self.tool_label = Label(
-            text=f'Tool: {self.current_tool}',
+            text=f'Mode: {self.current_tool}',
             size_hint_y=None,
             height=32,
             font_size='16sp',
@@ -210,7 +210,7 @@ class ToolSelector(BoxLayout):
         if tool_name not in self.tools:
             return
         self.current_tool = tool_name
-        self.tool_label.text = f'Tool: {tool_name}'
+        self.tool_label.text = f'Mode: {tool_name}'
         self._refresh_selection()
         if self.callback:
             try:
