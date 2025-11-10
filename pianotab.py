@@ -145,8 +145,19 @@ class pianoTAB(App):
         def _initialize_score():
             # Load test file on startup
             test_file = '/home/floepie/Documents/pianoTab/piano_files/moonlight.piano'
-            self.file_manager.load_file_manually(test_file)
-        
+            
+            if os.path.exists(test_file):
+                try:
+                    self.file_manager.load_file_manually(test_file)
+                    Logger.info(f'pianoTAB: Loaded file: {test_file}')
+                except Exception as e:
+                    Logger.warning(f'pianoTAB: Could not load {test_file}: {e}')
+                    Logger.info('pianoTAB: Creating new file as fallback')
+                    self.file_manager.new_file()
+            else:
+                Logger.info(f'pianoTAB: File not found: {test_file}, creating new file')
+                self.file_manager.new_file()
+
         try:
             self.editor.canvas.on_ready(_initialize_score)
         except Exception as e:
