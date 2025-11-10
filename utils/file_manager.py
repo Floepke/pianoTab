@@ -791,7 +791,6 @@ class FileManager:
             self.editor.new_score()
             self.current_path = None
             self.dirty = False
-            #self._info('New score created')
         self._guard_unsaved_then(_do_new)
 
     def open_file(self):
@@ -805,7 +804,6 @@ class FileManager:
                 self._last_dir = os.path.dirname(filepath)
                 self.dirty = False
                 self._dismiss_popup()
-                # self._info(f'Loaded: {os.path.basename(filepath)}')  # Info dialog removed
                 # Update settings: last opened + recent files + dialog path
                 try:
                     settings = getattr(self.app, 'settings', None)
@@ -908,7 +906,6 @@ class FileManager:
             self.current_path = path
             self._last_dir = os.path.dirname(path) or self._last_dir
             self.dirty = False
-            # self._info(f'Saved: {os.path.basename(path)}')  # Info dialog removed
             # Update settings: last opened + recent files + dialog path
             try:
                 settings = getattr(self.app, 'settings', None)
