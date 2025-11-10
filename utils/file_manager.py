@@ -13,6 +13,7 @@ from kivy.uix.button import Button
 from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.textinput import TextInput
 from kivy.metrics import dp
+from kivy.logger import Logger
 import shutil
 
 from gui.colors import DARK, DARK_LIGHTER, LIGHT
@@ -837,6 +838,49 @@ class FileManager:
             self._popup.open()
         
         self._guard_unsaved_then(_show_load_dialog)
+
+    def load_file_manually(self, filepath: str):
+        '''Load a score file from a given path without showing a dialog.
+        
+        Args:
+            filepath: Absolute path to the .piano file to load
+            
+        Returns:
+            bool: True if successful, False otherwise
+        '''
+        if not os.path.exists(filepath):
+            Logger.warning(f'FileManager: File does not exist: {filepath}')
+            return False
+        
+        if not os.path.isfile(filepath):
+            Logger.warning(f'FileManager: Path is not a file: {filepath}')
+            return False
+        
+        try:
+            score = SCORE.load(filepath)
+            # Load score (which sets it in GUI and redraws)
+            self.editor.load_score(score)
+            self.current_path = filepath
+            self._last_dir = os.path.dirname(filepath)
+            self.dirty = False
+            
+            # Update settings: last opened + recent files + dialog path
+            try:
+                settings = getattr(self.app, 'settings', None)
+                if settings is not None:
+                    settings.add_recent_file(filepath)
+                    settings.set('last_file_dialog_path', self._last_dir)
+            except Exception:
+                pass
+            
+            Logger.info(f'FileManager: Successfully loaded file: {filepath}')
+            return True
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()  # Print full traceback to console for debugging
+            Logger.error(f'FileManager: Failed to load file: {e}')
+            return False
 
     def save_file(self):
         '''Save the current score.'''

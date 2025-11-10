@@ -143,7 +143,9 @@ class pianoTAB(App):
 
         # Create initial score once canvas is ready (event-driven)
         def _initialize_score():
-            self.file_manager.new_file()
+            # Load test file on startup
+            test_file = '/home/floepie/Documents/pianoTab/piano_files/test.piano'
+            self.file_manager.load_file_manually(test_file)
         
         try:
             self.editor.canvas.on_ready(_initialize_score)

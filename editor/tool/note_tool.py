@@ -14,6 +14,7 @@ class NoteTool(BaseTool):
         super().__init__(editor)
         self.hand_cursor = '<'  # Default to left hand
         self.edit_note = None  # Note being created/edited during drag
+        self.edit_stave_idx = None  # Stave index of note being edited
     
     @property
     def name(self) -> str:
@@ -60,7 +61,7 @@ class NoteTool(BaseTool):
         
         # draw note cursor using current hand setting
         pitch, time = self.get_pitch_and_time(x, y)
-        cursor = Note(time=time, pitch=pitch, hand=self.hand_cursor)
+        cursor = Note(time=time, pitch=pitch, duration=self.editor.grid_selector.get_grid_step(), hand=self.hand_cursor)
         
         # redraw cursor
         self._draw_note_cursor(cursor, type='cursor')
@@ -86,18 +87,37 @@ class NoteTool(BaseTool):
         """Called when left mouse button is pressed down."""
         super().on_left_press(x, y)
         
-        # Get position
+        # Guard: Prevent creating a new note if one is already being edited
+        if self.edit_note is not None:
+            print(f"NoteTool: Ignoring duplicate on_left_press (note {self.edit_note.id} already being edited)")
+            return True
+        
+        # Check if we clicked on an existing note
+        element, elem_type, stave_idx = self.get_element_at_position(x, y, element_types=['note'])
+        
+        if element and elem_type == 'note':
+            # EDIT MODE: Start editing existing note
+            self.edit_note = element
+            self.edit_stave_idx = stave_idx
+            
+            # Redraw in 'select/edit' mode for visual feedback
+            self.editor._draw_single_note(stave_idx, self.edit_note, draw_mode='select/edit')
+            
+            print(f"NoteTool: Editing note {element.id} from stave {stave_idx}")
+            return True
+        
+        # CREATE MODE: No note clicked, create new one
         pitch, time = self.get_pitch_and_time(x, y)
         
-        # Create new note using SCORE's factory method
         self.edit_note = self.editor.score.new_note(
             stave_idx=0,  # TODO: determine correct stave
             time=time,
             pitch=pitch,
             hand=self.hand_cursor,
-            duration=self.editor.grid_selector.get_grid_step(),  # Default quarter note
+            duration=self.editor.grid_selector.get_grid_step(),
             velocity=100
         )
+        self.edit_stave_idx = 0
         
         # Draw in 'select/edit' mode
         self.editor._draw_single_note(0, self.edit_note, draw_mode='select/edit')
@@ -105,6 +125,7 @@ class NoteTool(BaseTool):
         # delete any existing cursor drawing
         self.editor.canvas.delete_by_tag('cursor')
         
+        print(f"NoteTool: Creating new note {self.edit_note.id}")
         return True
 
     def on_drag(self, x: float, y: float, start_x: float, start_y: float) -> bool:
@@ -122,7 +143,7 @@ class NoteTool(BaseTool):
             self.edit_note.pitch = pitch
         
         # Redraw in 'select/edit' mode
-        self.editor._draw_single_note(0, self.edit_note, draw_mode='select/edit')
+        self.editor._draw_single_note(self.edit_stave_idx, self.edit_note, draw_mode='select/edit')
 
         # delete any existing cursor drawing
         self.editor.canvas.delete_by_tag('cursor')
@@ -136,16 +157,24 @@ class NoteTool(BaseTool):
         if self.edit_note is None:
             return False
         
+        # Sort the note list by time to ensure continuation dots work correctly
+        stave = self.editor.score.stave[self.edit_stave_idx]
+        stave.event.note.sort(key=lambda n: n.time)
+        
         # Delete 'select/edit' drawing and redraw as 'note'
         self.editor.canvas.delete_by_tag('select/edit')
-        self.editor._draw_single_note(0, self.edit_note, draw_mode='note')
+        self.editor._draw_single_note(self.edit_stave_idx, self.edit_note, draw_mode='note')
+        
+        # Redraw overlapping notes to update their continuation dots
+        self.editor._redraw_overlapping_notes(self.edit_stave_idx, self.edit_note)
         
         # Mark as modified
         if hasattr(self.editor, 'on_modified') and self.editor.on_modified:
             self.editor.on_modified()
         
-        # Clear reference
+        # Clear references
         self.edit_note = None
+        self.edit_stave_idx = None
         
         return True
     
@@ -162,6 +191,12 @@ class NoteTool(BaseTool):
             # Found a note to delete
             print(f"NoteTool: Deleting note {element.id} from stave {stave_idx}")
             
+            # Save note's time, duration, id, and hand before deletion
+            note_time = element.time
+            note_duration = element.duration
+            note_id = element.id
+            note_hand = element.hand
+            
             # Remove from SCORE
             if stave_idx is not None and stave_idx < len(self.editor.score.stave):
                 stave = self.editor.score.stave[stave_idx]
@@ -170,6 +205,18 @@ class NoteTool(BaseTool):
                     
                     # Delete the visual representation
                     self.editor.canvas.delete_by_tag(str(element.id))
+                    
+                    # Redraw overlapping notes AFTER deleting (using saved attributes)
+                    # We create a temporary object with just the needed attributes
+                    class TempNote:
+                        def __init__(self, time, duration, id, hand):
+                            self.time = time
+                            self.duration = duration
+                            self.id = id
+                            self.hand = hand
+                    
+                    temp_note = TempNote(note_time, note_duration, note_id, note_hand)
+                    self.editor._redraw_overlapping_notes(stave_idx, temp_note)
                     
                     # Mark as modified
                     if hasattr(self.editor, 'on_modified') and self.editor.on_modified:

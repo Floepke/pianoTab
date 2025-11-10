@@ -28,5 +28,4 @@ class Properties:
     globalStartRepeat: GlobalStartRepeat = field(default_factory=GlobalStartRepeat)
     globalEndrepeat: GlobalEndRepeat = field(default_factory=GlobalEndRepeat)
     editorZoomPixelsQuarter: int = 250
-    stopSignType: Literal['pianoTAB', 'Klavarskribo'] = 'pianoTAB'
     drawScale: float = 0.75

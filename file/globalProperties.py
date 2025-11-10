@@ -20,6 +20,7 @@ class GlobalNote:
     noteStopVisible: int = field(default=1, metadata=config(field_name='noteStopVisible?'))
     continuationDotVisible: int = field(default=1, metadata=config(field_name='continuationDotVisible?'))
     leftDotVisible: int = field(default=1, metadata=config(field_name='leftDotVisible?'))
+    stopSignType: Literal['pianoTAB', 'Klavarskribo'] = 'pianoTAB'
 
 @dataclass_json
 @dataclass
