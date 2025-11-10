@@ -120,3 +120,19 @@ class ToolManager:
         if self._active_tool:
             return self._active_tool.on_double_click(x, y)
         return False
+    
+    def on_key_press(self, key: str, x: float, y: float) -> bool:
+        """Dispatch key press to active tool.
+        
+        Args:
+            key: The key that was pressed
+            x: Current mouse x position in mm
+            y: Current mouse y position in mm
+            
+        Returns:
+            True if the tool handled the key press, False otherwise
+        """
+        if self._active_tool is None:
+            return False
+        
+        return self._active_tool.on_key_press(key, x, y)

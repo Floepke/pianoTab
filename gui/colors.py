@@ -45,6 +45,18 @@ class ColorSchemeHue:
             'accent': self.accent_color,
         }
 
+def rgba_to_hex(rgba):
+    '''Convert Kivy RGBA tuple (0-1 range) to hex color string.
+    
+    Args:
+        rgba: Tuple of (r, g, b, a) where each component is 0-1
+        
+    Returns:
+        Hex color string like '#RRGGBB' (alpha is ignored)
+    '''
+    r, g, b = rgba[0], rgba[1], rgba[2]
+    return f'#{int(r * 255):02X}{int(g * 255):02X}{int(b * 255):02X}'
+
 # Example usage: lock S/V balance, change hue only
 # Initial colors from your current theme
 hue_theme = ColorSchemeHue(
@@ -57,17 +69,34 @@ hue_theme = ColorSchemeHue(
 # To change theme hue, call:
 # hue_theme.set_hue(new_hue_deg)
 
+# Kivy color tuples (RGBA 0-1 range)
 LIGHT = hue_theme.color_light
 LIGHT_DARKER = hue_theme.color_light_darker
 DARK_LIGHTER = hue_theme.color_dark_lighter
 DARK = hue_theme.color_dark
 ACCENT_COLOR = hue_theme.accent_color
 
+# Hex color strings for canvas drawing
+LIGHT_HEX = rgba_to_hex(LIGHT)
+LIGHT_DARKER_HEX = rgba_to_hex(LIGHT_DARKER)
+DARK_LIGHTER_HEX = rgba_to_hex(DARK_LIGHTER)
+DARK_HEX = rgba_to_hex(DARK)
+ACCENT_COLOR_HEX = rgba_to_hex(ACCENT_COLOR)
+
 __all__ = [
+    # Kivy RGBA tuples
     'LIGHT',
     'LIGHT_DARKER',
     'DARK_LIGHTER',
     'DARK',
     'ACCENT_COLOR',
+    # Hex strings for canvas
+    'LIGHT_HEX',
+    'LIGHT_DARKER_HEX',
+    'DARK_LIGHTER_HEX',
+    'DARK_HEX',
+    'ACCENT_COLOR_HEX',
+    # Utilities
+    'rgba_to_hex',
     'hue_theme'
 ]

@@ -176,18 +176,108 @@ class BaseTool(ABC):
     
     def get_element_at_position(self, x: float, y: float, element_types=None):
         """
-        Find score element at the given position.
+        Find score element at the given position using canvas item hit detection.
         
         Args:
-            x, y: Position in canvas coordinates
-            element_types: Optional list of element types to search for
+            x, y: Position in canvas coordinates (mm)
+            element_types: Optional list of element types to filter by 
+                        (e.g., ['note', 'beam', 'slur'])
             
         Returns:
-            Element at position or None
+            Tuple of (element_object, element_type, stave_idx) or (None, None, None)
+            
+        Example:
+            note, elem_type, stave = self.get_element_at_position(x, y, ['note'])
+            if note:
+                print(f"Found {elem_type} with id {note.id} on stave {stave}")
         """
-        # TODO: Implement hit detection
-        # This would query the score for elements near (x, y)
-        pass
+        # Convert mm coordinates to pixel coordinates for canvas hit detection
+        x_px = x * self.editor.canvas._px_per_mm
+        y_px = y * self.editor.canvas._px_per_mm
+        
+        # Get canvas item ID at this position
+        item_id = self.editor.canvas.get_item_at_position(x_px, y_px)
+        
+        if item_id is None:
+            return (None, None, None)
+        
+        # Get tags from the canvas item
+        tags = self.editor.canvas.get_tags(item_id)
+        
+        if not tags:
+            return (None, None, None)
+        
+        # Parse tags to determine element type and ID
+        # Tags format: ['element_type', 'element_id'] or ['cursor']
+        element_type = None
+        element_id = None
+        
+        for tag in tags:
+            # Skip special tags
+            if tag in ('cursor', 'cursorLine', 'select/edit'):
+                continue
+            
+            # Check if it's a numeric ID
+            if tag.isdigit():
+                element_id = int(tag)
+            # Check if it's an element type tag
+            elif tag in ('notehead', 'midinote', 'stem', 'leftdot', 'beam', 'slur', 
+                        'tempo', 'text', 'barline', 'gracenote'):
+                element_type = tag
+        
+        # If we didn't find a valid element, return None
+        if element_id is None or element_type is None:
+            return (None, None, None)
+        
+        # Normalize element type
+        normalized_type = self._normalize_element_type(element_type)
+        
+        # Filter by element types if specified
+        if element_types is not None and normalized_type not in element_types:
+            return (None, None, None)
+        
+        # Use SCORE.find_by_id() to get the element
+        element = self.editor.score.find_by_id(element_id)
+        
+        if element is None:
+            return (None, None, None)
+        
+        # Find which stave contains this element
+        stave_idx = self._find_stave_for_element(element)
+        
+        return (element, normalized_type, stave_idx)
+
+    def _normalize_element_type(self, canvas_tag: str) -> str:
+        """Convert canvas tag to normalized element type name."""
+        tag_to_type = {
+            'notehead': 'note',
+            'midinote': 'note',
+            'stem': 'note',
+            'leftdot': 'note',
+            'beam': 'beam',
+            'slur': 'slur',
+            'tempo': 'tempo',
+            'text': 'text',
+            'barline': 'barline',
+            'gracenote': 'gracenote',
+        }
+        return tag_to_type.get(canvas_tag, canvas_tag)
+
+    def _find_stave_for_element(self, element) -> Optional[int]:
+        """Find which stave contains the given element."""
+        for stave_idx, stave in enumerate(self.editor.score.stave):
+            if not hasattr(stave, 'event'):
+                continue
+            
+            # Check all event types
+            for event_type in ['note', 'graceNote', 'beam', 'slur', 'tempo', 'text', 
+                            'countLine', 'startRepeat', 'endRepeat', 'section']:
+                if hasattr(stave.event, event_type):
+                    event_list = getattr(stave.event, event_type)
+                    if element in event_list:
+                        return stave_idx
+        
+        return None
     
     def refresh_canvas(self):
         """Request a canvas redraw."""
@@ -234,7 +324,7 @@ class BaseTool(ABC):
             
             # Update cursor position
             self._cursor_time = snapped
-            self._draw_cursor()
+            self._draw_dash_cursor()
         except Exception as e:
             print(f'CURSOR: update failed: {e}')
     
@@ -244,7 +334,7 @@ class BaseTool(ABC):
         # Delete all cursor lines by tag
         self.canvas.delete_by_tag('cursorLine')
     
-    def _draw_cursor(self):
+    def _draw_dash_cursor(self):
         """Draw or update the horizontal dashed cursor line at the current time.
         
         Draws two separate lines:
@@ -414,6 +504,19 @@ class BaseTool(ABC):
             Y position in millimeters
         """
         return self.editor.time_to_y(time_ticks)
+    
+    def on_key_press(self, key: str, x: float, y: float) -> bool:
+        """Handle key press events.
+        
+        Args:
+            key: The key that was pressed
+            x: Current mouse x position in mm
+            y: Current mouse y position in mm
+            
+        Returns:
+            True if the tool handled the key press, False otherwise
+        """
+        return False
     
     # === Abstract Methods (optional to override) ===
     

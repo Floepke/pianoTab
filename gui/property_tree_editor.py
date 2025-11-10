@@ -370,6 +370,8 @@ class PropertyTreeEditor(BoxLayout):
             do_scroll_y=True,
             bar_width=0,
             scroll_type=['bars', 'content'],
+            smooth_scroll_end=1,  # Minimal smoothing for responsive scrolling
+            scroll_distance=20,   # Smaller distance = more responsive
         )
 
         # Content layout (no vertical gaps; align rows to stripes)
@@ -485,10 +487,8 @@ class PropertyTreeEditor(BoxLayout):
             self._scroll_px = 0.0
         else:
             self._scroll_px = max(0.0, min(max_scroll, (1.0 - float(self.sv.scroll_y)) * max_scroll))
-        try:
-            self.custom_scrollbar.update_layout()
-        except Exception:
-            pass
+        # Don't call update_layout() here - it causes scroll lag with large lists
+        # The scrollbar will update itself when needed
 
     def _update_view_and_graphics(self, *_):
         # Reserve width for custom scrollbar; prevent overlap

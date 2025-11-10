@@ -145,7 +145,8 @@ class Editor(BoxLayout):
             border_color=DARK,
             border_width_px=1.0,
             keep_aspect=True,
-            scale_to_width=True
+            scale_to_width=True,
+            enable_keyboard=True  # Enable keyboard for editor canvas
         )
         self.add_widget(self.canvas_view)
 

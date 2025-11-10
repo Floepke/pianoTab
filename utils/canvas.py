@@ -278,6 +278,7 @@ class Canvas(Widget):
         border_width_px: float = 1.0,
         keep_aspect: bool = True,
         scale_to_width: bool = True,
+        enable_keyboard: bool = False,  # Only enable for main editor canvas
         **kwargs
     ):
         super().__init__(**kwargs)
@@ -350,6 +351,13 @@ class Canvas(Widget):
 
         # Bind to mouse motion for cursor tracking
         Window.bind(mouse_pos=self.on_mouse_motion)
+        
+        # Keyboard handling (only for editor canvas, not print preview)
+        self._keyboard = None
+        if enable_keyboard:
+            self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
+            if self._keyboard:
+                self._keyboard.bind(on_key_down=self._on_keyboard_down)
 
         # Defer expensive redraws during resize
         self._resched = None
@@ -457,6 +465,46 @@ class Canvas(Widget):
                     print(f'CANVAS: mouse up dispatch failed: {e}')
         
         return result
+
+    # ---------- Keyboard handling ----------
+    
+    def _keyboard_closed(self):
+        '''Keyboard has been closed - unbind.'''
+        if hasattr(self, '_keyboard') and self._keyboard:
+            self._keyboard.unbind(on_key_down=self._on_keyboard_down)
+            self._keyboard = None
+    
+    def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
+        '''Handle keyboard events and forward to editor.
+        
+        Args:
+            keyboard: Keyboard instance
+            keycode: Tuple of (keycode_int, keycode_string)
+            text: Text representation of key
+            modifiers: List of modifier keys pressed
+            
+        Returns:
+            True if handled, False otherwise
+        '''
+        # Extract key name from keycode tuple
+        key_name = keycode[1] if isinstance(keycode, tuple) else str(keycode)
+        
+        # Get current mouse position in window coordinates
+        mouse_pos = Window.mouse_pos
+        if mouse_pos:
+            # Convert from window coordinates to widget coordinates (pixels)
+            widget_pos = self.to_widget(*mouse_pos)
+            # Convert from pixel coordinates to mm coordinates
+            x_mm, y_mm = self._px_to_mm(*widget_pos)
+        else:
+            x_mm, y_mm = 0.0, 0.0
+        
+        # Forward to editor if available
+        editor = getattr(self, 'piano_roll_editor', None)
+        if editor is not None and hasattr(editor, 'on_key_press'):
+            return editor.on_key_press(key_name, x_mm, y_mm)
+        
+        return False
 
     # ---------- Grid step source (editor -> grid_selector) ----------
 
@@ -947,6 +995,85 @@ class Canvas(Widget):
             self.remove_tag(item_handle, tag)
         if item_handle in self._draw_order:
             self._draw_order.remove(item_handle)
+
+    def get_item_at_position(self, x_px: float, y_px: float) -> Optional[int]:
+        """
+        Find the topmost canvas item at the given pixel position.
+        
+        Args:
+            x_px: X position in pixels
+            y_px: Y position in pixels
+            
+        Returns:
+            Item ID or None if no item at position
+        """
+        # Iterate through items in reverse order (top to bottom)
+        for item_id in reversed(self._draw_order):
+            if item_id not in self._items:
+                continue
+            
+            item = self._items[item_id]
+            
+            # Check if point is within item bounds
+            if self._point_in_item(x_px, y_px, item):
+                return item_id
+        
+        return None
+
+    def _point_in_item(self, x_px: float, y_px: float, item: dict) -> bool:
+        """
+        Check if a point is within an item's bounds.
+        
+        Args:
+            x_px, y_px: Point in pixels
+            item: Item dictionary with bounds
+            
+        Returns:
+            True if point is within item bounds
+        """
+        # Handle different storage formats
+        if 'x_mm' in item and 'y_mm' in item:
+            # Rectangle/oval format: x_mm, y_mm, w_mm, h_mm
+            x1 = item['x_mm'] * self._px_per_mm
+            y1 = item['y_mm'] * self._px_per_mm
+            x2 = (item['x_mm'] + item.get('w_mm', 0)) * self._px_per_mm
+            y2 = (item['y_mm'] + item.get('h_mm', 0)) * self._px_per_mm
+            
+        elif 'x1_mm' in item and 'y1_mm' in item:
+            # Line format: x1_mm, y1_mm, x2_mm, y2_mm
+            x1 = item['x1_mm'] * self._px_per_mm
+            y1 = item['y1_mm'] * self._px_per_mm
+            x2 = item.get('x2_mm', x1) * self._px_per_mm
+            y2 = item.get('y2_mm', y1) * self._px_per_mm
+            
+        else:
+            # No positional data
+            return False
+        
+        # Ensure x1 <= x2 and y1 <= y2
+        x1, x2 = min(x1, x2), max(x1, x2)
+        y1, y2 = min(y1, y2), max(y1, y2)
+        
+        # Add small hit tolerance (5 pixels)
+        tolerance = 5
+        
+        return (x1 - tolerance <= x_px <= x2 + tolerance and
+                y1 - tolerance <= y_px <= y2 + tolerance)
+
+
+    def get_tags(self, item_id: int) -> list:
+        """
+        Get list of tags for a canvas item.
+        
+        Args:
+            item_id: The item's ID
+            
+        Returns:
+            List of tag strings, or empty list if item not found
+        """
+        if item_id in self._items:
+            return self._items[item_id].get('tags', [])
+        return []
 
     # ----- Background / properties -----
 

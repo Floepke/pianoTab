@@ -4,10 +4,10 @@ Note drawing mixin for the Editor class.
 Handles drawing note events on the piano roll canvas.
 '''
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, Optional
 
 from file import note
-from gui.colors import ACCENT_COLOR
+from gui.colors import ACCENT_COLOR_HEX
 from utils.CONSTANTS import BLACK_KEYS
 
 if TYPE_CHECKING:
@@ -46,16 +46,37 @@ class NoteDrawerMixin:
                 self._draw_single_note(stave_idx, note)
 
     def _draw_single_note(self, stave_idx: int, note: Note, 
-                          is_cursor_or_selected: bool = False) -> None:
+                          draw_mode: Optional[Literal['note', 'cursor', 'select/edit', 'selected']] = 'note') -> None:
         '''Draw a single note event.
 
         Args:
             stave_idx: Index of the stave containing the note.
             note: The note event to draw.
+            type: The type of single note ('note', 'cursor' or 'select/edit')
+                - 'note': regular note drawing
+                - 'cursor': draw as cursor (accent color), don't draw the midinote
+                - 'select/edit': draw as select/edit note (accent color)
+                - 'selected': draw as selected note (accent color), don't delete existing drawing
         '''
+        # attempt to delete existing drawing of this note + assign hand if 'cursor mode':
+        if draw_mode in ('note', 'selected'):
+            self.canvas.delete_by_tag(str(note.id))
+        elif draw_mode == 'cursor':
+            self.canvas.delete_by_tag('cursor')
+        else: # 'select/edit'
+            self.canvas.delete_by_tag('select/edit')
+
+        # determine base type tag:
+        if draw_mode in ('note', 'selected'):
+            base_tag = str(note.id)
+        elif draw_mode == 'cursor':
+            base_tag = 'cursor'
+        else: # 'select/edit'
+            base_tag = 'select/edit'
+
         # determine color:
-        if is_cursor_or_selected:
-            color = ACCENT_COLOR
+        if draw_mode in ('cursor', 'select/edit'):
+            color = ACCENT_COLOR_HEX
         else:
             color = note.color
 
@@ -66,16 +87,17 @@ class NoteDrawerMixin:
 
         # draw the midinote
         semitone_width = self.semitone_width * 2
-        self.canvas.add_rectangle(
-            x1_mm=x - semitone_width / 2,
-            y1_mm=y,
-            x2_mm=x + semitone_width / 2,
-            y2_mm=y_note_stop,
-            fill=True,
-            fill_color=note.colorMidiNote,
-            outline=False,
-            tags=['midinote', str(note.id)]
-        )
+        if draw_mode in ('note', 'select/edit'):
+            self.canvas.add_rectangle(
+                x1_mm=x - semitone_width / 2,
+                y1_mm=y + semitone_width / 2,
+                x2_mm=x + semitone_width / 2,
+                y2_mm=y_note_stop,
+                fill=True,
+                fill_color=note.colorMidiNote if draw_mode == 'note' else color,
+                outline=False,
+                tags=['midinote', base_tag]
+            )
 
         # draw the notehead + leftdot
         notehead_length = semitone_width
@@ -93,7 +115,7 @@ class NoteDrawerMixin:
             outline=True,
             outline_width_mm=self.score.properties.globalNote.stemWidthMm,
             outline_color=color,
-            tags=['notehead', str(note.id)]
+            tags=['notehead', base_tag]
         )
         if note.hand == '<':
             # left dot - centered in the notehead
@@ -108,7 +130,7 @@ class NoteDrawerMixin:
                 fill=True,
                 fill_color=color if note.pitch not in BLACK_KEYS else '#FFFFFF',
                 outline=False,
-                tags=['leftdot', str(note.id)]
+                tags=['leftdot', base_tag]
             )
         
         # draw the stem
@@ -124,5 +146,5 @@ class NoteDrawerMixin:
             y2_mm=y,
             width_mm=self.score.properties.globalNote.stemWidthMm,
             color=color,
-            tags=['stem', str(note.id)]
+            tags=['stem', base_tag]
         )

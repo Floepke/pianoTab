@@ -256,12 +256,9 @@ class Editor(
             # Fallback derive from score zoom and current canvas scale
             px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
             mm_per_quarter = (self.pixels_per_quarter) / max(1e-6, px_per_mm)
-            print(f'Editor: time_to_y() calculated mm_per_quarter={mm_per_quarter} (pixels_per_quarter={self.pixels_per_quarter}, px_per_mm={px_per_mm})')
         ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
         time_quarters = time_ticks / max(1e-6, ql)
         result = self.editor_margin + (time_quarters * mm_per_quarter) - (self.scroll_time_offset * mm_per_quarter)
-        if time_ticks <= 1024:  # Debug first measure only
-            print(f'Editor: time_to_y({time_ticks}) = {result}mm (time_quarters={time_quarters}, mm_per_quarter={mm_per_quarter})')
         return result
     
     def y_to_time(self, y_mm: float) -> float:
@@ -463,7 +460,7 @@ class Editor(
             hasattr(self.score.properties, 'editorZoomPixelsQuarter')):
             self.score.properties.editorZoomPixelsQuarter = float(self.pixels_per_quarter)
     
-    # Interaction support
+    # === Interaction support ===
     def on_item_click(self, item_id: int, touch_pos_mm: Tuple[float, float]) -> bool:
         '''Handle click on canvas items.'''
         if item_id in self.canvas._items:
@@ -480,6 +477,21 @@ class Editor(
                         if note:
                             self._select_note(note)
                             return True
+        return False
+
+    def on_key_press(self, key: str, x: float, y: float) -> bool:
+        """Handle keyboard events and dispatch to active tool.
+        
+        Args:
+            key: The key that was pressed
+            x: Current mouse x position in mm
+            y: Current mouse y position in mm
+            
+        Returns:
+            True if handled by tool, False otherwise
+        """
+        if self.tool_manager:
+            return self.tool_manager.on_key_press(key, x, y)
         return False
     
     def find_note_by_id(self, stave_idx: int, note_id: int) -> Optional[Note]:
