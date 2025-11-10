@@ -38,6 +38,7 @@ class SCORE:
         colorMidiLeftNote: Optional[str] = None,
         colorMidiRightNote: Optional[str] = None,
         blackNoteDirection: Optional[Literal['^', 'v']] = None,
+        stemLengthMm: Optional[float] = None,
     ) -> Note: ...
 
     def new_grace_note(

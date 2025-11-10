@@ -122,7 +122,7 @@
             'lineWidth': 1.0,
             'visible?': 1
         },
-        'editorZoomPixelsQuarter': 100,
+        'editorZoomPixelsQuarter': 250,
         'stopSignType': 'pianoTAB',
         'drawScale': 0.75
     },

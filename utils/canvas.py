@@ -1159,8 +1159,10 @@ class Canvas(Widget):
         if hasattr(self, 'custom_scrollbar'):
             self.custom_scrollbar.update_layout()
 
-        # Redraw all items with new scale
-        self._redraw_all()
+        # Skip the redraw if the editor is updating (editor will call _redraw_all after adding all items)
+        if not self._updating_from_editor:
+            # Redraw all items with the new scale
+            self._redraw_all()
 
     def _mm_to_px_point(self, x_mm: float, y_mm_top: float) -> Tuple[float, float]:
         '''Convert a top-left mm point to Kivy bottom-left px point.'''

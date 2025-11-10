@@ -10,7 +10,7 @@ from file.note import Note
 from utils.canvas import Canvas
 from utils.CONSTANTS import (
     PHYSICAL_SEMITONE_POSITIONS, BE_GAPS, BLACK_KEYS, PIANOTICK_QUARTER,
-    MIDI_KEY_OFFSET, PIANO_KEY_COUNT, DEFAULT_PIXELS_PER_QUARTER,
+    MIDI_KEY_OFFSET, PIANO_KEY_COUNT,
     get_visual_semitone_positions, midi_to_key_number, key_number_to_midi,
     ticks_to_quarters, quarters_to_ticks, is_black_key
 )
@@ -51,8 +51,8 @@ class Editor(
         
         # Initialize dimensions from canvas
         # Zoom: single source of truth is SCORE.properties.editorZoomPixelsQuarter (px per quarter)
-        # Start with a safe default; _apply_settings_from_score will sync from SCORE
-        self.pixels_per_quarter = float(DEFAULT_PIXELS_PER_QUARTER)
+        # Will be set from SCORE in _apply_settings_from_score() below
+        self.pixels_per_quarter = 250.0  # Temporary safe default
         
         # Stave & grid configuration defaults (overridden by SCORE properties below)
         self.stave_two_color = '#000000'
@@ -108,12 +108,12 @@ class Editor(
 
         properties = self.score.properties
 
-        # Zoom (px per quarter)
-        if hasattr(properties, 'editorZoomPixelsQuarter') and properties.editorZoomPixelsQuarter:
+        # Zoom (px per quarter) - ALWAYS read from SCORE
+        if hasattr(properties, 'editorZoomPixelsQuarter'):
             try:
                 self.pixels_per_quarter = float(properties.editorZoomPixelsQuarter)
             except Exception:
-                # Keep current/default on parse error
+                # Keep current value on parse error
                 pass
 
         # Stave (line widths, colors, dash pattern)
@@ -177,9 +177,9 @@ class Editor(
         # Avoid doubling the time length: normalize to exactly ONE baseGrid and set desired signature/length.
         if score.baseGrid:
             bg = score.baseGrid[0]
-            bg.numerator = 4
+            bg.numerator = 1
             bg.denominator = 4
-            bg.measureAmount = 32
+            bg.measureAmount = 802
             # Keep gridTimes as provided by SCORE defaults
             score.baseGrid = [bg]
         else:
@@ -194,20 +194,81 @@ class Editor(
         score.new_linebreak(time=1024*24)
         score.new_linebreak(time=1024*28)
 
-        # create some test note objects in the file:
-        score.new_note(pitch=39, time=0, duration=512)
-        score.new_note(pitch=42, time=512, duration=256)
-        score.new_note(pitch=46, time=768, duration=256)
-        score.new_note(pitch=51, time=1024, duration=1024)
-        score.new_note(pitch=55, time=2048, duration=512)
-        score.new_note(pitch=58, time=2560, duration=512)
-        score.new_note(pitch=62, time=3072, duration=2048)
-        score.new_note(pitch=65, time=5120, duration=512)
-        score.new_note(pitch=69, time=5632, duration=512)
-        score.new_note(pitch=72, time=6144, duration=1024)
-        score.new_note(pitch=76, time=7168, duration=512)
-        score.new_note(pitch=79, time=7680, duration=512)
-        score.new_note(pitch=83, time=8192, duration=2048)
+        def generate_performance_test_notes():
+            '''Generate 500 random notes for performance testing.
+            
+            Comment out the call to this function to disable performance testing
+            and use the simple test notes below instead.
+            '''
+            import random
+            
+            # Total time range: 32 measures * 1024 ticks/measure = 32768 ticks
+            max_time = 802 * 256
+            
+            # Generate 500 random notes
+            for _ in range(5000):
+                # Random time within the score range
+                time = random.uniform(0, max_time)
+                
+                # Random duration (0-1024 ticks, up to 1 measure)
+                duration = random.uniform(0, 1024)
+                
+                # Random pitch (1-88, full piano range)
+                pitch = random.randint(1, 88)
+                
+                # Random hand
+                hand = random.choice(['<', '>'])
+                
+                # Random color (fun colors!)
+                colors = [
+                    '#FF0000',  # Red
+                    '#00FF00',  # Green
+                    '#0000FF',  # Blue
+                    '#FFFF00',  # Yellow
+                    '#FF00FF',  # Magenta
+                    '#00FFFF',  # Cyan
+                    '#FF8000',  # Orange
+                    '#8000FF',  # Purple
+                    '#FF0080',  # Pink
+                    '#80FF00',  # Lime
+                ]
+                color = random.choice(colors)
+                
+                # Random stem length (0-20mm)
+                stem_length = random.uniform(0, 20)
+                
+                # Create the note
+                note = score.new_note(
+                    pitch=pitch,
+                    time=time,
+                    duration=duration,
+                    hand=hand
+                )
+                
+                # Set random properties
+                note.color = color
+                note.stemLength = stem_length
+        
+        # ENABLE/DISABLE performance test:
+        # Comment out the next line to use simple test notes instead
+        generate_performance_test_notes()
+        
+        # Simple test notes (used when performance test is disabled):
+        # score.new_note(pitch=39, time=0, duration=512, hand='<')
+        # score.new_note(pitch=42, time=512, duration=256, hand='>')
+        # score.new_note(pitch=46, time=768, duration=256, hand='>')
+        # score.new_note(pitch=51, time=1024, duration=1024, hand='<')
+        # score.new_note(pitch=55, time=2048, duration=512, hand='>')
+        # score.new_note(pitch=58, time=2560, duration=512, hand='>')
+        # score.new_note(pitch=62, time=3072, duration=2048, hand='<')
+        # score.new_note(pitch=65, time=5120, duration=512, hand='>')
+        # score.new_note(pitch=69, time=5632, duration=512, hand='>')
+        # score.new_note(pitch=72, time=6144, duration=1024, hand='<')
+        # score.new_note(pitch=76, time=7168, duration=512, hand='>')
+        # score.new_note(pitch=79, time=7680, duration=512, hand='<')
+        # score.new_note(pitch=83, time=8192, duration=2048, hand='<')
+
+        score.properties.globalNote.color = '#0000FF'
 
         return score
     
@@ -361,6 +422,9 @@ class Editor(
 
         # Update drawing order to ensure correct layering
         self._update_drawing_order()
+        
+        # Force canvas redraw with culling now that all items are added
+        self.canvas._redraw_all()
     
     def _update_drawing_order(self):
         '''Set the proper drawing order of canvas elements.'''

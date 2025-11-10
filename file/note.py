@@ -31,6 +31,7 @@ class Note:
     _colorMidiLeftNote: Optional[str] = field(default=None, metadata=config(field_name='colorMidiLeftNote'))
     _colorMidiRightNote: Optional[str] = field(default=None, metadata=config(field_name='colorMidiRightNote'))
     _blackNoteDirection: Optional[Literal['^', 'v']] = field(default=None, metadata=config(field_name='blackNoteDirection'))
+    _stemLengthMm: Optional[float] = field(default=None, metadata=config(field_name='stemLengthMm'))
 
     def __post_init__(self):
         '''Initialize score reference as a non-dataclass attribute.'''
@@ -115,3 +116,18 @@ class Note:
     def blackNoteDirection(self, value: Optional[Literal['^', 'v']]):
         '''Set black note direction - use None to reset to inheritance.'''
         self._blackNoteDirection = value
+    
+    # Property: stemLength
+    @property
+    def stemLengthMm(self) -> float:
+        '''Get stem length - inherits from globalNote.stemLength if None.'''
+        if self._stemLengthMm is not None:
+            return self._stemLengthMm
+        if self.score is None:
+            return 10.0  # Fallback if no score reference
+        return self.score.properties.globalNote.stemLengthMm
+    
+    @stemLengthMm.setter
+    def stemLengthMm(self, value: Optional[float]):
+        '''Set stem length - use None to reset to inheritance.'''
+        self._stemLengthMm = value

@@ -8,10 +8,11 @@ class GlobalNote:
     color: str = '#000000'
     colorLeftMidiNote: str = '#dddddd'
     colorRightMidiNote: str = '#dddddd'
-    stemWidth: float = 1.0
-    stemLength: float = 10.0
-    beamWidth: float = 1.0
+    stemWidthMm: float = .25
+    stemLengthMm: float = 10.0
+    beamWidthMm: float = .25
     blackNoteDirection: Literal['^', 'v'] = 'v'
+    leftDotSizeScale: float = .3 # value between 0.0 and 1.0, the dot get's the size relative to the notehead size
     noteHeadVisible: int = field(default=1, metadata=config(field_name='noteHeadVisible?'))
     stemVisible: int = field(default=1, metadata=config(field_name='stemVisible?'))
     midiNoteVisible: int = field(default=1, metadata=config(field_name='midiNoteVisible?'))
@@ -30,7 +31,7 @@ class GlobalArticulation:
 @dataclass
 class GlobalBeam:
     color: str = '#000000'
-    width: float = 4.0
+    widthMm: float = 4.0
     slant: float = 5.0
     visible: int = field(default=1, metadata=config(field_name='visible?'))
 
@@ -44,7 +45,7 @@ class GlobalGraceNote:
 @dataclass
 class GlobalCountLine:
     color: str = '#000000'
-    width: float = 1.0
+    widthMm: float = 1.0
     dashPattern: List[int] = field(default_factory=list)
     visible: int = field(default=1, metadata=config(field_name='visible?'))
 
@@ -52,8 +53,8 @@ class GlobalCountLine:
 @dataclass
 class GlobalSlur:
     color: str = '#000000'
-    middleWidth: float = 1.0
-    startEndWidth: float = .5
+    middleWidthMm: float = 1.0
+    startEndWidthMm: float = .5
     visible: int = field(default=1, metadata=config(field_name='visible?'))
 
 @dataclass_json
@@ -67,18 +68,18 @@ class GlobalText:
 @dataclass
 class GlobalBarline:
     color: str = '#000000'
-    width: float = 1.0
+    widthMm: float = 1.0
     visible: int = field(default=1, metadata=config(field_name='visible?'))
 
 @dataclass_json
 @dataclass
 class GlobalBasegrid:
     gridlineColor: str = '#000000'
-    gridlineWidth: float = .125
+    gridlineWidthMm: float = .125
     gridlineDashPattern: List[float] = field(default_factory=lambda: [2, 2])
     gridlineVisible: int = field(default=1, metadata=config(field_name='gridlineVisible?'))
     barlineColor: str = '#000000'
-    barlineWidth: float = .25
+    barlineWidthMm: float = .25
     barlineVisible: int = field(default=1, metadata=config(field_name='barlineVisible?'))
 
 @dataclass_json
@@ -87,9 +88,9 @@ class GlobalMeasureNumbering:
     color: str = '#000000'
     fontSize: int = 12
     visible: int = field(default=1, metadata=config(field_name='measureNumberingVisible?'))
-    inStepsOf: int = field(default=1, metadata=config(field_name='inStepsOf'))
-    skipCount: list[int] = field(default_factory=list)
-
+    inStepsOf: int = field(default=1, metadata=config(field_name='inStepsOf')) # show measure numbers in steps of N measures, ignored if numberAtStartOfLine == True
+    skipCount: list[int] = field(default_factory=list) # list of measures that are skipped (e.g. [1, 5, 10] to skip measures 1, 5 and 10)
+    numberFromStartOfLine: int = field(default=0, metadata=config(field_name='numberAtStartOfLine?')) # if true, measure numbers are only shown at the start of a new line
 
 @dataclass_json
 @dataclass

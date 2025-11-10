@@ -1504,6 +1504,9 @@ class PropertyTreeEditor(BoxLayout):
                     # Heuristic fallback: treat common visibility fields as booleans
                     if f.name == 'visible' or f.name.endswith('Visible'):
                         return True
+                    # Treat numberAtStartOfLine as boolean
+                    if f.name == 'numberFromStartOfLine':
+                        return True
         except Exception:
             return False
         return False

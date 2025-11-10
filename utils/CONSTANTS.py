@@ -37,10 +37,6 @@ MIDI_PITCH_MIN = 21
 MIDI_PITCH_MAX = 108
 '''Maximum MIDI pitch number (key 88).'''
 
-# Default visual settings
-DEFAULT_PIXELS_PER_QUARTER = 100.0
-'''Default zoom level in pixels per quarter note when no score setting is available.'''
-
 # Grid system defaults (single source of truth)
 QUARTER_NOTE_TICKS = 256.0
 '''Standard quarter note length in ticks (same as PIANOTICK_QUARTER).'''
