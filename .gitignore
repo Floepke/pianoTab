@@ -1,9 +1,17 @@
+# Editor / OS
 scratch
-.vscode
-__pycache__
-venv
-*.pyc
+.vscode/
+.idea/
 .DS_Store
-.idea
-.venv
-piano_files
+
+# Python cache / virtual env
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Project artifacts
+piano_files/
+
+# Ignore built/packaged assets
+# (add more as needed)
