@@ -344,6 +344,7 @@ class Canvas(Widget):
         # Map tag -> set of item handles
         self._tag_index: Dict[str, set] = {}
         self._draw_order: List[int] = []  # z-order (append = on top)
+        self._next_z_index: int = 0  # Auto-incrementing z-index for items
 
         # Create and add custom scrollbar
         self.custom_scrollbar = CustomScrollbar(self)
@@ -697,7 +698,9 @@ class Canvas(Widget):
             'outline_color': self._parse_color(outline_color),
             'outline_w_mm': float(outline_width_mm),
             'tags': set(tags or id or []),
+            'z_index': self._next_z_index,  # Explicit z-order
         }
+        self._next_z_index += 1
         self._register_tags(item_id)
         self._draw_order.append(item_id)
         self._redraw_item(item_id)
@@ -744,7 +747,9 @@ class Canvas(Widget):
             'outline_color': self._parse_color(outline_color),
             'outline_w_mm': float(outline_width_mm),
             'tags': set(tags or id or []),
+            'z_index': self._next_z_index,
         }
+        self._next_z_index += 1
         self._register_tags(item_id)
         self._draw_order.append(item_id)
         self._redraw_item(item_id)
@@ -783,7 +788,9 @@ class Canvas(Widget):
             'dash': bool(dash),
             'dash_mm': (float(dash_pattern_mm[0]), float(dash_pattern_mm[1])),
             'tags': set(tags or id or []),
+            'z_index': self._next_z_index,
         }
+        self._next_z_index += 1
         self._register_tags(item_id)
         self._draw_order.append(item_id)
         self._redraw_item(item_id)
@@ -820,7 +827,9 @@ class Canvas(Widget):
             'dash': bool(dash),
             'dash_mm': (float(dash_pattern_mm[0]), float(dash_pattern_mm[1])),
             'tags': set(tags or id or []),
+            'z_index': self._next_z_index,
         }
+        self._next_z_index += 1
         self._register_tags(item_id)
         self._draw_order.append(item_id)
         self._redraw_item(item_id)
@@ -859,7 +868,9 @@ class Canvas(Widget):
             'outline_color': self._parse_color(outline_color),
             'outline_w_mm': float(outline_width_mm),
             'tags': set(tags or id or []),
+            'z_index': self._next_z_index,
         }
+        self._next_z_index += 1
         self._register_tags(item_id)
         self._draw_order.append(item_id)
         self._redraw_item(item_id)
@@ -909,7 +920,9 @@ class Canvas(Widget):
             'anchor': str(anchor or 'top_left'),
             'color': self._parse_color(color),
             'tags': set(tags or id or []),
+            'z_index': self._next_z_index,
         }
+        self._next_z_index += 1
         self._register_tags(item_id)
         self._draw_order.append(item_id)
         self._redraw_item(item_id)
@@ -948,7 +961,11 @@ class Canvas(Widget):
         
         Items with tags earlier in the list will be drawn first (behind).
         Items with tags later in the list will be drawn last (on top).
-        Items not matching any tag in the list maintain their relative order at the end.
+        Items that have any matching tags will get reordered; items without any of the specified tags
+        will retain their relative order.
+        
+        This works by updating the z_index of each item and then rebuilding the canvas
+        in z-index order.
         
         Args:
             tags: List of tags in the desired drawing order (first = bottom, last = top)
@@ -958,31 +975,49 @@ class Canvas(Widget):
             # staveThreeLines will be drawn first (at the back)
             # staveClefLines will be drawn last (on top)
         '''
-        # Build a new draw order
-        new_order = []
-        used_ids = set()
+        # Assign new z-indices based on tag priority
+        # Items with earlier tags get lower z-indices (draw first/behind)
+        # Items with later tags get higher z-indices (draw last/on top)
         
-        # First, add items in tag order
-        for tag in tags:
-            tag_items = self.find_by_tag(tag)
-            for item_id in tag_items:
-                if item_id not in used_ids and item_id in self._draw_order:
-                    new_order.append(item_id)
-                    used_ids.add(item_id)
+        base_z = 0
+        z_step = 1000  # Large step to leave room between tag groups
         
-        # Then add remaining items that weren't matched by any tag
-        for item_id in self._draw_order:
-            if item_id not in used_ids:
-                new_order.append(item_id)
+        for tag_index, tag in enumerate(tags):
+            # Get all items with this tag
+            item_ids = self._tag_index.get(tag, set())
+            
+            # Assign z-index based on tag position
+            # Use tag_index * z_step to group items by tag
+            for item_id in item_ids:
+                if item_id in self._items:
+                    self._items[item_id]['z_index'] = base_z + (tag_index * z_step)
         
-        # Update draw order
-        self._draw_order = new_order
+        # Rebuild canvas in z-index order
+        self._rebuild_canvas_by_z_order()
+    
+    def _rebuild_canvas_by_z_order(self):
+        '''Rebuild the entire canvas by removing all items and re-adding in z-index order.
         
-        # Rebuild the items group in the new order
+        This ensures Kivy respects the drawing order - items added later draw on top.
+        '''
+        # Sort items by z-index (lowest first)
+        sorted_items = sorted(
+            self._items.items(),
+            key=lambda x: x[1].get('z_index', 0)
+        )
+        
+        # Remove ALL instruction groups from canvas
         self._items_group.clear()
-        for item_id in self._draw_order:
-            if item_id in self._items:
-                self._items_group.add(self._items[item_id]['group'])
+        
+        # Re-add in sorted z-index order
+        new_draw_order = []
+        for item_id, item_data in sorted_items:
+            group = item_data['group']
+            self._items_group.add(group)
+            new_draw_order.append(item_id)
+        
+        # Update draw order list
+        self._draw_order = new_draw_order
 
     def delete(self, item_handle: int):
         '''Delete an item by internal handle.'''

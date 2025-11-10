@@ -370,7 +370,7 @@ class PropertyTreeEditor(BoxLayout):
             do_scroll_y=True,
             bar_width=0,
             scroll_type=['bars', 'content'],
-            smooth_scroll_end=1,  # Minimal smoothing for responsive scrolling
+            smooth_scroll_end=20,  # Minimal smoothing for responsive scrolling
             scroll_distance=20,   # Smaller distance = more responsive
         )
 

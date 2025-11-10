@@ -381,15 +381,15 @@ class Editor(
             'staveclefline',
             'gridline',
             'barline',
-            'stopsign',
-            'measurenumber',
             # note
-            'notehead',
             'stem',
             'connectstem',
             'accidental',
             'continuationdot',
+            'stopsign',
+            'measurenumber',
             'gracenote',
+            'notehead',
         ])
     
     # Zoom and interaction methods (simplified for initial implementation)
