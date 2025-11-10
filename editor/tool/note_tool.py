@@ -36,8 +36,7 @@ class NoteTool(BaseTool):
             return True  # Parent is handling drag - stop here
         
         pitch, time = self.get_pitch_and_time(x, y)
-        
-        
+        print(f"NoteTool: Hover at time {time}, pitch {pitch}")
         
         return False
     

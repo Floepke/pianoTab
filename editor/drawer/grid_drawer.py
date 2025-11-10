@@ -9,7 +9,9 @@ from utils.CONSTANTS import PIANOTICK_QUARTER
 
 
 class GridDrawerMixin:
-    '''Mixin for drawing barlines and grid lines.'''
+    '''
+        Mixin for drawing barlines and grid lines.
+    '''
     
     def _draw_barlines_and_grid(self):
         '''Draw barlines and grid lines based on your Tkinter algorithm.'''
@@ -21,7 +23,8 @@ class GridDrawerMixin:
             ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
             measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
             for _ in range(grid.measureAmount):
-                y_pos = self.time_to_y_mm(total_ticks)
+                # Draw barline at the end of this measure
+                y_pos = self.time_to_y(total_ticks)
                 barline_positions.append((y_pos, len(barline_positions) + 1))  # (position, measure_number)
                 total_ticks += measure_ticks
         
@@ -57,8 +60,8 @@ class GridDrawerMixin:
             
             for _ in range(grid.measureAmount):
                 for i in range(1, grid.numerator):  # Skip first beat (that's the barline)
-                    grid_ticks = total_ticks + i * subdivision_ticks
-                    y_pos = self.time_to_y_mm(grid_ticks)
+                    grid_ticks = total_ticks + (i * subdivision_ticks)
+                    y_pos = self.time_to_y(grid_ticks)
                     
                     if 0 <= y_pos <= self.canvas.height_mm + self.editor_margin:
                         self.canvas.add_line(
@@ -73,7 +76,8 @@ class GridDrawerMixin:
                 total_ticks += measure_ticks
         
         # Draw end barline (thicker)
-        final_y_pos = self.time_to_y_mm(self.get_score_length_in_ticks())
+        # Final barline at the end of the score
+        final_y_pos = self.time_to_y(self.get_score_length_in_ticks())
         if 0 <= final_y_pos <= self.canvas.height_mm + self.editor_margin:
             self.canvas.add_line(
                 x1_mm=self.editor_margin, y1_mm=final_y_pos,

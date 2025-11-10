@@ -6,8 +6,8 @@ from typing import List, Literal
 @dataclass
 class GlobalNote:
     color: str = '#000000'
-    colorLeftMidiNote: str = '#000000'
-    colorRightMidiNote: str = '#000000'
+    colorLeftMidiNote: str = '#dddddd'
+    colorRightMidiNote: str = '#dddddd'
     stemWidth: float = 1.0
     stemLength: float = 10.0
     beamWidth: float = 1.0

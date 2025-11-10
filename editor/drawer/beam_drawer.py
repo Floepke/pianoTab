@@ -21,7 +21,7 @@ class BeamDrawerMixin:
         editor_margin: float
         stave_width: float
         
-        def time_to_y_mm(self, time: float) -> float: ...
+        def time_to_y(self, time: float) -> float: ...
     
     def _draw_beams(self) -> None:
         '''Draw all beam events from all staves.'''

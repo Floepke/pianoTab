@@ -259,7 +259,7 @@ class BaseTool(ABC):
             return
         
         # Compute Y in mm from cursor time
-        y_mm = self.editor.time_to_y_mm(self._cursor_time)
+        y_mm = self.editor.time_to_y(self._cursor_time)
         
         # Get stave boundaries from editor
         stave_left = float(getattr(self.editor, 'stave_left', 0.0))
@@ -310,7 +310,7 @@ class BaseTool(ABC):
 
     # === Helper Methods for Musical Coordinate Conversion ===
 
-    def get_pitch_from_x(self, x_mm: float) -> int:
+    def x_to_pitch(self, x_mm: float) -> int:
         """
         Convert X coordinate (mm) to piano pitch number (1-88).
         
@@ -320,7 +320,7 @@ class BaseTool(ABC):
         Returns:
             Pitch number from 1 (A0) to 88 (C8), or None if out of range
         """
-        pitch = self.editor.x_to_key_number(x_mm)
+        pitch = self.editor.x_to_pitch(x_mm)
         
         # Clamp to valid piano range (1-88)
         if pitch < 1:
@@ -382,7 +382,7 @@ class BaseTool(ABC):
         Returns:
             Tuple of (pitch: int, time_ticks: float)
         """
-        pitch = self.get_pitch_from_x(x_mm)
+        pitch = self.x_to_pitch(x_mm)
         
         if snap_to_grid:
             time_ticks = self.get_snapped_time_from_y(y_mm)
@@ -401,7 +401,7 @@ class BaseTool(ABC):
         Returns:
             X position in millimeters
         """
-        return self.editor.key_number_to_x_mm(pitch)
+        return self.editor.pitch_to_x(pitch)
 
     def get_y_from_time(self, time_ticks: float) -> float:
         """
@@ -413,7 +413,7 @@ class BaseTool(ABC):
         Returns:
             Y position in millimeters
         """
-        return self.editor.time_to_y_mm(time_ticks)
+        return self.editor.time_to_y(time_ticks)
     
     # === Abstract Methods (optional to override) ===
     

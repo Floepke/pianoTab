@@ -21,7 +21,7 @@ class CountLineDrawerMixin:
         editor_margin: float
         stave_width: float
         
-        def time_to_y_mm(self, time: float) -> float: ...
+        def time_to_y(self, time: float) -> float: ...
     
     def _draw_count_lines(self) -> None:
         '''Draw all count line events from all staves.'''

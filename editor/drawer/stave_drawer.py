@@ -31,7 +31,7 @@ class StaveDrawerMixin:
         stave_clef_width: float
         clef_dash_pattern: list
         
-        def key_number_to_x_mm(self, key_number: int) -> float: ...
+        def pitch_to_x(self, key_number: int) -> float: ...
         def get_score_length_in_ticks(self) -> float: ...
     
     def _draw_stave(self):
@@ -48,20 +48,19 @@ class StaveDrawerMixin:
         # Set stave boundaries (useful for cursor and other tools)
         self.stave_left = self.editor_margin
         self.stave_right = self.editor_margin + self.stave_width
-        
-        key = 2  # Start from key 2 as in your algorithm
-        for k in range(1, PIANO_KEY_COUNT):
-            x_pos = self.key_number_to_x_mm(k)
+
+        for key in range(1, PIANO_KEY_COUNT):
+            x_pos = self.pitch_to_x(key)
             
             # Determine if we need to draw a line for the current key
             key_ = key % 12  # Use 'key', not 'k' - tracks musical pattern
             
             # Check if this is a clef line position (central C# and D#)
-            is_clef_line = (k + 1 in [41, 43])  # C# and D# around middle C
+            is_clef_line = (key in [41, 43])  # C# and D# around middle C
             
             # Skip drawing lines for the last key position to avoid extra line
             # Include clef positions (6, 8) in the pattern check for k=41, 43
-            if (key_ in [2, 5, 7, 10, 0] or is_clef_line) and k < PIANO_KEY_COUNT:
+            if (key_ in [2, 5, 7, 10, 0] or is_clef_line) and key < PIANO_KEY_COUNT:
                 
                 # Set color, width, dash pattern, and category tag according to your pattern
                 category_tag = None
@@ -93,7 +92,5 @@ class StaveDrawerMixin:
                     dash_pattern_mm=tuple(self.clef_dash_pattern) if is_clef_line else (2.0, 2.0),
                     tags=[category_tag]
                 )
-            
-            key += 1
 
         return

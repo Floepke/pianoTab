@@ -160,7 +160,13 @@ class Editor(
         self.zoom_refresh()
     
     def _create_default_score_template(self) -> SCORE:
-        '''Create a default score with a single stave and exactly one base grid.'''
+        '''
+            Create a default score with a single stave and exactly one base grid.
+
+            note:
+                - during the development I use this method to create test elements
+                    so it can be a mess here ;)
+        '''
         score = SCORE()
         
         # Ensure single known stave name
@@ -187,6 +193,21 @@ class Editor(
         score.new_linebreak(time=1024*20)
         score.new_linebreak(time=1024*24)
         score.new_linebreak(time=1024*28)
+
+        # create some test note objects in the file:
+        score.new_note(pitch=39, time=0, duration=512)
+        score.new_note(pitch=42, time=512, duration=256)
+        score.new_note(pitch=46, time=768, duration=256)
+        score.new_note(pitch=51, time=1024, duration=1024)
+        score.new_note(pitch=55, time=2048, duration=512)
+        score.new_note(pitch=58, time=2560, duration=512)
+        score.new_note(pitch=62, time=3072, duration=2048)
+        score.new_note(pitch=65, time=5120, duration=512)
+        score.new_note(pitch=69, time=5632, duration=512)
+        score.new_note(pitch=72, time=6144, duration=1024)
+        score.new_note(pitch=76, time=7168, duration=512)
+        score.new_note(pitch=79, time=7680, duration=512)
+        score.new_note(pitch=83, time=8192, duration=2048)
 
         return score
     
@@ -227,9 +248,9 @@ class Editor(
         '''Canvas height in mm.'''
         return self.canvas.height_mm
     
-    def key_number_to_x_mm(self, key_number: int) -> float:
+    def pitch_to_x(self, key_number: int) -> float:
         '''Convert piano key number (1-88) to X position using your spacing algorithm.'''
-        # Build x_positions list exactly like x_to_key_number does
+        # Build x_positions list exactly like x_to_pitch does (must match!)
         x_pos = self.editor_margin - self.semitone_width
         x_positions = [x_pos]  # Start with initial position at index 0
         
@@ -240,12 +261,37 @@ class Editor(
             x_pos += self.semitone_width
             x_positions.append(x_pos)
         
-        # Key numbers 1-88 map to indices 1-88 (index 0 is before first key)
+        # x_to_pitch returns (index + 1), so to reverse it:
+        # If x_to_pitch found x_positions[index] and returned (index + 1) as the key,
+        # then pitch_to_x should return x_positions[key_number - 1]
         if 1 <= key_number <= PIANO_KEY_COUNT:
-            return x_positions[key_number]
+            return x_positions[key_number - 1]
         return self.editor_margin
     
-    def time_to_y_mm(self, time_ticks: float) -> float:
+    def x_to_pitch(self, x_mm: float) -> int:
+        '''Convert X coordinate to piano key number (1-88) using your algorithm.'''
+        # Recreate the x_positions list from your Tkinter code
+        x_pos = self.editor_margin - self.semitone_width
+        x_positions = [x_pos]
+        
+        # create center positions for all 88 keys
+        for n in range(1, PIANO_KEY_COUNT + 1):
+            if n in BE_GAPS:
+                x_pos += self.semitone_width
+            x_pos += self.semitone_width
+            x_positions.append(x_pos)
+
+        # Find the closest center position
+        if x_positions:
+            closest_x = min(x_positions, key=lambda y: abs(y - x_mm))
+            closest_x_index = x_positions.index(closest_x)
+            return closest_x_index + 1
+        
+        # Default to key 1 if no positions found
+        print('DEBUG: x_to_key_number found no positions, defaulting to key 1')
+        return 1
+    
+    def time_to_y(self, time_ticks: float) -> float:
         '''Convert time in ticks to Y coordinate in millimeters (top-left origin).'''
         mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
         if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
@@ -255,6 +301,16 @@ class Editor(
         ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
         time_quarters = time_ticks / max(1e-6, ql)
         return self.editor_margin + (time_quarters * mm_per_quarter) - (self.scroll_time_offset * mm_per_quarter)
+    
+    def y_to_time(self, y_mm: float) -> float:
+        '''Convert Y coordinate to time in ticks (inverse of time_to_y_mm).'''
+        mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
+        if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
+            px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
+            mm_per_quarter = (self.pixels_per_quarter) / max(1e-6, px_per_mm)
+        time_quarters = (y_mm - self.editor_margin) / mm_per_quarter + self.scroll_time_offset
+        ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
+        return time_quarters * ql
     
     def get_score_length_in_ticks(self) -> float:
         '''Calculate total score length in ticks based on your algorithm.'''
@@ -302,6 +358,9 @@ class Editor(
         self._draw_tempos()
         self._draw_count_lines()
         self._draw_line_breaks()
+
+        # Update drawing order to ensure correct layering
+        self._update_drawing_order()
     
     def _update_drawing_order(self):
         '''Set the proper drawing order of canvas elements.'''
@@ -414,36 +473,6 @@ class Editor(
         if (hasattr(self.score, 'properties') and 
             hasattr(self.score.properties, 'editorZoomPixelsQuarter')):
             self.score.properties.editorZoomPixelsQuarter = float(self.pixels_per_quarter)
-    
-    def x_to_key_number(self, x_mm: float) -> int:
-        '''Convert X coordinate to piano key number (1-88) using your algorithm.'''
-        # Recreate the x_positions list from your Tkinter code
-        x_pos = self.editor_margin - self.semitone_width
-        x_positions = [x_pos]
-        
-        # create center positions for all 88 keys
-        for n in range(1, PIANO_KEY_COUNT + 1):
-            if n in BE_GAPS:
-                x_pos += self.semitone_width
-            x_pos += self.semitone_width
-            x_positions.append(x_pos)
-
-        # Find the closest center position
-        if x_positions:
-            closest_x = min(x_positions, key=lambda y: abs(y - x_mm))
-            closest_x_index = x_positions.index(closest_x)
-            return closest_x_index + 1
-        return 1
-    
-    def y_to_time(self, y_mm: float) -> float:
-        '''Convert Y coordinate to time in ticks (inverse of time_to_y_mm).'''
-        mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
-        if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
-            px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
-            mm_per_quarter = (self.pixels_per_quarter) / max(1e-6, px_per_mm)
-        time_quarters = (y_mm - self.editor_margin) / mm_per_quarter + self.scroll_time_offset
-        ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
-        return time_quarters * ql
     
     # Interaction support
     def on_item_click(self, item_id: int, touch_pos_mm: Tuple[float, float]) -> bool:
