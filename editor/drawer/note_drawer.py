@@ -114,25 +114,15 @@ class NoteDrawerMixin:
         # draw the stem
         if note.blackNoteDirection == '^' and note.pitch in BLACK_KEYS:
             y += notehead_length # we need to change y back for stem drawing
-        if note.hand == '<':
-            # left hand - stem to the left side
-            self.canvas.add_line(
-                x1_mm=x,
-                y1_mm=y,
-                x2_mm=x - note.stemLengthMm,
-                y2_mm=y,
-                width_mm=self.score.properties.globalNote.stemWidthMm,
-                color=color,
-                tags=['stem', str(note.id)]
-            )
-        else:
-            # right hand - stem to the right side
-            self.canvas.add_line(
-                x1_mm=x,
-                y1_mm=y,
-                x2_mm=x + note.stemLengthMm,
-                y2_mm=y,
-                width_mm=self.score.properties.globalNote.stemWidthMm,
-                color=color,
-                tags=['stem', str(note.id)]
-            )
+        if note.hand == '<': xx = x - note.stemLengthMm
+        else: xx = x + note.stemLengthMm
+        # left hand - stem to the left side
+        self.canvas.add_line(
+            x1_mm=x,
+            y1_mm=y,
+            x2_mm=xx,
+            y2_mm=y,
+            width_mm=self.score.properties.globalNote.stemWidthMm,
+            color=color,
+            tags=['stem', str(note.id)]
+        )

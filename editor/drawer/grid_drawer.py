@@ -15,6 +15,7 @@ class GridDrawerMixin:
     
     def _draw_barlines_and_grid(self):
         '''Draw barlines and grid lines based on your Tkinter algorithm.'''
+        print(f'Editor: _draw_barlines_and_grid() called, score has {len(self.score.baseGrid)} baseGrids')
         # Calculate barline positions (your get_editor_barline_positions equivalent)
         barline_positions = []
         total_ticks = 0.0
@@ -22,13 +23,18 @@ class GridDrawerMixin:
         for grid in self.score.baseGrid:
             ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
             measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
+            print(f'Editor: baseGrid: {grid.measureAmount} measures of {grid.numerator}/{grid.denominator}, measure_ticks={measure_ticks}')
             for _ in range(grid.measureAmount):
                 # Draw barline at the end of this measure
                 y_pos = self.time_to_y(total_ticks)
                 barline_positions.append((y_pos, len(barline_positions) + 1))  # (position, measure_number)
                 total_ticks += measure_ticks
         
+        print(f'Editor: Calculated {len(barline_positions)} barline positions')
+        if barline_positions:
+            print(f'Editor: First 3 barline y positions: {[y for y, _ in barline_positions[:3]]}')
         # Draw barlines with measure numbers
+        barlines_drawn = 0
         for y_pos, measure_number in barline_positions:
             if 0 <= y_pos <= self.canvas.height_mm + self.editor_margin:
                 # Barline
@@ -39,6 +45,9 @@ class GridDrawerMixin:
                     width_mm=self.barline_width,
                     tags=['barlines', f'barline_{measure_number}']
                 )
+                barlines_drawn += 1
+                if barlines_drawn <= 3:
+                    print(f'Editor: Drew barline {measure_number} at y={y_pos}mm, x from {self.editor_margin}mm to {self.editor_margin + self.stave_width}mm')
                 
                 # Measure number (positioned at right edge before scrollbar)
                 self.canvas.add_text(
@@ -50,6 +59,8 @@ class GridDrawerMixin:
                     anchor='nw',
                     tags=['measureNumbers', f'measure_number_{measure_number}']
                 )
+        
+        print(f'Editor: Actually drew {barlines_drawn} barlines (filtered by viewport height={self.canvas.height_mm}mm + margin={self.editor_margin}mm)')
         
         # Calculate and draw gridlines (your get_editor_gridline_positions equivalent)
         total_ticks = 0.0

@@ -85,8 +85,6 @@ class pianoTAB(App):
         # App-wide settings available from anywhere via App.get_running_app().settings
         self.settings: SettingsManager = SettingsManager()
         self.settings.load()
-        # Debounce flag for editor refresh
-        self._refresh_scheduled = False
     
     def build(self):
         '''Build and return the root widget - UI construction only.'''
@@ -111,19 +109,17 @@ class pianoTAB(App):
             except Exception as e:
                 Logger.warning(f'pianoTAB: Could not schedule window maximization: {e}')
         
-        # Initialize Editor (which owns the SCORE)
-        self.editor = Editor(self.gui.get_editor_widget())
+        # Initialize Editor (which owns the SCORE model)
+        self.editor = Editor(self.gui.get_editor_widget(), gui=self.gui)
         
         # Connect editor to grid_selector for cursor snapping
-        if hasattr(self.gui, 'side_panel') and hasattr(self.gui.side_panel, 'grid_selector'):
-            self.editor.grid_selector = self.gui.side_panel.grid_selector
+        self.editor.grid_selector = self.gui.side_panel.grid_selector
+        
+        # Connect tool_selector to editor's tool_manager
+        self.gui.side_panel.tool_selector.callback = lambda tool_name: self.editor.tool_manager.set_active_tool(tool_name)
         
         # Set canvas reference to piano roll editor for scroll snap functionality
         self.gui.get_editor_widget().set_piano_roll_editor(self.editor)
-        
-        # Connect editor to GUI for tool system integration
-        if hasattr(self.gui, 'set_editor'):
-            self.gui.set_editor(self.editor)
         
         # Setup any additional connections/bindings
         self._setup_bindings()
@@ -138,23 +134,21 @@ class pianoTAB(App):
         if hasattr(self.gui, 'set_file_manager'):
             self.gui.set_file_manager(self.file_manager)
 
-        # Wire PropertyTreeEditor to current SCORE and bind change callback
+        # Wire PropertyTreeEditor change callback (bind ONCE)
         try:
             if hasattr(self.gui, 'bind_properties_change'):
                 self.gui.bind_properties_change(self._on_properties_changed)
-            if hasattr(self.gui, 'set_properties_score') and self.editor is not None:
-                # Immediate bind
-                self.gui.set_properties_score(self.editor.score)
-                # Also schedule on next frame to guarantee GUI is fully laid out
-                Clock.schedule_once(lambda dt: self.gui.set_properties_score(self.editor.score), 0)
-        except Exception:
-            pass
-
-        # Run a zoom refresh once the GUI/canvas is laid out so SCORE ppq applies with real scale.
-        try:
-            Clock.schedule_once(self._zoom_refresh_after_gui_ready, 0)
         except Exception as e:
-            Logger.warning(f'pianoTAB: Could not schedule zoom refresh: {e}')
+            Logger.warning(f'pianoTAB: Could not bind properties change: {e}')
+
+        # Create initial score once canvas is ready (event-driven)
+        def _initialize_score():
+            self.file_manager.new_file()
+        
+        try:
+            self.editor.canvas.on_ready(_initialize_score)
+        except Exception as e:
+            Logger.warning(f'pianoTAB: Could not register ready callback: {e}')
 
         # Optional: bring window to front after background start (macOS)
         try:
@@ -165,25 +159,6 @@ class pianoTAB(App):
         except Exception:
             pass
 
-    def _zoom_refresh_after_gui_ready(self, dt, attempts: int = 0):
-        '''Ensure editor.zoom_refresh runs after canvas is sized and scaled.
-
-        Retries briefly if layout isn't ready yet.
-        '''
-        try:
-            cv = self.gui.get_editor_widget() if self.gui else None
-            if not cv or cv.width <= 0 or cv.height <= 0 or getattr(cv, '_px_per_mm', 0) <= 0:
-                if attempts < 20:
-                    Clock.schedule_once(lambda _dt: self._zoom_refresh_after_gui_ready(_dt, attempts + 1), 0.05)
-                else:
-                    Logger.warning('pianoTAB: zoom_refresh skipped (canvas not ready after retries)')
-                return
-            if self.editor is not None:
-                self.editor.zoom_refresh()
-                Logger.info('pianoTAB: Performed zoom_refresh after GUI ready')
-        except Exception as e:
-            Logger.warning(f'pianoTAB: zoom_refresh after GUI failed: {e}')
-    
     def _setup_bindings(self):
         '''Setup event bindings between components.'''
         # Bind global keyboard shortcuts for zooming
@@ -193,37 +168,15 @@ class pianoTAB(App):
             pass
 
     def _on_properties_changed(self, score):
+        '''Invoked by PropertyTreeEditor after edits.
+        
+        Simply redraw the editor to reflect updated SCORE properties and mark dirty.
         '''
-        Invoked by PropertyTreeEditor after edits.
-        Refresh the editor view to reflect updated SCORE properties and mark as dirty.
-        '''
-        try:
-            # Debounce heavy editor refresh to reduce stutter on rapid edits
-            self._refresh_editor_debounced(0)
-            if self.file_manager is not None:
-                self.file_manager.mark_dirty()
-        except Exception:
-            pass
-
-    def _refresh_editor_debounced(self, delay: float = 0.0):
-        try:
-            if self._refresh_scheduled:
-                return
-            self._refresh_scheduled = True
-            Clock.schedule_once(self._do_refresh_editor, delay)
-        except Exception:
-            # Fallback: try immediate refresh
-            try:
-                if self.editor is not None:
-                    self.editor.refresh_display()
-            except Exception:
-                pass
-
-    def _do_refresh_editor(self, _dt):
-        self._refresh_scheduled = False
         try:
             if self.editor is not None:
-                self.editor.refresh_display()
+                self.editor.redraw_pianoroll()
+            if self.file_manager is not None:
+                self.file_manager.mark_dirty()
         except Exception:
             pass
 

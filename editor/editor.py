@@ -45,9 +45,10 @@ class Editor(
     - Pitch flows horizontally with your custom spacing
     '''
     
-    def __init__(self, editor_canvas: Canvas, score: SCORE = None):
+    def __init__(self, editor_canvas: Canvas, score: SCORE = None, gui=None):
         self.canvas: Canvas = editor_canvas  # Fixed: use consistent attribute name
-        self.score: SCORE = score if score is not None else self._create_default_score_template()
+        self.score: SCORE = None  # Will be initialized via new_score() or load_score()
+        self.gui = gui
         
         # Initialize dimensions from canvas
         # Zoom: single source of truth is SCORE.properties.editorZoomPixelsQuarter (px per quarter)
@@ -93,6 +94,9 @@ class Editor(
         
         # Initialize layout
         self._calculate_layout()
+        
+        # Mark editor as ready for drawing (all initialization complete)
+        self._ready: bool = True
 
     def _apply_settings_from_score(self):
         '''Synchronize editor state from SCORE.properties.
@@ -141,141 +145,34 @@ class Editor(
     # Defer zoom refresh until the canvas attaches us and scale is known.
     
     def load_score(self, score: SCORE):
-        '''Load a new score into the editor and refresh the display.'''
+        '''Load a new score into the editor and redraw.'''
         self.score = score
+        print(f'Editor: load_score() called with score containing {len(score.baseGrid)} baseGrids')
+        if score.baseGrid:
+            print(f'Editor: First baseGrid has {score.baseGrid[0].measureAmount} measures')
+        self.gui.set_properties_score(self.score)
         self._apply_settings_from_score()
         # Reset scroll position to the beginning
         self.scroll_time_offset = 0.0
         # Trigger a full redraw with the new score
-        self.zoom_refresh()
-    
-    def refresh_display(self):
-        '''Refresh the display after properties have changed.
-        
-        Re-applies settings from the score (zoom, colors, line widths, etc.)
-        and triggers a full redraw. Use this when score properties are edited
-        via the property tree editor.
-        '''
-        self._apply_settings_from_score()
-        self.zoom_refresh()
-    
-    def _create_default_score_template(self) -> SCORE:
-        '''
-            Create a default score with a single stave and exactly one base grid.
+        print('Editor: Calling redraw_pianoroll() from load_score()')
+        self.redraw_pianoroll()
 
-            note:
-                - during the development I use this method to create test elements
-                    so it can be a mess here ;)
-        '''
-        score = SCORE()
-        
-        # Ensure single known stave name
-        if score.stave:
-            score.stave[0].name = 'Single Piano Stave'
-        
-        # SCORE.__post_init__ already ensures a default BaseGrid exists.
-        # Avoid doubling the time length: normalize to exactly ONE baseGrid and set desired signature/length.
-        if score.baseGrid:
-            bg = score.baseGrid[0]
-            bg.numerator = 1
-            bg.denominator = 4
-            bg.measureAmount = 802
-            # Keep gridTimes as provided by SCORE defaults
-            score.baseGrid = [bg]
-        else:
-            score.new_basegrid(numerator=4, denominator=4, measureAmount=32)
-
-        # create linebreaks in groups of 4 measures
-        score.new_linebreak(time=1024*4)
-        score.new_linebreak(time=1024*8)
-        score.new_linebreak(time=1024*12)
-        score.new_linebreak(time=1024*16)
-        score.new_linebreak(time=1024*20)
-        score.new_linebreak(time=1024*24)
-        score.new_linebreak(time=1024*28)
-
-        def generate_performance_test_notes():
-            '''Generate 500 random notes for performance testing.
-            
-            Comment out the call to this function to disable performance testing
-            and use the simple test notes below instead.
-            '''
-            import random
-            
-            # Total time range: 32 measures * 1024 ticks/measure = 32768 ticks
-            max_time = 802 * 256
-            
-            # Generate 500 random notes
-            for _ in range(5000):
-                # Random time within the score range
-                time = random.uniform(0, max_time)
-                
-                # Random duration (0-1024 ticks, up to 1 measure)
-                duration = random.uniform(0, 1024)
-                
-                # Random pitch (1-88, full piano range)
-                pitch = random.randint(1, 88)
-                
-                # Random hand
-                hand = random.choice(['<', '>'])
-                
-                # Random color (fun colors!)
-                colors = [
-                    '#FF0000',  # Red
-                    '#00FF00',  # Green
-                    '#0000FF',  # Blue
-                    '#FFFF00',  # Yellow
-                    '#FF00FF',  # Magenta
-                    '#00FFFF',  # Cyan
-                    '#FF8000',  # Orange
-                    '#8000FF',  # Purple
-                    '#FF0080',  # Pink
-                    '#80FF00',  # Lime
-                ]
-                color = random.choice(colors)
-                
-                # Random stem length (0-20mm)
-                stem_length = random.uniform(0, 20)
-                
-                # Create the note
-                note = score.new_note(
-                    pitch=pitch,
-                    time=time,
-                    duration=duration,
-                    hand=hand
-                )
-                
-                # Set random properties
-                note.color = color
-                note.stemLength = stem_length
-        
-        # ENABLE/DISABLE performance test:
-        # Comment out the next line to use simple test notes instead
-        generate_performance_test_notes()
-        
-        # Simple test notes (used when performance test is disabled):
-        # score.new_note(pitch=39, time=0, duration=512, hand='<')
-        # score.new_note(pitch=42, time=512, duration=256, hand='>')
-        # score.new_note(pitch=46, time=768, duration=256, hand='>')
-        # score.new_note(pitch=51, time=1024, duration=1024, hand='<')
-        # score.new_note(pitch=55, time=2048, duration=512, hand='>')
-        # score.new_note(pitch=58, time=2560, duration=512, hand='>')
-        # score.new_note(pitch=62, time=3072, duration=2048, hand='<')
-        # score.new_note(pitch=65, time=5120, duration=512, hand='>')
-        # score.new_note(pitch=69, time=5632, duration=512, hand='>')
-        # score.new_note(pitch=72, time=6144, duration=1024, hand='<')
-        # score.new_note(pitch=76, time=7168, duration=512, hand='>')
-        # score.new_note(pitch=79, time=7680, duration=512, hand='<')
-        # score.new_note(pitch=83, time=8192, duration=2048, hand='<')
-
-        score.properties.globalNote.color = '#0000FF'
-
-        return score
+    def new_score(self):
+        '''Create a new empty score and load it into the editor.'''
+        print('Editor: Creating new SCORE')
+        self.load_score(SCORE())
+        self.gui._simulate_snap_drag()
     
     # Defer zoom refresh until the canvas attaches us and scale is known.
     
     def _calculate_layout(self):
         '''Calculate layout dimensions based on the old Tkinter design.'''
+        # Skip if canvas not sized yet (widget not laid out)
+        if self.canvas.width <= 1 or self.canvas.height <= 1:
+            print(f'Editor: _calculate_layout() skipped - canvas not sized yet (w={self.canvas.width}px, h={self.canvas.height}px)')
+            return
+            
         self.editor_margin = self.canvas.width_mm / 6  # Your margin calculation
         
         # Calculate stave dimensions using shared constants
@@ -359,9 +256,13 @@ class Editor(
             # Fallback derive from score zoom and current canvas scale
             px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
             mm_per_quarter = (self.pixels_per_quarter) / max(1e-6, px_per_mm)
+            print(f'Editor: time_to_y() calculated mm_per_quarter={mm_per_quarter} (pixels_per_quarter={self.pixels_per_quarter}, px_per_mm={px_per_mm})')
         ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
         time_quarters = time_ticks / max(1e-6, ql)
-        return self.editor_margin + (time_quarters * mm_per_quarter) - (self.scroll_time_offset * mm_per_quarter)
+        result = self.editor_margin + (time_quarters * mm_per_quarter) - (self.scroll_time_offset * mm_per_quarter)
+        if time_ticks <= 1024:  # Debug first measure only
+            print(f'Editor: time_to_y({time_ticks}) = {result}mm (time_quarters={time_quarters}, mm_per_quarter={mm_per_quarter})')
+        return result
     
     def y_to_time(self, y_mm: float) -> float:
         '''Convert Y coordinate to time in ticks (inverse of time_to_y_mm).'''
@@ -383,18 +284,42 @@ class Editor(
         return total_ticks
     
     def redraw_pianoroll(self):
-        '''Redraw the complete piano roll with all elements.'''
+        '''Redraw the complete piano roll with all elements.
+        
+        This is the main rendering method. It:
+        1. Syncs zoom from SCORE.properties.editorZoomPixelsQuarter
+        2. Recalculates layout (margins, spacing, etc.)
+        3. Clears and redraws all canvas elements
+        '''
+        
+        # Guard: don't draw if no score loaded yet
+        if self.score is None:
+            print('Editor: redraw_pianoroll() called but no score loaded yet')
+            return
+        
+        # Always sync zoom from SCORE first
+        try:
+            props = getattr(self.score, 'properties', None)
+            if props is not None and hasattr(props, 'editorZoomPixelsQuarter'):
+                self.pixels_per_quarter = float(props.editorZoomPixelsQuarter)
+        except Exception:
+            pass
+        
+        # Recalculate layout with current zoom
+        self._calculate_layout()
         
         # Clear any existing content
         self.canvas.clear()
         
         # Calculate required dimensions
         self.total_time = self.get_score_length_in_ticks()
+        print(f'Editor: Calculated total_time={self.total_time} ticks from {len(self.score.baseGrid)} baseGrids')
         # Content height must not depend on scroll offset; compute using mm/quarter directly
         mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
         if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
             px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
             mm_per_quarter = (self.pixels_per_quarter) / max(1e-6, px_per_mm)
+            print(f'Editor: Calculated mm_per_quarter={mm_per_quarter} from pixels_per_quarter={self.pixels_per_quarter} / px_per_mm={px_per_mm}')
         ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
         content_height_mm = (self.total_time / max(1e-6, ql)) * mm_per_quarter
         total_height_mm = content_height_mm + (2.0 * self.editor_margin)  # top + bottom margin equal to editor_margin

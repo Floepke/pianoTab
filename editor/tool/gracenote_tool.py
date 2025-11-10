@@ -35,6 +35,9 @@ class GraceNoteTool(BaseTool):
         if super().on_mouse_move(x, y):
             return True  # Parent is handling drag - stop here
         
+        pitch, time = self.get_pitch_and_time(x, y)
+        print(f"GraceNoteTool: Hover at time {time}, pitch {pitch}")
+        
         # TODO: Show hover preview (only when not dragging)
         return False
     

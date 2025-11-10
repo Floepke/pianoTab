@@ -296,9 +296,6 @@ class GUI(BoxLayout):
         # Setup right-panel snap-to-fit for A4 aspect on the mid-right split and keep updated
         Clock.schedule_once(self._setup_preview_snap_ratio, 0)
         self.mid_right_split.bind(size=lambda *_: self._setup_preview_snap_ratio())
-        
-        # Simulate dragging sash to snap position on startup
-        Clock.schedule_once(self._simulate_snap_drag, 1)
 
     def _simulate_snap_drag(self, *_):
         '''Simulate dragging the sash to the snap position programmatically.'''

@@ -787,16 +787,11 @@ class FileManager:
     def new_file(self):
         '''Create a new empty score.'''
         def _do_new():
+            # Create new score and load it (which sets it in GUI and redraws)
             self.editor.new_score()
-            # Reflect new SCORE in the property tree editor
-            try:
-                if hasattr(self.gui, 'set_properties_score'):
-                    self.gui.set_properties_score(self.editor.score)
-            except Exception:
-                pass
             self.current_path = None
             self.dirty = False
-            self._info('New score created')
+            #self._info('New score created')
         self._guard_unsaved_then(_do_new)
 
     def open_file(self):
@@ -804,13 +799,8 @@ class FileManager:
         def _do_open(filepath: str):
             try:
                 score = SCORE.load(filepath)
+                # Load score (which sets it in GUI and redraws)
                 self.editor.load_score(score)
-                # Reflect loaded SCORE in the property tree editor
-                try:
-                    if hasattr(self.gui, 'set_properties_score'):
-                        self.gui.set_properties_score(self.editor.score)
-                except Exception:
-                    pass
                 self.current_path = filepath
                 self._last_dir = os.path.dirname(filepath)
                 self.dirty = False

@@ -1,4 +1,4 @@
-from typing import List, Tuple, Optional, Dict, Any, Iterable
+from typing import List, Tuple, Optional, Dict, Any, Iterable, Callable
 import math
 import os
 
@@ -368,20 +368,39 @@ class Canvas(Widget):
             # Also bind touch up events for editor drag detection
             self._original_on_touch_up = self.on_touch_up
             self.on_touch_up = self._on_touch_up_with_editor_forward
-        
-        # As soon as the editor is wired, refresh zoom so the canvas' current
-        # px-per-mm is reflected in the editor's mm-per-quarter spacing immediately.
-        try:
-            if editor is not None and hasattr(editor, 'zoom_refresh'):
-                editor.zoom_refresh()
-            elif editor is not None and hasattr(editor, '_calculate_layout'):
-                editor._calculate_layout()
-        except Exception as e:
-            print(f'CANVAS: failed to sync editor layout on attach: {e}')
 
         # Update scrollbar layout now that content sizing may have changed
         if hasattr(self, 'custom_scrollbar') and self.custom_scrollbar:
             self.custom_scrollbar.update_layout()
+    
+    def on_ready(self, callback: Callable[[], None]):
+        '''Set a callback to be fired once when canvas is ready (sized and scaled)
+        AND editor is ready (if attached).
+        
+        If already ready, fires immediately. Otherwise retries until ready.
+        '''
+        # Check if canvas is PROPERLY sized (not just tiny initial size)
+        # Widget must be laid out by Kivy with real dimensions
+        canvas_ready = (
+            self.width > 200 and  # Must be more than tiny initial size
+            self.height > 200 and 
+            self._px_per_mm > 0 and
+            hasattr(self, '_view_w') and self._view_w > 100 and
+            hasattr(self, '_view_h') and self._view_h > 100
+        )
+        
+        # Check if editor is ready (if one is attached)
+        editor = getattr(self, 'piano_roll_editor', None)
+        editor_ready = editor is None or getattr(editor, '_ready', False)
+        
+        if canvas_ready and editor_ready:
+            # Both ready - call immediately
+            callback()
+            print(f'CANVAS: on_ready callback fired (canvas: w={self.width}px, h={self.height}px, view_w={self._view_w}px, view_h={self._view_h}px)')
+        else:
+            print(f'CANVAS: on_ready not ready yet - canvas_ready={canvas_ready} (w={self.width}px, h={self.height}px, px_per_mm={self._px_per_mm}, view_w={getattr(self, "_view_w", 0)}px, view_h={getattr(self, "_view_h", 0)}px), editor_ready={editor_ready}, retrying...')
+            # Not ready yet - retry after a short delay
+            Clock.schedule_once(lambda dt: self.on_ready(callback), 0.05)  # 50ms retry
     
     def _forward_click_to_editor(self, instance, item_id, touch, pos_mm):
         '''Forward click events to the editor's tool system.'''
