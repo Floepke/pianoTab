@@ -280,6 +280,29 @@ class Editor(
             total_ticks += measure_ticks * grid.measureAmount
         return total_ticks
     
+    def get_barline_positions(self) -> List[float]:
+        '''Get list of barline positions in ticks.
+        
+        This method calculates where barlines occur in the score based on the
+        baseGrid configuration. It can be reused by the editor and engraver.
+        
+        Returns:
+            List of tick positions where barlines should be drawn.
+        '''
+        barline_positions = []
+        total_ticks = 0.0
+        
+        for grid in self.score.baseGrid:
+            ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
+            measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
+            
+            for _ in range(grid.measureAmount):
+                # Barline at the end of this measure
+                barline_positions.append(total_ticks)
+                total_ticks += measure_ticks
+        
+        return barline_positions
+    
     def redraw_pianoroll(self):
         '''Redraw the complete piano roll with all elements.
         
@@ -358,6 +381,7 @@ class Editor(
             'staveclefline',
             'gridline',
             'barline',
+            'stopsign',
             'measurenumber',
             # note
             'notehead',
@@ -365,7 +389,6 @@ class Editor(
             'connectstem',
             'accidental',
             'continuationdot',
-            'stopsign',
             'gracenote',
         ])
     
@@ -580,11 +603,20 @@ class Editor(
             active_tool = self.tool_manager.get_active_tool()
             if active_tool and not active_tool._is_dragging:
                 self.tool_manager.dispatch_left_click(x, y)
+        elif button == 'right':
+            result = self.tool_manager.dispatch_right_release(x, y)
         else:
             result = False
         
         # Clear tracking state
         self._mouse_button_down = None
+        
+        # Update drawing order AFTER all mouse operations are complete
+        if hasattr(self, '_update_drawing_order'):
+            self._update_drawing_order()
+            print("Updated drawing order after mouse release.")
+        
+        return result
         self._mouse_down_pos = None
         
         return result

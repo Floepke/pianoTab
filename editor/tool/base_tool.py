@@ -76,6 +76,18 @@ class BaseTool(ABC):
         self._is_dragging = False
         return False
     
+    def on_right_release(self, x: float, y: float) -> bool:
+        """
+        Handle right mouse button release.
+        
+        Args:
+            x, y: Mouse position in canvas coordinates
+            
+        Returns:
+            True if event was handled, False otherwise
+        """
+        return False
+
     def on_left_release(self, x: float, y: float) -> bool:
         """
         Handle left mouse button release.
@@ -90,10 +102,12 @@ class BaseTool(ABC):
         self._mouse_down_pos = None
         self._is_dragging = False
         
-        # If it was a drag, handle drag end
+        # If it was a drag, handle drag end first
+        result = False
         if was_dragging:
-            return self.on_drag_end(x, y)
-        return False
+            result = self.on_drag_end(x, y)
+        
+        return result
     
     def on_drag_start(self, x: float, y: float, start_x: float, start_y: float) -> bool:
         """

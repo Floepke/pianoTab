@@ -37,6 +37,7 @@ class NoteDrawerMixin:
         
         def pitch_to_x(self, pitch: int) -> float: ...
         def time_to_y(self, time: float) -> float: ...
+        def get_barline_positions(self) -> list[float]: ...
     
     def _draw_notes(self) -> None:
         '''Draw all note events from all staves.'''
@@ -103,6 +104,20 @@ class NoteDrawerMixin:
                 tags=['midinote', base_tag]
             )
 
+        # draw notestop - only if followed by a rest in the same hand
+        if self._is_followed_by_rest(stave_idx, note):
+            self.canvas.add_polygon(
+                points_mm=[
+                    x - semitone_width / 2, y_note_stop,
+                    x + semitone_width / 2, y_note_stop,
+                    x, y_note_stop - semitone_width
+                ],
+                fill=True,
+                fill_color=color,
+                outline=False,
+                tags=['stopsign', base_tag]
+            )
+
         # draw the notehead + leftdot
         notehead_length = semitone_width
         if note.pitch in BLACK_KEYS:
@@ -152,21 +167,6 @@ class NoteDrawerMixin:
             color=color,
             tags=['stem', base_tag]
         )
-
-        
-        # draw notestop - only if followed by a rest in the same hand
-        if self._is_followed_by_rest(stave_idx, note):
-            self.canvas.add_polygon(
-                points_mm=[
-                    x - semitone_width / 2, y_note_stop,
-                    x + semitone_width / 2, y_note_stop,
-                    x, y_note_stop - semitone_width
-                ],
-                fill=True,
-                fill_color=color,
-                outline=False,
-                tags=['notestop', base_tag]
-            )
 
         # draw continuation dots
         self._draw_note_continuation_dot(stave_idx, note, draw_mode=draw_mode)
@@ -278,6 +278,10 @@ class NoteDrawerMixin:
             if self._time_op.less_or_equal(other_end, note_start):
                 break
             
+            # Only consider notes from the same hand
+            if other_note.hand != note.hand:
+                continue
+            
             # Check if other note starts within our duration range (using threshold)
             if self._time_op.less(note_start, other_start) and self._time_op.less(other_start, note_end):
                 dot_times.append(other_start)
@@ -296,6 +300,10 @@ class NoteDrawerMixin:
             if self._time_op.greater_or_equal(other_start, note_end):
                 break
             
+            # Only consider notes from the same hand
+            if other_note.hand != note.hand:
+                continue
+            
             # Check if other note starts within our duration range (using threshold)
             if self._time_op.less(note_start, other_start) and self._time_op.less(other_start, note_end):
                 dot_times.append(other_start)
@@ -303,6 +311,13 @@ class NoteDrawerMixin:
             # Check if other note ends within our duration range (using threshold)
             if self._time_op.less(note_start, other_end) and self._time_op.less(other_end, note_end):
                 dot_times.append(other_end)
+        
+        # Check for barline crossings
+        barline_positions = self.get_barline_positions()
+        for barline_time in barline_positions:
+            # Check if barline falls within this note's duration (using threshold)
+            if self._time_op.less(note_start, barline_time) and self._time_op.less(barline_time, note_end):
+                dot_times.append(barline_time)
         
         # Remove duplicates and sort
         dot_times = sorted(set(dot_times))
@@ -326,7 +341,7 @@ class NoteDrawerMixin:
         x = self.pitch_to_x(note.pitch)
         
         # Dot size
-        dot_diameter = self.semitone_width * 0.5  # Adjust size as needed
+        dot_diameter = self.semitone_width * .80  # Adjust size as needed
         
         # Draw a dot at each intersection time
         for dot_time in dot_times:
@@ -334,9 +349,9 @@ class NoteDrawerMixin:
             
             self.canvas.add_oval(
                 x1_mm=x - dot_diameter / 2,
-                y1_mm=y - dot_diameter / 2,
+                y1_mm=y - dot_diameter / 2 + self.semitone_width,
                 x2_mm=x + dot_diameter / 2,
-                y2_mm=y + dot_diameter / 2,
+                y2_mm=y + dot_diameter / 2 + self.semitone_width,
                 fill=True,
                 fill_color=color,
                 outline=False,
@@ -382,16 +397,24 @@ class NoteDrawerMixin:
                 notes_to_redraw.add(other_note.id)
         
         # Find notes in the same hand that might need note stop updates
-        # Specifically, find the note that ends right before this note starts (in same hand)
+        # Any note in the same hand that could have considered this note as "next" needs redrawing
+        # This includes notes that end before this note AND notes that start after this note
         for other_note in note_list:
             if other_note.id == note.id:
                 continue
             
             if other_note.hand == note.hand:
+                other_start = other_note.time
                 other_end = other_note.time + other_note.duration
-                # If this note ends at or before the current note starts (using threshold),
-                # it might need its note stop updated
+                
+                # If other note ends at or before this note starts, it might have checked
+                # this note as its "next note" for note stop calculation
                 if self._time_op.less_or_equal(other_end, note_start):
+                    notes_to_redraw.add(other_note.id)
+                
+                # If other note starts at or after this note ends, it might have been
+                # the "next note" that this note was checking
+                elif self._time_op.greater_or_equal(other_start, note_end):
                     notes_to_redraw.add(other_note.id)
         
         # Redraw all affected notes

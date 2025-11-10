@@ -97,6 +97,12 @@ class ToolManager:
             return self._active_tool.on_right_click(x, y)
         return False
     
+    def dispatch_right_release(self, x: float, y: float) -> bool:
+        """Dispatch right button release to active tool."""
+        if self._active_tool:
+            return self._active_tool.on_right_release(x, y)
+        return False
+    
     def dispatch_left_press(self, x: float, y: float) -> bool:
         """Dispatch left button press to active tool."""
         if self._active_tool:
