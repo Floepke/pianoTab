@@ -391,6 +391,36 @@ class GUI(BoxLayout):
 
     def on_about(self):
         ...
+    
+    def on_test_score_generation(self):
+        """Run the test score generation script."""
+        try:
+            import importlib
+            import manipulate_score
+            
+            # Reload the module to pick up any changes during development
+            importlib.reload(manipulate_score)
+            
+            # Get the piano roll editor from the canvas
+            canvas = self.editor.get_canvas() if self.editor else None
+            piano_roll_editor = getattr(canvas, 'piano_roll_editor', None) if canvas else None
+            
+            # Get the score from the piano roll editor
+            score = piano_roll_editor.score if piano_roll_editor else None
+            
+            if score is None:
+                print("ERROR: No score available for test generation")
+                return
+            
+            # Run the test script
+            print("\n=== Running Test Score Generation ===")
+            manipulate_score.run_test(score, piano_roll_editor)
+            print("=== Test Complete ===\n")
+            
+        except Exception as e:
+            print(f"ERROR: Test score generation failed: {e}")
+            import traceback
+            traceback.print_exc()
 
     # Getters to match existing App expectations
     def get_editor_widget(self):

@@ -359,6 +359,7 @@ class Canvas(Widget):
             self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
             if self._keyboard:
                 self._keyboard.bind(on_key_down=self._on_keyboard_down)
+                self._keyboard.bind(on_key_up=self._on_keyboard_up)
 
         # Defer expensive redraws during resize
         self._resched = None
@@ -420,6 +421,8 @@ class Canvas(Widget):
         x_mm, y_mm = pos_mm
         button = getattr(touch, 'button', 'left')
         
+        print(f"Canvas._forward_click_to_editor: item_id={item_id}, button={button}, is_double_tap={getattr(touch, 'is_double_tap', False)}, pos=({x_mm:.1f}, {y_mm:.1f})")
+        
         # Normalize button name
         if button in ('scrollup', 'scrolldown'):
             return  # Ignore scroll events
@@ -473,6 +476,7 @@ class Canvas(Widget):
         '''Keyboard has been closed - unbind.'''
         if hasattr(self, '_keyboard') and self._keyboard:
             self._keyboard.unbind(on_key_down=self._on_keyboard_down)
+            self._keyboard.unbind(on_key_up=self._on_keyboard_up)
             self._keyboard = None
     
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
@@ -490,6 +494,15 @@ class Canvas(Widget):
         # Extract key name from keycode tuple
         key_name = keycode[1] if isinstance(keycode, tuple) else str(keycode)
         
+        print(f"Canvas._on_keyboard_down: key={key_name}, modifiers={modifiers}")
+        
+        # Handle shift key for universal selection
+        if key_name == 'shift':
+            editor = getattr(self, 'piano_roll_editor', None)
+            if editor is not None and hasattr(editor, 'selection_manager'):
+                editor.selection_manager.on_shift_press()
+                return True  # Handled
+        
         # Get current mouse position in window coordinates
         mouse_pos = Window.mouse_pos
         if mouse_pos:
@@ -504,6 +517,28 @@ class Canvas(Widget):
         editor = getattr(self, 'piano_roll_editor', None)
         if editor is not None and hasattr(editor, 'on_key_press'):
             return editor.on_key_press(key_name, x_mm, y_mm)
+        
+        return False
+    
+    def _on_keyboard_up(self, keyboard, keycode):
+        '''Handle keyboard key release events.
+        
+        Args:
+            keyboard: Keyboard instance
+            keycode: Tuple of (keycode_int, keycode_string)
+            
+        Returns:
+            True if handled, False otherwise
+        '''
+        # Extract key name from keycode tuple
+        key_name = keycode[1] if isinstance(keycode, tuple) else str(keycode)
+        
+        # Handle shift key release for universal selection
+        if key_name == 'shift':
+            editor = getattr(self, 'piano_roll_editor', None)
+            if editor is not None and hasattr(editor, 'selection_manager'):
+                editor.selection_manager.on_shift_release()
+                return True  # Handled
         
         return False
 
@@ -1219,6 +1254,14 @@ class Canvas(Widget):
         # Let scrollbar handle move events first
         if self.custom_scrollbar.on_touch_move(touch):
             return True
+        
+        # Forward mouse move to editor if within view area
+        if self._point_in_view_px(*touch.pos):
+            editor = getattr(self, 'piano_roll_editor', None)
+            if editor is not None and hasattr(editor, 'handle_mouse_move'):
+                mm_pos = self._px_to_mm(*touch.pos)
+                editor.handle_mouse_move(mm_pos[0], mm_pos[1])
+        
         return super().on_touch_move(touch)
 
     def on_touch_up(self, touch):

@@ -33,18 +33,22 @@ class NoteTool(BaseTool):
     def on_deactivate(self):
         """Called when switching away from this tool."""
         super().on_deactivate()
+
+        # delete old cursor drawing
+        self.editor.canvas.delete_by_tag('cursor')
     
     def on_key_press(self, key: str, x: float, y: float) -> bool:
         """Handle key press events."""
-        if key == 'left':
-            self.hand_cursor = '<'
+        # Map , and . keys for hand switching (they have arrow symbols on keyboard)
+        if key == ',' or key == 'comma':
+            self.hand_cursor = '<'  # Left hand
             # Redraw cursor at current mouse position
             pitch, time = self.get_pitch_and_time(x, y)
             cursor = Note(time=time, pitch=pitch, hand=self.hand_cursor)
             self._draw_note_cursor(cursor, type='cursor')
             return True  # We handled this key
-        elif key == 'right':
-            self.hand_cursor = '>'
+        elif key == '.' or key == 'period':
+            self.hand_cursor = '>'  # Right hand
             # Redraw cursor at current mouse position
             pitch, time = self.get_pitch_and_time(x, y)
             cursor = Note(time=time, pitch=pitch, hand=self.hand_cursor)
@@ -71,15 +75,6 @@ class NoteTool(BaseTool):
     
     def on_left_click(self, x: float, y: float) -> bool:
         """Called when left mouse button is clicked (pressed and released without dragging)."""
-        # TODO: Add a new note at the clicked position
-        print(f"NoteTool: Add note at ({x}, {y})")
-        
-        # Example implementation:
-        # tick = self.editor.x_to_tick(x)
-        # key, stave = self.editor.y_to_key_and_stave(y)
-        # note = Note(tick=tick, key=key, ...)
-        # self.score.add_note(note)
-        # self.refresh_canvas()
         
         return True
     
@@ -100,10 +95,13 @@ class NoteTool(BaseTool):
             self.edit_note = element
             self.edit_stave_idx = stave_idx
             
+            # Assign current cursor hand to the note being edited
+            self.edit_note.hand = self.hand_cursor
+            
             # Redraw in 'select/edit' mode for visual feedback
             self.editor._draw_single_note(stave_idx, self.edit_note, draw_mode='select/edit')
             
-            print(f"NoteTool: Editing note {element.id} from stave {stave_idx}")
+            print(f"NoteTool: Editing note {element.id} from stave {stave_idx}, assigned hand '{self.hand_cursor}'")
             return True
         
         # CREATE MODE: No note clicked, create new one

@@ -57,30 +57,25 @@ class NoteDrawerMixin:
         Args:
             stave_idx: Index of the stave containing the note.
             note: The note event to draw.
-            type: The type of single note ('note', 'cursor' or 'select/edit')
+            draw_mode: The type of single note ('note', 'cursor' or 'select/edit')
                 - 'note': regular note drawing
                 - 'cursor': draw as cursor (accent color), don't draw the midinote
                 - 'select/edit': draw as select/edit note (accent color)
                 - 'selected': draw as selected note (accent color)
         '''
-        # attempt to delete existing drawing of this note
+        # attempt to delete existing drawing of this note + set base_tag
         if draw_mode in ('note', 'selected'):
             self.canvas.delete_by_tag(str(note.id))
-        elif draw_mode == 'cursor':
-            self.canvas.delete_by_tag('cursor')
-        else: # 'select/edit'
-            self.canvas.delete_by_tag('select/edit')
-
-        # determine base type tag:
-        if draw_mode in ('note', 'selected'):
             base_tag = str(note.id)
         elif draw_mode == 'cursor':
+            self.canvas.delete_by_tag('cursor')
             base_tag = 'cursor'
         else: # 'select/edit'
+            self.canvas.delete_by_tag('select/edit')
             base_tag = 'select/edit'
 
         # determine color:
-        if draw_mode in ('cursor', 'select/edit'):
+        if draw_mode in ('cursor', 'select/edit', 'selected'):
             color = ACCENT_COLOR_HEX
         else:
             color = note.color
@@ -92,7 +87,7 @@ class NoteDrawerMixin:
 
         # draw the midinote
         semitone_width = self.semitone_width * 2
-        if draw_mode in ('note', 'select/edit'):
+        if draw_mode in ('note', 'select/edit', 'selected'):
             self.canvas.add_rectangle(
                 x1_mm=x - semitone_width / 2,
                 y1_mm=y + semitone_width / 2 if note.blackNoteDirection == 'v' else y,

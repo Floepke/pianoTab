@@ -26,6 +26,7 @@ class ToolManager:
         """Automatically import and register all tool classes."""
         # Map tool module names to their class names
         tool_definitions = {
+            'selection_tool': 'SelectionTool',
             'note_tool': 'NoteTool',
             'gracenote_tool': 'GraceNoteTool',
             'beam_tool': 'BeamTool',

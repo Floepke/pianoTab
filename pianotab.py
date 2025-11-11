@@ -49,14 +49,21 @@ else:
 Config.set('kivy', 'keyboard_mode', '')
 # Disable vsync
 Config.set('graphics', 'vsync', '0')
+Config.set('graphics', 'maxfps', '60')
+
+# Configure double-tap detection to be less sensitive
+# Default is 250ms - increase to 400ms to avoid accidental double-tap detection
+Config.set('postproc', 'double_tap_time', '400')
+# Default distance is 20 pixels - keep it reasonable
+Config.set('postproc', 'double_tap_distance', '20')
+
+# ALWAYS disable exit on escape (not just in production)
 # Disable multitouch emulation (prevents red circle on right-click)
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 
-# Disable Escape key exit behavior only when deployed (PyInstaller bundle)
-# Keep it enabled during development for convenience
-if getattr(sys, 'frozen', False):
-    # Running from PyInstaller bundle - disable Escape exit
-    Config.set('kivy', 'exit_on_escape', '0')
+# Enable Escape key exit behavior for development convenience
+# (SelectionManager handles Escape when selection is active, otherwise it closes the app)
+Config.set('kivy', 'exit_on_escape', '1')
 
 from kivy.app import App
 from kivy.core.window import Window

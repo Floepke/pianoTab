@@ -15,6 +15,7 @@ from utils.CONSTANTS import (
     ticks_to_quarters, quarters_to_ticks, is_black_key
 )
 from editor.tool_manager import ToolManager
+from editor.selection_manager import SelectionManager
 from editor.drawer import (
     StaveDrawerMixin, GridDrawerMixin, NoteDrawerMixin, GraceNoteDrawerMixin,
     BeamDrawerMixin, SlurDrawerMixin, TextDrawerMixin, TempoDrawerMixin,
@@ -80,6 +81,9 @@ class Editor(
         # Initialize tool system
         self.tool_manager = ToolManager(self)
         self.tool_manager.set_active_tool('Note')  # Default tool
+        
+        # Initialize selection manager (universal selection across all tools)
+        self.selection_manager = SelectionManager(self)
         
         # Mouse tracking for drag detection
         self._mouse_button_down: Optional[str] = None  # 'left' or 'right' when button is down
@@ -385,11 +389,11 @@ class Editor(
             'stem',
             'connectstem',
             'accidental',
-            'continuationdot',
             'stopsign',
             'measurenumber',
             'gracenote',
             'notehead',
+            'leftdot',
         ])
     
     # Zoom and interaction methods (simplified for initial implementation)
@@ -513,6 +517,11 @@ class Editor(
         Returns:
             True if handled by tool, False otherwise
         """
+        # First, let selection manager try to handle (for copy/paste/delete/arrows/escape)
+        if self.selection_manager.on_key_press(key, x, y):
+            return True
+        
+        # Otherwise, dispatch to active tool
         if self.tool_manager:
             return self.tool_manager.on_key_press(key, x, y)
         return False
@@ -568,11 +577,19 @@ class Editor(
         Returns:
             True if event was handled
         """
+        from kivy.core.window import Window
+        print(f"Editor.handle_mouse_down: button={button}, modifiers={Window.modifiers}, pos=({x:.1f}, {y:.1f})")
+        
         # Track which button is down and where
         self._mouse_button_down = button
         self._mouse_down_pos = (x, y)
         
         if button == 'left':
+            # Check if selection manager wants to handle this (Shift key pressed)
+            if self.selection_manager.on_left_press(x, y):
+                return True  # Selection manager is handling it
+            
+            # Otherwise, dispatch to active tool
             return self.tool_manager.dispatch_left_press(x, y)
         elif button == 'right':
             return self.tool_manager.dispatch_right_click(x, y)
@@ -598,6 +615,14 @@ class Editor(
         # The tool's on_mouse_move already detected and handled dragging
         # We just need to dispatch the release event
         if button == 'left':
+            # Check if selection manager wants to handle this (if it's drawing rectangle)
+            if self.selection_manager.on_left_release(x, y):
+                # Clear tracking state
+                self._mouse_button_down = None
+                self._mouse_down_pos = None
+                return True  # Selection manager handled it
+            
+            # Otherwise, dispatch to active tool
             result = self.tool_manager.dispatch_left_release(x, y)
             # If not dragging, also dispatch click
             active_tool = self.tool_manager.get_active_tool()
@@ -631,6 +656,16 @@ class Editor(
         Returns:
             True if event was handled
         """
+        # Always track mouse position for selection manager
+        self.selection_manager.on_mouse_move(x, y)
+        
+        # Check if selection manager is handling drag
+        if self._mouse_button_down == 'left' and self._mouse_down_pos:
+            print(f"Editor.handle_mouse_move: Checking selection drag, is_drawing_rect={self.selection_manager.is_drawing_rect}")
+            if self.selection_manager.on_drag(x, y, self._mouse_down_pos[0], self._mouse_down_pos[1]):
+                return True  # Selection manager is handling the drag
+        
+        # Otherwise, dispatch to active tool
         return self.tool_manager.dispatch_mouse_move(x, y)
     
     def handle_double_click(self, x: float, y: float) -> bool:
@@ -643,6 +678,13 @@ class Editor(
         Returns:
             True if event was handled
         """
+        # If Shift is held, treat as regular click for selection (not double-click)
+        from kivy.core.window import Window
+        if 'shift' in Window.modifiers:
+            print("Editor: Converting double-click to regular click because Shift is held (selection mode)")
+            # Treat as a regular mouse down event
+            return self.handle_mouse_down(x, y, 'left')
+        
         return self.tool_manager.dispatch_double_click(x, y)
     
     def set_active_tool(self, tool_name: str) -> bool:

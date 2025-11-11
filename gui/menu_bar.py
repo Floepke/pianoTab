@@ -121,7 +121,13 @@ class MenuBar(BoxLayout):
             color=LIGHT
         )
         
-        dropdown = DropDown(auto_width=False, width=180)
+        # Calculate dropdown width based on longest menu item text
+        # Use ~10 pixels per character to account for variable-width fonts
+        # (wider letters like W, M, S need more space than dots or i)
+        max_text_length = max((len(item_name) for item_name in items.keys() if item_name != '---'), default=10)
+        dropdown_width = max(200, max_text_length * 10 + 60)  # Minimum 200px, generous padding
+        
+        dropdown = DropDown(auto_width=False, width=dropdown_width)
         
         # Cursor management for dropdown - set arrow cursor when dropdown is open
         def update_dropdown_cursor(window, pos):
@@ -220,9 +226,11 @@ class MenuBar(BoxLayout):
             background_color=DARK,
             color=LIGHT,
             halign='left',
-            valign='middle'
+            valign='middle',
+            padding=(12, 0)  # Left padding for text
         )
-        btn.bind(size=lambda b, s: setattr(b, 'text_size', (s[0] - 12, None)))
+        # Set text_size to enable text alignment, but make it wide enough to prevent wrapping
+        btn.bind(size=lambda b, s: setattr(b, 'text_size', (s[0] - 24, s[1])))
         
         if callback:
             btn.bind(on_release=lambda b: (callback(), dropdown.dismiss()))
@@ -245,10 +253,15 @@ class MenuBar(BoxLayout):
             halign='left',
             valign='middle'
         )
-        btn.bind(size=lambda b, s: setattr(b, 'text_size', (s[0] - 12, None)))
+        # Don't set text_size to prevent text wrapping
+        
+        # Calculate submenu width based on longest item text
+        # Estimate ~7 pixels per character + padding
+        max_text_length = max((len(item_name) for item_name in items.keys() if item_name != '---'), default=10)
+        submenu_width = max(180, max_text_length * 7 + 40)  # Minimum 180px
         
         # Create the submenu dropdown
-        submenu = DropDown(auto_width=False, width=180)
+        submenu = DropDown(auto_width=False, width=submenu_width)
         
         # Style submenu background with border
         with submenu.canvas.before:

@@ -52,6 +52,7 @@ class AppCallbacks(Protocol):
 
     # Help menu
     def on_about(self) -> None: ...
+    def on_test_score_generation(self) -> None: ...
 
     # Toolbar buttons
     def on_selected_note_to_left(self) -> None: ...
@@ -101,6 +102,7 @@ def create_menu_config(app_instance: AppCallbacks) -> MenuConfig:
         },
         'Help': {
             'About': partial(callback_about, app_instance),
+            'Test Score...': partial(callback_test_score_generation, app_instance),
         },
     }
 
@@ -225,6 +227,10 @@ def callback_draw_thinnest_line(app: AppCallbacks) -> None:
 
 def callback_about(app: AppCallbacks) -> None:
     _invoke(app, ('on_about',), lambda _a: _not_implemented('About')())
+
+
+def callback_test_score_generation(app: AppCallbacks) -> None:
+    _invoke(app, ('on_test_score_generation',), lambda _a: _not_implemented('Test Score Generation')())
 
 
 def callback_note_to_left(app: AppCallbacks) -> None:
