@@ -207,8 +207,8 @@ class BaseTool(ABC):
             button: Which button was released ('left' or 'right')
             was_dragging: True if this was the end of a drag, False if it was a click
         """
-        # Default implementation: update drawing order
-        self.editor.update_drawing_order()
+        # Fix drawing order after finalizing note
+        self.editor.canvas._redraw_all()
     
     def on_mouse_move(self, x: float, y: float) -> bool:
         """

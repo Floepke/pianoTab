@@ -346,6 +346,10 @@ class SCORE:
                     if hasattr(event, 'id'):
                         event.id = self._next_id()
 
+        # renumber lineBreak IDs
+        for line_break in self.lineBreak:
+            line_break.id = self._next_id()
+
     # Convenience methods for JSON operations
     def save(self, filename: str) -> None:
         '''Save SCORE instance to JSON file.'''

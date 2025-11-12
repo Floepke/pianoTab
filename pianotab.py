@@ -68,6 +68,25 @@ Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 # Disable automatic Escape key exit - we'll handle it manually to check for unsaved changes
 Config.set('kivy', 'exit_on_escape', '0')
 
+# Configure clipboard to suppress xclip/xsel warnings
+# This allows text inputs to still work while preventing error messages
+# We use a custom clipboard for musical elements anyway
+try:
+    # Try to import clipboard providers to test availability
+    import subprocess
+    import shutil
+    
+    # Check if xclip is available
+    if shutil.which('xclip'):
+        # xclip is available, use it
+        pass
+    else:
+        # No xclip, suppress warnings by disabling clipboard checks
+        # TextInput will fall back to internal storage
+        Config.set('kivy', 'log_level', 'warning')
+except Exception:
+    pass
+
 from kivy.app import App
 from kivy.core.window import Window
 from kivy.clock import Clock
@@ -110,8 +129,9 @@ class pianoTAB(App):
         # Window setup
         Window.clearcolor = DARK
         
-        # Create and return GUI (UI only)
+        # Create GUI
         self.gui = GUI()
+        
         return self.gui
     
     def on_start(self):
@@ -171,6 +191,9 @@ class pianoTAB(App):
             else:
                 Logger.info(f'pianoTAB: File not found: {test_file}, creating new file')
                 self.file_manager.new_file()
+
+            # redraw_pianoroll because the editor initially draws it's pixels per quarter wrong.
+            Clock.schedule_once(lambda dt: self.editor.redraw_pianoroll(), 0)
 
         try:
             self.editor.canvas.on_ready(_initialize_score)

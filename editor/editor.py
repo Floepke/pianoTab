@@ -22,6 +22,7 @@ from editor.drawer import (
     CountLineDrawerMixin, LineBreakDrawerMixin
 )
 
+
 class Editor(
     StaveDrawerMixin, 
     GridDrawerMixin,
@@ -160,6 +161,11 @@ class Editor(
             print(f'Editor: First baseGrid has {score.baseGrid[0].measureAmount} measures')
         self.gui.set_properties_score(self.score)
         self._apply_settings_from_score()
+        
+        # Clear any active selection from previous file
+        if hasattr(self, 'selection_manager') and self.selection_manager:
+            self.selection_manager.clear_selection()
+        
         # Reset scroll position to the beginning
         self.scroll_time_offset = 0.0
         # Trigger a full redraw with the new score
@@ -373,33 +379,11 @@ class Editor(
         self._draw_count_lines()
         self._draw_line_breaks()
 
-        # Update drawing order to ensure correct layering
-        self.update_drawing_order()
-        
         # Force canvas redraw with culling now that all items are added
         self.canvas._redraw_all()
     
-    def update_drawing_order(self):
-        '''Set the proper drawing order of canvas elements.'''
-        self.canvas._tag_draw_order([
-            'midinote',
-            # stave
-            'stavethreeline',
-            'stavetwoline',
-            'staveclefline',
-            'gridline',
-            'barline',
-            # note
-            'stem',
-            'connectstem',
-            'accidental',
-            'stopsign',
-            'measurenumber',
-            'gracenote',
-            'notehead',
-            'leftdot',
-        ])
-        print('Editor: Updated drawing order on canvas')
+    # Removed update_drawing_order() - no longer needed!
+    # Drawing order is now set automatically by tags when items are created.
     
     # Zoom and interaction methods (simplified for initial implementation)
     def zoom_in(self, factor: float = 1.2):
@@ -511,19 +495,23 @@ class Editor(
                             return True
         return False
 
-    def on_key_press(self, key: str, x: float, y: float) -> bool:
+    def on_key_press(self, key: str, x: float, y: float, modifiers: list = None) -> bool:
         """Handle keyboard events and dispatch to active tool.
         
         Args:
             key: The key that was pressed
             x: Current mouse x position in mm
             y: Current mouse y position in mm
+            modifiers: List of modifier keys currently pressed (e.g., ['ctrl'], ['meta'])
             
         Returns:
             True if handled by tool, False otherwise
         """
+        if modifiers is None:
+            modifiers = []
+        
         # First, let selection manager try to handle (for copy/paste/delete/arrows/escape)
-        if self.selection_manager.on_key_press(key, x, y):
+        if self.selection_manager.on_key_press(key, x, y, modifiers):
             return True
         
         # If Escape wasn't handled by selection (no active selection), request app exit
@@ -649,14 +637,9 @@ class Editor(
         
         # Clear tracking state
         self._mouse_button_down = None
-        
-        # Update drawing order AFTER all mouse operations are complete
-        if hasattr(self, '_update_drawing_order'):
-            self.update_drawing_order()
-            print("Updated drawing order after mouse release.")
+        self._mouse_down_pos = None
         
         return result
-        self._mouse_down_pos = None
         
         return result
     

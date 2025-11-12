@@ -167,14 +167,12 @@ class NoteTool(BaseTool):
         stave = self.editor.score.stave[self.edit_stave_idx]
         stave.event.note.sort(key=lambda n: n.time)
         
-        # Use canvas freeze_updates to prevent flash during finalization
-        with self.editor.canvas.freeze_updates():
-            # Delete 'select/edit' drawing and redraw as 'note'
-            self.editor.canvas.delete_by_tag('select/edit')
-            self.editor._draw_single_note(self.edit_stave_idx, self.edit_note, draw_mode='note')
-            
-            # Redraw overlapping notes to update their continuation dots
-            self.editor._redraw_overlapping_notes(self.edit_stave_idx, self.edit_note)
+        # Delete 'select/edit' drawing and redraw as 'note'
+        self.editor.canvas.delete_by_tag('select/edit')
+        self.editor._draw_single_note(self.edit_stave_idx, self.edit_note, draw_mode='note')
+        
+        # Redraw overlapping notes to update their continuation dots
+        self.editor._redraw_overlapping_notes(self.edit_stave_idx, self.edit_note)
         
         # Mark as modified
         if hasattr(self.editor, 'on_modified') and self.editor.on_modified:
@@ -220,22 +218,20 @@ class NoteTool(BaseTool):
                 if hasattr(stave.event, 'note') and element in stave.event.note:
                     stave.event.note.remove(element)
                     
-                    # Use canvas freeze_updates to prevent flash during deletion and redraw
-                    with self.editor.canvas.freeze_updates():
-                        # Delete the visual representation
-                        self.editor.canvas.delete_by_tag(str(element.id))
-                        
-                        # Redraw overlapping notes AFTER deleting (using saved attributes)
-                        # We create a temporary object with just the needed attributes
-                        class TempNote:
-                            def __init__(self, time, duration, id, hand):
-                                self.time = time
-                                self.duration = duration
-                                self.id = id
-                                self.hand = hand
-                        
-                        temp_note = TempNote(note_time, note_duration, note_id, note_hand)
-                        self.editor._redraw_overlapping_notes(stave_idx, temp_note)
+                    # Delete the visual representation
+                    self.editor.canvas.delete_by_tag(str(element.id))
+                    
+                    # Redraw overlapping notes AFTER deleting (using saved attributes)
+                    # We create a temporary object with just the needed attributes
+                    class TempNote:
+                        def __init__(self, time, duration, id, hand):
+                            self.time = time
+                            self.duration = duration
+                            self.id = id
+                            self.hand = hand
+                    
+                    temp_note = TempNote(note_time, note_duration, note_id, note_hand)
+                    self.editor._redraw_overlapping_notes(stave_idx, temp_note)
                     
                     # Mark as modified
                     if hasattr(self.editor, 'on_modified') and self.editor.on_modified:
@@ -272,14 +268,12 @@ class NoteTool(BaseTool):
         stave = self.editor.score.stave[self.edit_stave_idx]
         stave.event.note.sort(key=lambda n: n.time)
         
-        # Use canvas freeze_updates to prevent flash during finalization
-        with self.editor.canvas.freeze_updates():
-            # Delete 'select/edit' drawing and redraw as 'note'
-            self.editor.canvas.delete_by_tag('select/edit')
-            self.editor._draw_single_note(self.edit_stave_idx, self.edit_note, draw_mode='note')
-            
-            # Redraw overlapping notes to update their continuation dots
-            self.editor._redraw_overlapping_notes(self.edit_stave_idx, self.edit_note)
+        # Delete 'select/edit' drawing and redraw as 'note'
+        self.editor.canvas.delete_by_tag('select/edit')
+        self.editor._draw_single_note(self.edit_stave_idx, self.edit_note, draw_mode='note')
+        
+        # Redraw overlapping notes to update their continuation dots
+        self.editor._redraw_overlapping_notes(self.edit_stave_idx, self.edit_note)
         
         # Mark as modified
         if hasattr(self.editor, 'on_modified') and self.editor.on_modified:

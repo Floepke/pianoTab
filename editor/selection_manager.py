@@ -9,6 +9,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, List, Dict, Any, Tuple
 from kivy.core.window import Window
 from gui.colors import ACCENT_COLOR_HEX
+from utils import clipboard  # Musical element clipboard
+from utils.keyboard import matches_shortcut  # Cross-platform key matching
 
 if TYPE_CHECKING:
     from editor.editor import Editor
@@ -36,9 +38,6 @@ class SelectionManager:
         # Shift key state
         self.shift_pressed: bool = False
         self.shift_was_released_during_drag: bool = False
-        
-        # Clipboard
-        self.clipboard: List[Dict[str, Any]] = []
         
         # Mouse position tracking for paste
         self._last_mouse_x: float = 0.0
@@ -267,55 +266,81 @@ class SelectionManager:
     
     # === Keyboard Shortcuts ===
     
-    def on_key_press(self, key: str, x: float, y: float) -> bool:
+    def on_key_press(self, key: str, x: float, y: float, modifiers: list = None) -> bool:
         """
         Handle keyboard shortcuts for selection operations.
+        
+        On macOS, both Ctrl and Cmd (meta) work for shortcuts with 'ctrl+' prefix.
+        
+        Args:
+            key: The key that was pressed
+            x: Current mouse x position in mm
+            y: Current mouse y position in mm
+            modifiers: List of modifier keys pressed (e.g., ['ctrl'], ['meta'])
         
         Returns:
             True if key was handled, False otherwise
         """
-        if key == 'delete' or key == 'backspace':
+        if modifiers is None:
+            modifiers = []
+        
+        # Check if a TextInput or other text widget has focus
+        # If so, don't intercept C/X/V keys - let them handle text operations
+        focused_widget = Window.focus
+        
+        # If a text input widget has focus, only handle non-text shortcuts
+        if focused_widget is not None:
+            from kivy.uix.textinput import TextInput
+            if isinstance(focused_widget, TextInput):
+                # Allow text widget to handle C/X/V for text operations
+                # But we can still handle other shortcuts like Delete, Escape, arrows
+                if matches_shortcut(key, modifiers, 'c', 'ctrl+c', 'x', 'ctrl+x', 'v', 'ctrl+v'):
+                    return False  # Let TextInput handle it
+        
+        # Musical clipboard shortcuts (only when editor has focus)
+        # matches_shortcut automatically handles macOS cmd/ctrl equivalence
+        if matches_shortcut(key, modifiers, 'delete', 'backspace'):
             if self.selected_elements:
                 return self._delete_selected()
         
-        elif key == 'c' or key == 'ctrl+c':
+        elif matches_shortcut(key, modifiers, 'c', 'ctrl+c'):
             if self.selected_elements:
                 return self._copy_selected()
         
-        elif key == 'x' or key == 'ctrl+x':
+        elif matches_shortcut(key, modifiers, 'x', 'ctrl+x'):
             if self.selected_elements:
                 return self._cut_selected()
         
-        elif key == 'v' or key == 'ctrl+v':
-            if self.clipboard:
+        elif matches_shortcut(key, modifiers, 'v', 'ctrl+v'):
+            if clipboard.has_data():
                 return self._paste()
         
-        elif key == 'escape':
+        elif matches_shortcut(key, modifiers, 'escape'):
             if self.selected_elements:
                 self.clear_selection()
                 return True
         
-        elif key == 'up':
+        elif matches_shortcut(key, modifiers, 'up'):
             if self.selected_elements:
                 return self._move_selection_time(-self.editor.get_grid_step_ticks())
         
-        elif key == 'down':
+        elif matches_shortcut(key, modifiers, 'down'):
             if self.selected_elements:
                 return self._move_selection_time(self.editor.get_grid_step_ticks())
         
-        elif key == 'left':
+        elif matches_shortcut(key, modifiers, 'left'):
             if self.selected_elements:
                 return self._transpose_selection(-1)
         
-        elif key == 'right':
+        elif matches_shortcut(key, modifiers, 'right'):
             if self.selected_elements:
                 return self._transpose_selection(1)
         
-        elif key == '[' or key == 'bracketleft':
+        elif matches_shortcut(key, modifiers, '[', 'bracketleft'):
             if self.selected_elements:
                 return self._assign_selection_hand('<')  # Left hand
         
-        elif key == ']' or key == 'bracketright':
+        elif matches_shortcut(key, modifiers, ']', 'bracketright'):
             if self.selected_elements:
                 return self._assign_selection_hand('>')  # Right hand
         
@@ -325,26 +350,32 @@ class SelectionManager:
     
     def _copy_selected(self) -> bool:
         """Copy selected elements to clipboard (creates deep copy of note data)."""
-        self.clipboard = []
+        if not self.selected_elements:
+            print("SelectionManager: No elements selected to copy")
+            return False
         
+        # Prepare clipboard data
+        notes_data = []
         for item in self.selected_elements:
             if item['type'] == 'note':
                 # Create a snapshot of the note's current state
                 original = item['element']
-                self.clipboard.append({
-                    'type': 'note',
+                notes_data.append({
                     'stave_idx': item['stave_idx'],
-                    # Store the actual data values, not references
-                    'data': {
-                        'time': original.time,
-                        'pitch': original.pitch,
-                        'hand': original.hand,
-                        'duration': original.duration,
-                        'velocity': original.velocity,
-                    }
+                    'time': original.time,
+                    'pitch': original.pitch,
+                    'hand': original.hand,
+                    'duration': original.duration,
+                    'velocity': original.velocity,
                 })
         
-        print(f"SelectionManager: Copied {len(self.clipboard)} elements to clipboard (snapshot)")
+        # Store in musical clipboard (not text clipboard)
+        clipboard.copy({
+            'type': 'notes',
+            'notes': notes_data
+        })
+        
+        print(f"SelectionManager: Copied {len(notes_data)} notes to clipboard")
         return True
     
     def _cut_selected(self) -> bool:
@@ -372,8 +403,16 @@ class SelectionManager:
     
     def _paste(self) -> bool:
         """Paste elements from clipboard at current cursor position."""
-        if not self.clipboard:
-            print("SelectionManager: Clipboard is empty")
+        # Get data from musical clipboard
+        clipboard_data = clipboard.paste()
+        
+        if not clipboard_data or clipboard_data.get('type') != 'notes':
+            print("SelectionManager: Clipboard is empty or doesn't contain notes")
+            return False
+        
+        notes_data = clipboard_data.get('notes', [])
+        if not notes_data:
+            print("SelectionManager: No notes in clipboard")
             return False
         
         # Get paste time from current mouse cursor position
@@ -388,39 +427,31 @@ class SelectionManager:
         
         _, paste_time = temp_tool.get_pitch_and_time(self._last_mouse_x, self._last_mouse_y)
         
-        # Calculate time offset from the copied data (not current selection)
-        notes_in_clipboard = [item for item in self.clipboard if item['type'] == 'note']
-        
-        if not notes_in_clipboard:
-            print("SelectionManager: No pasteable elements in clipboard")
-            return False
-        
-        min_time = min(item['data']['time'] for item in notes_in_clipboard)
+        # Calculate time offset from the copied data
+        min_time = min(note['time'] for note in notes_data)
         time_offset = paste_time - min_time
         
-        print(f"SelectionManager: Pasting {len(self.clipboard)} elements at cursor position")
+        print(f"SelectionManager: Pasting {len(notes_data)} notes at cursor position")
         
         # Clear current selection
         self.clear_selection()
         
-        # Paste each element using the stored snapshot data
-        for item in self.clipboard:
-            if item['type'] == 'note':
-                data = item['data']
-                new_note = self.editor.score.new_note(
-                    stave_idx=item['stave_idx'],
-                    time=data['time'] + time_offset,
-                    pitch=data['pitch'],  # Use original copied pitch
-                    hand=data['hand'],
-                    duration=data['duration'],
-                    velocity=data['velocity']
-                )
-                # Add to selection
-                self.selected_elements.append({
-                    'element': new_note,
-                    'type': 'note',
-                    'stave_idx': item['stave_idx']
-                })
+        # Paste each note using the stored snapshot data
+        for note_data in notes_data:
+            new_note = self.editor.score.new_note(
+                stave_idx=note_data['stave_idx'],
+                time=note_data['time'] + time_offset,
+                pitch=note_data['pitch'],
+                hand=note_data['hand'],
+                duration=note_data['duration'],
+                velocity=note_data['velocity']
+            )
+            # Add to selection
+            self.selected_elements.append({
+                'element': new_note,
+                'type': 'note',
+                'stave_idx': note_data['stave_idx']
+            })
         
         # Highlight pasted elements
         if self.selected_elements:

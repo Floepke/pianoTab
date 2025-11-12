@@ -68,15 +68,15 @@ class StaveDrawerMixin:
                     # Central C# and D# lines (clef lines) - always dashed
                     color = self.stave_clef_color
                     width = self.stave_clef_width
-                    category_tag = 'staveClefLines'
+                    category_tag = 'staveclefline'
                 elif key_ in [2, 10, 0]:  # Three-line (F#, G#, A#)
                     color = self.stave_three_color
                     width = self.stave_three_width
-                    category_tag = 'staveThreeLines'
+                    category_tag = 'stavethreeline'
                 else:  # key_ in [5, 7] - Two-line (C#, D#) but not central
                     color = self.stave_two_color
                     width = self.stave_two_width
-                    category_tag = 'staveTwoLines'
+                    category_tag = 'stavetwoline'
                 
                 # Draw the line with correct dash pattern from SCORE model
                 y1 = self.editor_margin

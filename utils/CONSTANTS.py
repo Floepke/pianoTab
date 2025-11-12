@@ -87,3 +87,53 @@ def quarters_to_ticks(quarters: float) -> float:
 def is_black_key(key_number: int) -> bool:
     '''Check if a piano key number corresponds to a black key.'''
     return key_number in BLACK_KEYS
+
+'''
+Canvas Drawing Layer Order
+===========================
+
+Defines the z-order (stacking order) of visual elements in the piano roll editor canvas.
+Elements are drawn from bottom to top in the order listed, with lower indices appearing
+behind higher indices.
+
+The DRAWING_LAYERS list establishes the rendering sequence where:
+- Layer 0 (midinote) forms the background
+- Middle layers (1-22) contain musical notation elements
+- Layer 23 (select/edit) shows user selections and edit highlights
+- Layer 24 (cursor) is always drawn on top
+
+TAG_TO_LAYER provides O(1) lookup from layer tag names to their numerical z-index,
+useful for setting canvas element stacking with the tag_raise() method.
+'''
+DRAWING_LAYERS = [
+    'midinote',
+    #stave     
+    'stavethreeline',  
+    'stavetwoline',    
+    'staveclefline',   
+    'gridline',        
+    'barline',         
+    'connectstem',     
+    'accidental',      
+    'stopsign',        
+    'measurenumber',
+    # notes
+    'notehead',        
+    'leftdot',         
+    'stem',
+    'connectstem',            
+    'gracenote',        
+    'beam',            
+    'beamtuplet',      
+    'slur',            
+    'text',            
+    'tempo',           
+    'linebreak',       
+    'countline',
+    # UI elements (top layers)
+    'cursorLine',      # Time cursor line
+    'selection_rect',  # Selection rectangle
+]
+
+# Create a lookup dict for quick tag->layer mapping
+TAG_TO_LAYER = {tag: idx for idx, tag in enumerate(DRAWING_LAYERS)}

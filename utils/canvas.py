@@ -14,6 +14,44 @@ from gui.colors import LIGHT, LIGHT_DARKER, DARK_LIGHTER, DARK, ACCENT_COLOR
 from utils.CONSTANTS import DEFAULT_GRID_STEP_TICKS
 
 
+# Monkey-patch Popup to automatically reclaim canvas keyboard on dismiss
+_canvas_class_ref = None  # Will be set when Canvas class is defined
+
+def _setup_popup_keyboard_reclaim():
+    '''Set up automatic keyboard reclaim when popups close.
+    
+    This patches the Popup class so ANY popup (from anywhere in the app)
+    will automatically trigger canvas keyboard reclaim when dismissed.
+    Zero maintenance required!
+    '''
+    try:
+        from kivy.uix.popup import Popup
+        
+        # Store original dismiss method
+        _original_popup_dismiss = Popup.dismiss
+        
+        def _patched_dismiss(self, *args, **kwargs):
+            '''Patched dismiss that reclaims canvas keyboard.'''
+            # Call original dismiss
+            result = _original_popup_dismiss(self, *args, **kwargs)
+            
+            # Trigger canvas keyboard reclaim if Canvas class is ready
+            if _canvas_class_ref is not None:
+                _canvas_class_ref.reclaim_keyboard_after_popup()
+            
+            return result
+        
+        # Replace dismiss method
+        Popup.dismiss = _patched_dismiss
+        print("Canvas: Popup keyboard reclaim patch installed")
+        
+    except Exception as e:
+        print(f"Canvas: Failed to patch Popup for keyboard reclaim: {e}")
+
+# Install the patch immediately
+_setup_popup_keyboard_reclaim()
+
+
 class CustomScrollbar(Widget):
     '''
     Custom scrollbar widget for the Canvas that looks consistent across all platforms.
@@ -269,6 +307,21 @@ class Canvas(Widget):
     '''
 
     __events__ = ('on_item_click',)
+    
+    # Class variable to track the canvas that should reclaim keyboard after popups
+    _global_keyboard_canvas = None
+    
+    @classmethod
+    def reclaim_keyboard_after_popup(cls):
+        '''Called automatically when any Popup is dismissed.
+        
+        This is bound globally to all Popup instances to ensure the canvas
+        always regains keyboard focus after modal dialogs close.
+        '''
+        if cls._global_keyboard_canvas is not None:
+            from kivy.clock import Clock
+            # Small delay to ensure popup is fully dismissed
+            Clock.schedule_once(lambda dt: cls._global_keyboard_canvas._reclaim_keyboard(), 0.05)
 
     def __init__(
         self,
@@ -328,9 +381,8 @@ class Canvas(Widget):
             self._bg_color_instr = Color(*self.background_color)
             self._bg_rect = Rectangle(pos=(0, 0), size=(0, 0))
 
-            # Parent group for items
-            self._items_group = InstructionGroup()
-            self.canvas.add(self._items_group)
+            # Layer groups will be added here in z-index order during initialization
+            # (no parent group needed - each layer is added directly to canvas)
 
             # Border drawn inside scissor (so it clips)
             self._border_color_instr = Color(*self.border_color)
@@ -338,6 +390,11 @@ class Canvas(Widget):
 
             # Close clipping
             self._scissor_pop = ScissorPop()
+
+        # Layer-based instruction groups (one group per z_index layer)
+        # These are added to canvas in z-order, so layer 0 is behind layer 1, etc.
+        self._layer_groups: Dict[int, InstructionGroup] = {}
+        self._initialize_layer_groups()
 
         # Items and tags
         self._next_id: int = 1
@@ -356,11 +413,17 @@ class Canvas(Widget):
         
         # Keyboard handling (only for editor canvas, not print preview)
         self._keyboard = None
+        self._enable_keyboard = enable_keyboard  # Store flag for re-requesting keyboard
+        self._keyboard_reclaim_event = None  # Track scheduled reclaim event
         if enable_keyboard:
             self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
             if self._keyboard:
                 self._keyboard.bind(on_key_down=self._on_keyboard_down)
                 self._keyboard.bind(on_key_up=self._on_keyboard_up)
+            
+            # Register this canvas as the global keyboard reclaim target
+            # Any popup that closes will trigger keyboard reclaim
+            Canvas._global_keyboard_canvas = self
 
         # Defer expensive redraws during resize
         self._resched = None
@@ -474,11 +537,55 @@ class Canvas(Widget):
     # ---------- Keyboard handling ----------
     
     def _keyboard_closed(self):
-        '''Keyboard has been closed - unbind.'''
+        '''Keyboard has been released (e.g., by a TextInput widget).
+        
+        This is called when another widget takes keyboard focus.
+        The keyboard will be automatically reclaimed when the popup dismisses.
+        '''
         if hasattr(self, '_keyboard') and self._keyboard:
             self._keyboard.unbind(on_key_down=self._on_keyboard_down)
             self._keyboard.unbind(on_key_up=self._on_keyboard_up)
             self._keyboard = None
+    
+    def _reclaim_keyboard(self, dt=None):
+        '''Reclaim keyboard focus for the canvas.
+        
+        Called automatically after a popup is dismissed or when canvas is clicked.
+        '''
+        # Only reclaim if enabled and we don't already have keyboard
+        if not (hasattr(self, '_enable_keyboard') and self._enable_keyboard):
+            return
+        
+        if self._keyboard is not None:
+            return  # Already have it
+        
+        # Reclaim keyboard for canvas
+        try:
+            from kivy.core.window import Window
+            self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
+            if self._keyboard:
+                self._keyboard.bind(on_key_down=self._on_keyboard_down)
+                self._keyboard.bind(on_key_up=self._on_keyboard_up)
+                print("Canvas: Keyboard focus reclaimed")
+        except Exception as e:
+            print(f"Canvas: Failed to reclaim keyboard: {e}")
+    
+    def on_touch_down(self, touch):
+        '''Override to reclaim keyboard focus when canvas is clicked.
+        
+        This provides immediate keyboard reclaim when user clicks the canvas,
+        as a fallback to the automatic reclaim in _keyboard_closed.
+        '''
+        # If keyboard was released and not yet reclaimed, do it now
+        if hasattr(self, '_enable_keyboard') and self._enable_keyboard and not self._keyboard:
+            # Cancel any pending automatic reclaim since we're doing it now
+            if hasattr(self, '_keyboard_reclaim_event') and self._keyboard_reclaim_event:
+                self._keyboard_reclaim_event.cancel()
+                self._keyboard_reclaim_event = None
+            
+            self._reclaim_keyboard()
+        
+        return super().on_touch_down(touch)
     
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
         '''Handle keyboard events and forward to editor.
@@ -514,10 +621,10 @@ class Canvas(Widget):
         else:
             x_mm, y_mm = 0.0, 0.0
         
-        # Forward to editor if available
+        # Forward to editor if available (pass modifiers for cross-platform key handling)
         editor = getattr(self, 'piano_roll_editor', None)
         if editor is not None and hasattr(editor, 'on_key_press'):
-            return editor.on_key_press(key_name, x_mm, y_mm)
+            return editor.on_key_press(key_name, x_mm, y_mm, modifiers)
         
         return False
     
@@ -684,82 +791,108 @@ class Canvas(Widget):
 
     # ---------- Public API (Tkinter-like) ----------
 
+    def _get_z_index_from_tags(self, tags: Optional[Iterable[str]], z_index: Optional[int]) -> int:
+        '''Determine z_index from explicit value, tags, or auto-increment.
+        
+        Args:
+            tags: Iterable of tag strings
+            z_index: Explicit z_index if provided
+            
+        Returns:
+            The z_index to use (layer number based on first tag, or auto-increment)
+        '''
+        if z_index is not None:
+            return z_index
+        
+        # Try to get layer from first tag
+        if tags:
+            tag_list = list(tags)
+            if tag_list:
+                # Import TAG_TO_LAYER mapping from CONSTANTS
+                try:
+                    from utils.CONSTANTS import TAG_TO_LAYER
+                    first_tag = tag_list[0]
+                    layer = TAG_TO_LAYER.get(first_tag)
+                    if layer is not None:
+                        return layer
+                except ImportError:
+                    pass
+        
+        # Fallback to auto-increment
+        z_idx = self._next_z_index
+        self._next_z_index += 1
+        return z_idx
+
+    def _initialize_layer_groups(self):
+        '''Create instruction groups for each defined layer.
+        
+        This creates one InstructionGroup per layer (z_index) and adds them
+        to the canvas in order. Items added later will go into their layer's
+        group, maintaining correct z-order automatically.
+        '''
+        from utils.CONSTANTS import DRAWING_LAYERS
+        
+        # Create a group for each layer in DRAWING_LAYERS and add to canvas
+        for z_index in range(len(DRAWING_LAYERS)):
+            group = InstructionGroup()
+            self._layer_groups[z_index] = group
+            # Add directly to canvas between background and border
+            self.canvas.add(group)
+        
+        # Also create groups for auto-increment layers (starting after defined layers)
+        # We'll create these on-demand when needed
+        self._max_layer_index = len(DRAWING_LAYERS)
+
+    def _get_layer_group(self, z_index: int) -> InstructionGroup:
+        '''Get or create the instruction group for a given z_index.
+        
+        Args:
+            z_index: The layer index
+            
+        Returns:
+            The InstructionGroup for this layer
+        '''
+        if z_index not in self._layer_groups:
+            # Create a new layer group on-demand for auto-increment layers
+            group = InstructionGroup()
+            self._layer_groups[z_index] = group
+            
+            # Simply add the new layer to the canvas
+            # Since auto-increment z_index values are high, this will be on top
+            self.canvas.add(group)
+        
+        return self._layer_groups[z_index]
+
+    def get_canvas_stats(self) -> dict:
+        '''Get statistics about canvas items and groups for debugging.
+        
+        Returns:
+            Dictionary with item count, layer group count, and instruction counts per layer
+        '''
+        layer_stats = {}
+        total_instructions = 0
+        for z_idx, layer_group in self._layer_groups.items():
+            count = len(layer_group.children)
+            layer_stats[z_idx] = count
+            total_instructions += count
+        
+        return {
+            'total_items': len(self._items),
+            'layer_groups': len(self._layer_groups),
+            'total_instruction_groups': total_instructions,
+            'layer_details': layer_stats
+        }
+
     def clear(self):
         '''Remove all items.'''
-        self._items_group.clear()
+        # Clear all layer groups
+        for layer_group in self._layer_groups.values():
+            layer_group.clear()
+        
         self._items.clear()
         self._tag_index.clear()
         self._draw_order.clear()
 
-    @contextmanager
-    def freeze_updates(self):
-        '''Context manager to freeze all Kivy frame rendering during canvas updates.
-        
-        Completely stops Kivy's rendering pipeline, performs updates, then resumes
-        and forces a single frame to be rendered with the final state.
-        
-        Usage:
-            with canvas.freeze_updates():
-                # Perform any canvas operations
-                canvas.delete_by_tag('note123')
-                canvas._redraw_overlapping_notes(stave_idx, note)
-                # etc.
-        '''
-        from kivy.base import EventLoop
-        from kivy.clock import Clock
-        
-        # Get the window
-        window = Window
-        
-        # Stop frame rendering by preventing flip (display update)
-        # Store original flip method
-        original_flip = window.flip
-        flip_blocked = False
-        
-        def blocked_flip():
-            """Blocked flip - does nothing, preventing frame updates"""
-            nonlocal flip_blocked
-            flip_blocked = True
-            # Don't call original_flip - this blocks the frame from being displayed
-        
-        # Replace flip with blocked version
-        window.flip = blocked_flip
-        
-        try:
-            # Yield control - operations happen here with rendering blocked
-            yield
-            
-        finally:
-            # Restore original flip method
-            window.flip = original_flip
-            
-            # Force a single frame update with the final state
-            # This ensures the final state is rendered immediately
-            window.canvas.ask_update()
-            
-            # If flip was actually blocked, print confirmation
-            if flip_blocked:
-                print("FREEZE: Frame rendering was blocked, now restored")
-
-    def test_freeze_at_startup(self, duration_seconds: float = 3.0):
-        '''Test method to verify freeze_updates blocks frame rendering.
-        
-        Call this at startup to verify the freeze works - you should see:
-        - Mouse cursor stops updating (frozen in position)
-        - Window becomes unresponsive for the duration
-        - Print message when freeze ends
-        
-        Args:
-            duration_seconds: How long to freeze (default 3 seconds)
-        '''
-        import time
-        print(f"FREEZE TEST: Starting {duration_seconds}s freeze - mouse cursor should freeze...")
-        
-        with self.freeze_updates():
-            # Sleep while freeze is active - no frames should render during this time
-            time.sleep(duration_seconds)
-        
-        print(f"FREEZE TEST: Freeze ended - rendering resumed")
 
     def add_rectangle(
         self,
@@ -774,16 +907,29 @@ class Canvas(Widget):
         outline_color: str = '#000000',
         outline_width_mm: float = 0.25,
         tags: Optional[Iterable[str]] = None,
+        z_index: Optional[int] = None,
         # Deprecated: allow legacy callers to pass id=[...]
         id: Optional[Iterable[str]] = None,
     ) -> int:
         '''Add a rectangle by two corners (top-left and bottom-right) in mm.
 
         Colors are hex strings like '#RRGGBB' (alpha assumed 1.0).
+        
+        Args:
+            z_index: Optional explicit z-index for drawing order (lower = behind, higher = on top).
+                    If not provided, uses auto-increment to preserve addition order.
         '''
         item_id = self._new_item_id()
-        group = InstructionGroup()
-        self._items_group.add(group)
+        
+        # Determine z_index from tags or explicit value
+        final_z_index = self._get_z_index_from_tags(tags or id, z_index)
+        
+        # Get the layer group for this z_index
+        layer_group = self._get_layer_group(final_z_index)
+        
+        # Create individual instruction group for this item
+        item_group = InstructionGroup()
+        layer_group.add(item_group)
 
         # Normalize to top-left (x,y) and size
         x_min = float(min(x1_mm, x2_mm))
@@ -793,7 +939,8 @@ class Canvas(Widget):
 
         self._items[item_id] = {
             'type': 'rectangle',
-            'group': group,
+            'group': item_group,
+            'layer_group': layer_group,
             'x_mm': x_min,
             'y_mm': y_min,
             'w_mm': w_mm,
@@ -804,9 +951,8 @@ class Canvas(Widget):
             'outline_color': self._parse_color(outline_color),
             'outline_w_mm': float(outline_width_mm),
             'tags': set(tags or id or []),
-            'z_index': self._next_z_index,  # Explicit z-order
+            'z_index': final_z_index,
         }
-        self._next_z_index += 1
         self._register_tags(item_id)
         self._draw_order.append(item_id)
         self._redraw_item(item_id)
@@ -825,6 +971,7 @@ class Canvas(Widget):
         outline_color: str = '#000000',
         outline_width_mm: float = 0.25,
         tags: Optional[Iterable[str]] = None,
+        z_index: Optional[int] = None,
         id: Optional[Iterable[str]] = None,
     ) -> int:
         '''Add an oval (ellipse) inscribed in the rectangle defined by two corners in mm.
@@ -832,8 +979,16 @@ class Canvas(Widget):
         Colors are hex strings like '#RRGGBB' (alpha assumed 1.0).
         '''
         item_id = self._new_item_id()
-        group = InstructionGroup()
-        self._items_group.add(group)
+        
+        # Determine z_index from tags or explicit value
+        final_z_index = self._get_z_index_from_tags(tags or id, z_index)
+        
+        # Get the layer group for this z_index
+        layer_group = self._get_layer_group(final_z_index)
+        
+        # Create individual instruction group for this item
+        item_group = InstructionGroup()
+        layer_group.add(item_group)
 
         x_min = float(min(x1_mm, x2_mm))
         y_min = float(min(y1_mm, y2_mm))
@@ -842,7 +997,8 @@ class Canvas(Widget):
 
         self._items[item_id] = {
             'type': 'oval',
-            'group': group,
+            'group': item_group,
+            'layer_group': layer_group,
             'x_mm': x_min,
             'y_mm': y_min,
             'w_mm': w_mm,
@@ -853,9 +1009,8 @@ class Canvas(Widget):
             'outline_color': self._parse_color(outline_color),
             'outline_w_mm': float(outline_width_mm),
             'tags': set(tags or id or []),
-            'z_index': self._next_z_index,
+            'z_index': final_z_index,
         }
-        self._next_z_index += 1
         self._register_tags(item_id)
         self._draw_order.append(item_id)
         self._redraw_item(item_id)
@@ -873,6 +1028,7 @@ class Canvas(Widget):
         dash: bool = False,
         dash_pattern_mm: Tuple[float, float] = (2.0, 2.0),
         tags: Optional[Iterable[str]] = None,
+        z_index: Optional[int] = None,
         id: Optional[Iterable[str]] = None,
     ) -> int:
         '''Add a straight line segment between two points in mm.
@@ -880,12 +1036,21 @@ class Canvas(Widget):
         Colors are hex strings like '#RRGGBB'. Dash pattern is in mm.
         '''
         item_id = self._new_item_id()
-        group = InstructionGroup()
-        self._items_group.add(group)
+        
+        # Determine z_index from tags or explicit value
+        final_z_index = self._get_z_index_from_tags(tags or id, z_index)
+        
+        # Get the layer group for this z_index
+        layer_group = self._get_layer_group(final_z_index)
+        
+        # Create individual instruction group for this item
+        item_group = InstructionGroup()
+        layer_group.add(item_group)
 
         self._items[item_id] = {
             'type': 'line',
-            'group': group,
+            'group': item_group,
+            'layer_group': layer_group,
             'points_mm': [float(x1_mm), float(y1_mm), float(x2_mm), float(y2_mm)],
             'color': self._parse_color(color),
             'w_mm': float(width_mm),
@@ -894,9 +1059,8 @@ class Canvas(Widget):
             'dash': bool(dash),
             'dash_mm': (float(dash_pattern_mm[0]), float(dash_pattern_mm[1])),
             'tags': set(tags or id or []),
-            'z_index': self._next_z_index,
+            'z_index': final_z_index,
         }
-        self._next_z_index += 1
         self._register_tags(item_id)
         self._draw_order.append(item_id)
         self._redraw_item(item_id)
@@ -911,6 +1075,7 @@ class Canvas(Widget):
         dash: bool = False,
         dash_pattern_mm: Tuple[float, float] = (2.0, 2.0),
         tags: Optional[Iterable[str]] = None,
+        z_index: Optional[int] = None,
         id: Optional[Iterable[str]] = None,
     ) -> int:
         '''Add a polyline/path defined by a list of mm points [x0,y0,x1,y1,...].
@@ -921,21 +1086,29 @@ class Canvas(Widget):
         if len(pts) < 4 or len(pts) % 2 != 0:
             raise ValueError('add_path requires an even-length list with at least two points')
         item_id = self._new_item_id()
-        group = InstructionGroup()
-        self._items_group.add(group)
+        
+        # Determine z_index from tags or explicit value
+        final_z_index = self._get_z_index_from_tags(tags or id, z_index)
+        
+        # Get the layer group for this z_index
+        layer_group = self._get_layer_group(final_z_index)
+        
+        # Create individual instruction group for this item
+        item_group = InstructionGroup()
+        layer_group.add(item_group)
 
         self._items[item_id] = {
             'type': 'path',
-            'group': group,
+            'group': item_group,
+            'layer_group': layer_group,
             'points_mm': pts,
             'color': self._parse_color(color),
             'w_mm': float(width_mm),
             'dash': bool(dash),
             'dash_mm': (float(dash_pattern_mm[0]), float(dash_pattern_mm[1])),
             'tags': set(tags or id or []),
-            'z_index': self._next_z_index,
+            'z_index': final_z_index,
         }
-        self._next_z_index += 1
         self._register_tags(item_id)
         self._draw_order.append(item_id)
         self._redraw_item(item_id)
@@ -951,6 +1124,7 @@ class Canvas(Widget):
         outline_color: str = '#000000',
         outline_width_mm: float = 0.25,
         tags: Optional[Iterable[str]] = None,
+        z_index: Optional[int] = None,
         id: Optional[Iterable[str]] = None,
     ) -> int:
         '''
@@ -961,12 +1135,21 @@ class Canvas(Widget):
         if len(pts) < 6:
             raise ValueError('add_polygon requires at least 3 points')
         item_id = self._new_item_id()
-        group = InstructionGroup()
-        self._items_group.add(group)
+        
+        # Determine z_index from tags or explicit value
+        final_z_index = self._get_z_index_from_tags(tags or id, z_index)
+        
+        # Get the layer group for this z_index
+        layer_group = self._get_layer_group(final_z_index)
+        
+        # Create individual instruction group for this item
+        item_group = InstructionGroup()
+        layer_group.add(item_group)
 
         self._items[item_id] = {
             'type': 'polygon',
-            'group': group,
+            'group': item_group,
+            'layer_group': layer_group,
             'points_mm': pts,
             'fill': bool(fill),
             'fill_color': self._parse_color(fill_color),
@@ -974,9 +1157,8 @@ class Canvas(Widget):
             'outline_color': self._parse_color(outline_color),
             'outline_w_mm': float(outline_width_mm),
             'tags': set(tags or id or []),
-            'z_index': self._next_z_index,
+            'z_index': final_z_index,
         }
-        self._next_z_index += 1
         self._register_tags(item_id)
         self._draw_order.append(item_id)
         self._redraw_item(item_id)
@@ -992,6 +1174,7 @@ class Canvas(Widget):
         anchor: str = 'top_left',
         color: str = '#000000',
         tags: Optional[Iterable[str]] = None,
+        z_index: Optional[int] = None,
         id: Optional[Iterable[str]] = None,
     ) -> int:
         '''Add a text label.
@@ -1012,12 +1195,21 @@ class Canvas(Widget):
         - Hit-testing uses the un-rotated bounding box (rotation ignored for clicks).
         '''
         item_id = self._new_item_id()
-        group = InstructionGroup()
-        self._items_group.add(group)
+        
+        # Determine z_index from tags or explicit value
+        final_z_index = self._get_z_index_from_tags(tags or id, z_index)
+        
+        # Get the layer group for this z_index
+        layer_group = self._get_layer_group(final_z_index)
+        
+        # Create individual instruction group for this item
+        item_group = InstructionGroup()
+        layer_group.add(item_group)
 
         self._items[item_id] = {
             'type': 'text',
-            'group': group,
+            'group': item_group,
+            'layer_group': layer_group,
             'text': str(text),
             'x_mm': float(x_mm),
             'y_mm': float(y_mm),
@@ -1026,9 +1218,8 @@ class Canvas(Widget):
             'anchor': str(anchor or 'top_left'),
             'color': self._parse_color(color),
             'tags': set(tags or id or []),
-            'z_index': self._next_z_index,
+            'z_index': final_z_index,
         }
-        self._next_z_index += 1
         self._register_tags(item_id)
         self._draw_order.append(item_id)
         self._redraw_item(item_id)
@@ -1081,58 +1272,46 @@ class Canvas(Widget):
             # staveThreeLines will be drawn first (at the back)
             # staveClefLines will be drawn last (on top)
         '''
-        with self.freeze_updates():
-            # Assign new z-indices based on tag priority
-            # Items with earlier tags get lower z-indices (draw first/behind)
-            # Items with later tags get higher z-indices (draw last/on top)
+        # Assign new z-indices based on tag priority
+        # Items with earlier tags get lower z-indices (draw first/behind)
+        # Items with later tags get higher z-indices (draw last/on top)
+        
+        base_z = 0
+        z_step = 1000  # Large step to leave room between tag groups
+        
+        for tag_index, tag in enumerate(tags):
+            # Get all items with this tag
+            item_ids = self._tag_index.get(tag, set())
             
-            base_z = 0
-            z_step = 1000  # Large step to leave room between tag groups
-            
-            for tag_index, tag in enumerate(tags):
-                # Get all items with this tag
-                item_ids = self._tag_index.get(tag, set())
-                
-                # Assign z-index based on tag position
-                # Use tag_index * z_step to group items by tag
-                for item_id in item_ids:
-                    if item_id in self._items:
-                        self._items[item_id]['z_index'] = base_z + (tag_index * z_step)
-            
-            # Rebuild canvas in z-index order (all in one operation)
-            self._rebuild_canvas_by_z_order()
+            # Assign z-index based on tag position
+            # Use tag_index * z_step to group items by tag
+            for item_id in item_ids:
+                if item_id in self._items:
+                    self._items[item_id]['z_index'] = base_z + (tag_index * z_step)
+        
+        # Rebuild canvas in z-index order (all in one operation)
+        self._rebuild_canvas_by_z_order()
     
     def _rebuild_canvas_by_z_order(self):
-        '''Rebuild the entire canvas by removing all items and re-adding in z-index order.
+        '''Rebuild the entire canvas by z-index order.
         
-        This ensures Kivy respects the drawing order - items added later draw on top.
+        Not needed anymore - layer groups maintain z-index order automatically.
+        Kept for compatibility but does nothing.
         '''
-        # Sort items by z-index (lowest first)
-        sorted_items = sorted(
-            self._items.items(),
-            key=lambda x: x[1].get('z_index', 0)
-        )
-        
-        # Remove ALL instruction groups from canvas
-        self._items_group.clear()
-        
-        # Re-add in sorted z-index order
-        new_draw_order = []
-        for item_id, item_data in sorted_items:
-            group = item_data['group']
-            self._items_group.add(group)
-            new_draw_order.append(item_id)
-        
-        # Update draw order list
-        self._draw_order = new_draw_order
+        pass
 
     def delete(self, item_handle: int):
         '''Delete an item by internal handle.'''
         item = self._items.pop(item_handle, None)
         if not item:
             return
-        group: InstructionGroup = item['group']
-        self._items_group.remove(group)
+        
+        # Remove item's instruction group from its layer group
+        item_group: InstructionGroup = item['group']
+        layer_group: InstructionGroup = item.get('layer_group')
+        if layer_group:
+            layer_group.remove(item_group)
+        
         for tag in list(item.get('tags', [])):
             self.remove_tag(item_handle, tag)
         if item_handle in self._draw_order:
@@ -1525,7 +1704,9 @@ class Canvas(Widget):
         
         Only redraws items that are currently visible in the viewport,
         significantly improving performance for large vertical piano rolls.
+        Layer groups maintain z_index order automatically.
         '''
+        # Redraw items with culling
         if self.scale_to_width and self._view_h > 0:
             # Calculate visible Y range in mm coordinates
             visible_y_min_mm, visible_y_max_mm = self._get_visible_y_range_mm()
@@ -1537,18 +1718,17 @@ class Canvas(Widget):
             
             # Only redraw items that intersect the visible range
             visible_count = 0
-            for item_id in self._items.keys():
+            for item_id, item_data in self._items.items():
                 if self._item_in_y_range(item_id, cull_y_min_mm, cull_y_max_mm):
                     self._redraw_item(item_id)
                     visible_count += 1
                 else:
                     # Clear item group to save GPU memory
-                    item = self._items.get(item_id)
-                    if item and 'group' in item:
-                        item['group'].clear()
+                    if 'group' in item_data:
+                        item_data['group'].clear()
         else:
             # No culling when not in scale_to_width mode or viewport not ready
-            for item_id in self._items.keys():
+            for item_id in self._items:
                 self._redraw_item(item_id)
 
     def _get_visible_y_range_mm(self) -> Tuple[float, float]:
@@ -2087,7 +2267,7 @@ class Canvas(Widget):
         '''Draw or update the cursor line.'''
         # Remove existing cursor line if it exists
         if self._cursor_line_instr:
-            self._items_group.remove(self._cursor_line_instr)
+            self.canvas.remove(self._cursor_line_instr)
             self._cursor_line_instr = None
         
         if not self._cursor_visible:
@@ -2113,8 +2293,8 @@ class Canvas(Widget):
         points = [cursor_x_px, y_bottom, cursor_x_px, y_top]
         self._draw_dashed_polyline(self._cursor_line_instr, points, 1.0, dash_length, gap_length)
         
-        # Add cursor to the items group
-        self._items_group.add(self._cursor_line_instr)
+        # Add cursor to canvas (on top of everything)
+        self.canvas.add(self._cursor_line_instr)
     
     def show_cursor(self):
         '''Show the cursor line.'''
@@ -2125,7 +2305,7 @@ class Canvas(Widget):
         '''Hide the cursor line.'''
         self._cursor_visible = False
         if self._cursor_line_instr:
-            self._items_group.remove(self._cursor_line_instr)
+            self.canvas.remove(self._cursor_line_instr)
             self._cursor_line_instr = None
     
     def get_cursor_position_mm(self) -> float:
@@ -2154,3 +2334,7 @@ class Canvas(Widget):
         grid_step_pixels = grid_step_quarters * mm_per_quarter * max(1e-6, self._px_per_mm)
 
         return grid_step_pixels
+
+
+# Set the Canvas class reference for the Popup keyboard reclaim patch
+_canvas_class_ref = Canvas

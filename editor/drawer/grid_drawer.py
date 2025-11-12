@@ -43,7 +43,7 @@ class GridDrawerMixin:
                     x2_mm=self.editor_margin + self.stave_width, y2_mm=y_pos,
                     color=self.barline_color,
                     width_mm=self.barline_width,
-                    tags=['barlines', f'barline_{measure_number}']
+                    tags=['barline', f'barline_{measure_number}']
                 )
                 barlines_drawn += 1
                 if barlines_drawn <= 3:
@@ -57,7 +57,7 @@ class GridDrawerMixin:
                     font_size_pt=sp(12),  # Kivy font * 2, then convert back to pt for canvas
                     color=self.barline_color,
                     anchor='nw',
-                    tags=['measureNumbers', f'measure_number_{measure_number}']
+                    tags=['measurenumber', f'measure_number_{measure_number}']
                 )
         
         print(f'Editor: Actually drew {barlines_drawn} barlines (filtered by viewport height={self.canvas.height_mm}mm + margin={self.editor_margin}mm)')
@@ -82,7 +82,7 @@ class GridDrawerMixin:
                             width_mm=self.gridline_width,
                             dash=True,  # Dashed gridlines
                             dash_pattern_mm=tuple(self.gridline_dash_pattern),  # Use SCORE model pattern
-                            tags=['gridlines', f'gridline_{total_ticks}_{i}']
+                            tags=['gridline', f'gridline_{total_ticks}_{i}']
                         )
                 total_ticks += measure_ticks
         
@@ -95,5 +95,5 @@ class GridDrawerMixin:
                 x2_mm=self.editor_margin + self.stave_width, y2_mm=final_y_pos,
                 color=self.barline_color,
                 width_mm=self.barline_width * 2,  # Double thickness for end barline
-                tags=['barlines', 'endBarline']
+                tags=['barline', 'endBarline']
             )
