@@ -70,7 +70,7 @@ class NoteTool(BaseTool):
         # redraw cursor
         self._draw_note_cursor(cursor, type='cursor')
         
-        return False
+        return True
     
     
     def on_left_click(self, x: float, y: float) -> bool:
@@ -79,7 +79,11 @@ class NoteTool(BaseTool):
         return True
     
     def on_left_press(self, x: float, y: float, item_id: Optional[int] = None) -> bool:
-        """Called when left mouse button is pressed down."""
+        """
+            Called when left mouse button is pressed down.
+
+            Used for starting note creation or editing existing notes.
+        """
         super().on_left_press(x, y)
         
         # Guard: Prevent creating a new note if one is already being edited
@@ -91,6 +95,9 @@ class NoteTool(BaseTool):
         element, elem_type, stave_idx = self.get_element_at_position(x, y, element_types=['note'])
         
         if element and elem_type == 'note':
+            # delete any existing cursor drawing
+            self.editor.canvas.delete_by_tag('cursor')
+
             # EDIT MODE: Start editing existing note
             self.edit_note = element
             self.edit_stave_idx = stave_idx
@@ -127,31 +134,32 @@ class NoteTool(BaseTool):
         return True
 
     def on_drag(self, x: float, y: float, start_x: float, start_y: float) -> bool:
-        """Called continuously while dragging."""
+        """Called continuously while dragging WITH button pressed."""
+        # Draw time cursor (parent functionality)
+        super().on_drag(x, y, start_x, start_y)
+        
         if self.edit_note is None:
             return False
         
-        # get mouse position
+        # Get mouse position
         pitch, time = self.get_pitch_and_time(x, y)
 
-        # specific editor mouse behavior
+        # Specific editor mouse behavior
         self.edit_note.duration = max(self.editor.grid_selector.get_grid_step(), time - self.edit_note.time)
         if time < self.edit_note.time or y < self.editor.editor_margin: 
-            # we edit the pitch in this case
+            # We edit the pitch in this case
             self.edit_note.pitch = pitch
         
         # Redraw in 'select/edit' mode
         self.editor._draw_single_note(self.edit_stave_idx, self.edit_note, draw_mode='select/edit')
 
-        # delete any existing cursor drawing
+        # Delete any existing cursor drawing
         self.editor.canvas.delete_by_tag('cursor')
         
         return True
 
-    def on_left_release(self, x: float, y: float) -> bool:
-        """Called when left mouse button is released."""
-        super().on_left_release(x, y)
-        
+    def on_left_unpress(self, x: float, y: float) -> bool:
+        """Called when left mouse button is released without dragging."""
         if self.edit_note is None:
             return False
         
@@ -159,12 +167,14 @@ class NoteTool(BaseTool):
         stave = self.editor.score.stave[self.edit_stave_idx]
         stave.event.note.sort(key=lambda n: n.time)
         
-        # Delete 'select/edit' drawing and redraw as 'note'
-        self.editor.canvas.delete_by_tag('select/edit')
-        self.editor._draw_single_note(self.edit_stave_idx, self.edit_note, draw_mode='note')
-        
-        # Redraw overlapping notes to update their continuation dots
-        self.editor._redraw_overlapping_notes(self.edit_stave_idx, self.edit_note)
+        # Use canvas freeze_updates to prevent flash during finalization
+        with self.editor.canvas.freeze_updates():
+            # Delete 'select/edit' drawing and redraw as 'note'
+            self.editor.canvas.delete_by_tag('select/edit')
+            self.editor._draw_single_note(self.edit_stave_idx, self.edit_note, draw_mode='note')
+            
+            # Redraw overlapping notes to update their continuation dots
+            self.editor._redraw_overlapping_notes(self.edit_stave_idx, self.edit_note)
         
         # Mark as modified
         if hasattr(self.editor, 'on_modified') and self.editor.on_modified:
@@ -175,6 +185,15 @@ class NoteTool(BaseTool):
         self.edit_stave_idx = None
         
         return True
+
+    def on_left_release(self, x: float, y: float) -> bool:
+        """Called when left mouse button is released (after drag or click)."""
+        # Let parent handle the drag_end vs unpress logic
+        result = super().on_left_release(x, y)
+        
+        # Parent will call either on_drag_end or on_left_unpress
+        # Both of those handle cleanup, so we're done here
+        return result
     
     def on_right_click(self, x: float, y: float) -> bool:
         """Called when right mouse button is clicked."""
@@ -201,20 +220,22 @@ class NoteTool(BaseTool):
                 if hasattr(stave.event, 'note') and element in stave.event.note:
                     stave.event.note.remove(element)
                     
-                    # Delete the visual representation
-                    self.editor.canvas.delete_by_tag(str(element.id))
-                    
-                    # Redraw overlapping notes AFTER deleting (using saved attributes)
-                    # We create a temporary object with just the needed attributes
-                    class TempNote:
-                        def __init__(self, time, duration, id, hand):
-                            self.time = time
-                            self.duration = duration
-                            self.id = id
-                            self.hand = hand
-                    
-                    temp_note = TempNote(note_time, note_duration, note_id, note_hand)
-                    self.editor._redraw_overlapping_notes(stave_idx, temp_note)
+                    # Use canvas freeze_updates to prevent flash during deletion and redraw
+                    with self.editor.canvas.freeze_updates():
+                        # Delete the visual representation
+                        self.editor.canvas.delete_by_tag(str(element.id))
+                        
+                        # Redraw overlapping notes AFTER deleting (using saved attributes)
+                        # We create a temporary object with just the needed attributes
+                        class TempNote:
+                            def __init__(self, time, duration, id, hand):
+                                self.time = time
+                                self.duration = duration
+                                self.id = id
+                                self.hand = hand
+                        
+                        temp_note = TempNote(note_time, note_duration, note_id, note_hand)
+                        self.editor._redraw_overlapping_notes(stave_idx, temp_note)
                     
                     # Mark as modified
                     if hasattr(self.editor, 'on_modified') and self.editor.on_modified:
@@ -244,9 +265,32 @@ class NoteTool(BaseTool):
     
     def on_drag_end(self, x: float, y: float) -> bool:
         """Called when drag finishes (button released after dragging)."""
-        # TODO: Finalize drag operation
-        print(f"NoteTool: End drag at ({x}, {y})")
-        return False
+        if self.edit_note is None:
+            return False
+        
+        # Sort the note list by time to ensure continuation dots work correctly
+        stave = self.editor.score.stave[self.edit_stave_idx]
+        stave.event.note.sort(key=lambda n: n.time)
+        
+        # Use canvas freeze_updates to prevent flash during finalization
+        with self.editor.canvas.freeze_updates():
+            # Delete 'select/edit' drawing and redraw as 'note'
+            self.editor.canvas.delete_by_tag('select/edit')
+            self.editor._draw_single_note(self.edit_stave_idx, self.edit_note, draw_mode='note')
+            
+            # Redraw overlapping notes to update their continuation dots
+            self.editor._redraw_overlapping_notes(self.edit_stave_idx, self.edit_note)
+        
+        # Mark as modified
+        if hasattr(self.editor, 'on_modified') and self.editor.on_modified:
+            self.editor.on_modified()
+        
+        # Clear references
+        self.edit_note = None
+        self.edit_stave_idx = None
+        
+        print(f"NoteTool: Drag ended at ({x}, {y})")
+        return True
     
     def _draw_note_cursor(self, cursor: Note, type: Optional[Literal['note', 'cursor', 'selected/edit']] = 'cursor'):
         """Draw a note cursor at the given position."""

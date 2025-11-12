@@ -158,7 +158,8 @@ class SelectionManager:
                 y1_mm=y1,
                 x2_mm=x2,
                 y2_mm=y2,
-                fill=False,  # Light blue transparent
+                fill=True,
+                fill_color=ACCENT_COLOR_HEX + "40",  # Light blue transparent
                 outline=True,
                 outline_color=ACCENT_COLOR_HEX,  # Blue outline (solid, fully opaque)
                 outline_width_mm=0.25,  # Thicker so it's visible

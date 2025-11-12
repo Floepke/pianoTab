@@ -1,6 +1,7 @@
 from typing import List, Tuple, Optional, Dict, Any, Iterable, Callable
 import math
 import os
+from contextlib import contextmanager
 
 from kivy.uix.widget import Widget
 from kivy.graphics import Color, Rectangle, Line, Ellipse, Mesh, InstructionGroup, PushMatrix, PopMatrix, Rotate, Translate
@@ -690,6 +691,76 @@ class Canvas(Widget):
         self._tag_index.clear()
         self._draw_order.clear()
 
+    @contextmanager
+    def freeze_updates(self):
+        '''Context manager to freeze all Kivy frame rendering during canvas updates.
+        
+        Completely stops Kivy's rendering pipeline, performs updates, then resumes
+        and forces a single frame to be rendered with the final state.
+        
+        Usage:
+            with canvas.freeze_updates():
+                # Perform any canvas operations
+                canvas.delete_by_tag('note123')
+                canvas._redraw_overlapping_notes(stave_idx, note)
+                # etc.
+        '''
+        from kivy.base import EventLoop
+        from kivy.clock import Clock
+        
+        # Get the window
+        window = Window
+        
+        # Stop frame rendering by preventing flip (display update)
+        # Store original flip method
+        original_flip = window.flip
+        flip_blocked = False
+        
+        def blocked_flip():
+            """Blocked flip - does nothing, preventing frame updates"""
+            nonlocal flip_blocked
+            flip_blocked = True
+            # Don't call original_flip - this blocks the frame from being displayed
+        
+        # Replace flip with blocked version
+        window.flip = blocked_flip
+        
+        try:
+            # Yield control - operations happen here with rendering blocked
+            yield
+            
+        finally:
+            # Restore original flip method
+            window.flip = original_flip
+            
+            # Force a single frame update with the final state
+            # This ensures the final state is rendered immediately
+            window.canvas.ask_update()
+            
+            # If flip was actually blocked, print confirmation
+            if flip_blocked:
+                print("FREEZE: Frame rendering was blocked, now restored")
+
+    def test_freeze_at_startup(self, duration_seconds: float = 3.0):
+        '''Test method to verify freeze_updates blocks frame rendering.
+        
+        Call this at startup to verify the freeze works - you should see:
+        - Mouse cursor stops updating (frozen in position)
+        - Window becomes unresponsive for the duration
+        - Print message when freeze ends
+        
+        Args:
+            duration_seconds: How long to freeze (default 3 seconds)
+        '''
+        import time
+        print(f"FREEZE TEST: Starting {duration_seconds}s freeze - mouse cursor should freeze...")
+        
+        with self.freeze_updates():
+            # Sleep while freeze is active - no frames should render during this time
+            time.sleep(duration_seconds)
+        
+        print(f"FREEZE TEST: Freeze ended - rendering resumed")
+
     def add_rectangle(
         self,
         x1_mm: float,
@@ -991,7 +1062,7 @@ class Canvas(Widget):
         for item_id in item_ids:
             self.delete(item_id)
 
-    def tag_draw_order(self, tags: List[str]):
+    def _tag_draw_order(self, tags: List[str]):
         '''Reorder items so that items with the specified tags are drawn in the given order.
         
         Items with tags earlier in the list will be drawn first (behind).
@@ -1010,25 +1081,26 @@ class Canvas(Widget):
             # staveThreeLines will be drawn first (at the back)
             # staveClefLines will be drawn last (on top)
         '''
-        # Assign new z-indices based on tag priority
-        # Items with earlier tags get lower z-indices (draw first/behind)
-        # Items with later tags get higher z-indices (draw last/on top)
-        
-        base_z = 0
-        z_step = 1000  # Large step to leave room between tag groups
-        
-        for tag_index, tag in enumerate(tags):
-            # Get all items with this tag
-            item_ids = self._tag_index.get(tag, set())
+        with self.freeze_updates():
+            # Assign new z-indices based on tag priority
+            # Items with earlier tags get lower z-indices (draw first/behind)
+            # Items with later tags get higher z-indices (draw last/on top)
             
-            # Assign z-index based on tag position
-            # Use tag_index * z_step to group items by tag
-            for item_id in item_ids:
-                if item_id in self._items:
-                    self._items[item_id]['z_index'] = base_z + (tag_index * z_step)
-        
-        # Rebuild canvas in z-index order
-        self._rebuild_canvas_by_z_order()
+            base_z = 0
+            z_step = 1000  # Large step to leave room between tag groups
+            
+            for tag_index, tag in enumerate(tags):
+                # Get all items with this tag
+                item_ids = self._tag_index.get(tag, set())
+                
+                # Assign z-index based on tag position
+                # Use tag_index * z_step to group items by tag
+                for item_id in item_ids:
+                    if item_id in self._items:
+                        self._items[item_id]['z_index'] = base_z + (tag_index * z_step)
+            
+            # Rebuild canvas in z-index order (all in one operation)
+            self._rebuild_canvas_by_z_order()
     
     def _rebuild_canvas_by_z_order(self):
         '''Rebuild the entire canvas by removing all items and re-adding in z-index order.

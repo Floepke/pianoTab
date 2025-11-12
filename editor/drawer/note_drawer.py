@@ -382,6 +382,10 @@ class NoteDrawerMixin:
             if other_note.id == note.id:
                 continue  # Skip the note itself
             
+            # Only consider notes from the same hand (continuation dots only appear for same hand)
+            if other_note.hand != note.hand:
+                continue
+            
             other_start = other_note.time
             other_end = other_note.time + other_note.duration
             

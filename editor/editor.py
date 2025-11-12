@@ -101,6 +101,10 @@ class Editor(
         
         # Mark editor as ready for drawing (all initialization complete)
         self._ready: bool = True
+        
+        # TEST: Verify freeze_updates blocks frame rendering (REMOVE AFTER TESTING)
+        # Uncomment to test - mouse cursor should freeze for 3 seconds
+        # Clock.schedule_once(lambda dt: self.canvas.test_freeze_at_startup(3.0), 1.0)
 
     def _apply_settings_from_score(self):
         '''Synchronize editor state from SCORE.properties.
@@ -370,14 +374,14 @@ class Editor(
         self._draw_line_breaks()
 
         # Update drawing order to ensure correct layering
-        self._update_drawing_order()
+        self.update_drawing_order()
         
         # Force canvas redraw with culling now that all items are added
         self.canvas._redraw_all()
     
-    def _update_drawing_order(self):
+    def update_drawing_order(self):
         '''Set the proper drawing order of canvas elements.'''
-        self.canvas.tag_draw_order([
+        self.canvas._tag_draw_order([
             'midinote',
             # stave
             'stavethreeline',
@@ -395,6 +399,7 @@ class Editor(
             'notehead',
             'leftdot',
         ])
+        print('Editor: Updated drawing order on canvas')
     
     # Zoom and interaction methods (simplified for initial implementation)
     def zoom_in(self, factor: float = 1.2):
@@ -647,7 +652,7 @@ class Editor(
         
         # Update drawing order AFTER all mouse operations are complete
         if hasattr(self, '_update_drawing_order'):
-            self._update_drawing_order()
+            self.update_drawing_order()
             print("Updated drawing order after mouse release.")
         
         return result

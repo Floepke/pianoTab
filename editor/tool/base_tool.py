@@ -62,6 +62,36 @@ class BaseTool(ABC):
         """
         return False
     
+    def on_left_unpress(self, x: float, y: float) -> bool:
+        """
+        Handle left mouse button release without drag.
+        
+        Called when left button is pressed and released at approximately
+        the same position (no drag occurred).
+        
+        Args:
+            x, y: Mouse position in canvas coordinates
+            
+        Returns:
+            True if event was handled, False otherwise
+        """
+        return False
+    
+    def on_right_unpress(self, x: float, y: float) -> bool:
+        """
+        Handle right mouse button release without drag.
+        
+        Called when right button is pressed and released at approximately
+        the same position (no drag occurred).
+        
+        Args:
+            x, y: Mouse position in canvas coordinates
+            
+        Returns:
+            True if event was handled, False otherwise
+        """
+        return False
+    
     def on_left_press(self, x: float, y: float) -> bool:
         """
         Handle left mouse button press (before drag).
@@ -86,7 +116,19 @@ class BaseTool(ABC):
         Returns:
             True if event was handled, False otherwise
         """
-        return False
+        was_dragging = self._is_dragging
+        self._mouse_down_pos = None
+        self._is_dragging = False
+        
+        # If there was no drag, trigger unpress event
+        result = False
+        if not was_dragging:
+            result = self.on_right_unpress(x, y)
+        
+        # Always call post-release hook (for drawing order updates, etc.)
+        self.on_any_mouse_release(x, y, button='right', was_dragging=was_dragging)
+        
+        return result
 
     def on_left_release(self, x: float, y: float) -> bool:
         """
@@ -106,6 +148,12 @@ class BaseTool(ABC):
         result = False
         if was_dragging:
             result = self.on_drag_end(x, y)
+        else:
+            # No drag, trigger unpress event
+            result = self.on_left_unpress(x, y)
+        
+        # Always call post-release hook (for drawing order updates, etc.)
+        self.on_any_mouse_release(x, y, button='left', was_dragging=was_dragging)
         
         return result
     
@@ -146,6 +194,21 @@ class BaseTool(ABC):
             True if event was handled, False otherwise
         """
         return False
+    
+    def on_any_mouse_release(self, x: float, y: float, button: str, was_dragging: bool) -> None:
+        """
+        Called on every mouse release (left or right, drag or click).
+        
+        This is useful for operations that need to happen after any mouse interaction,
+        such as updating drawing order, refreshing displays, etc.
+        
+        Args:
+            x, y: Mouse position in canvas coordinates
+            button: Which button was released ('left' or 'right')
+            was_dragging: True if this was the end of a drag, False if it was a click
+        """
+        # Default implementation: update drawing order
+        self.editor.update_drawing_order()
     
     def on_mouse_move(self, x: float, y: float) -> bool:
         """
