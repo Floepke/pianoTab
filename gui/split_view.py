@@ -6,11 +6,13 @@ Similar to tkinter's PanedWindow but with customizable sash width.
 from kivy.uix.widget import Widget
 from kivy.uix.button import Button, ButtonBehavior
 from kivy.uix.image import Image
+from kivy.uix.label import Label
 from kivy.graphics import Color, Rectangle
 from kivy.properties import NumericProperty, ObjectProperty, ListProperty
 from kivy.clock import Clock
 from kivy.core.window import Window
-from gui.colors import DARK, LIGHT_DARKER
+from kivy.metrics import sp
+from gui.colors import DARK, LIGHT_DARKER, LIGHT
 from typing import Dict, Tuple, Callable, Optional, Any
 from icons.icon import load_icon
 
@@ -81,6 +83,20 @@ class ToolSash(Widget):
             self.bg_color = Color(*DARK)
             self.bg_rect = Rectangle(pos=self.pos, size=self.size)
 
+        # Tooltip label for horizontal sashes (shown centered in sash)
+        self.tooltip_label = Label(
+            text='',
+            size_hint=(1, None),  # Full width of sash
+            height=40,
+            color=LIGHT,  # LIGHT color
+            font_size=sp(14),
+            halign='left',
+            valign='middle',
+            padding=(0, 0)
+        )
+        self.tooltip_label.bind(size=self.tooltip_label.setter('text_size'))
+        self.add_widget(self.tooltip_label)
+
         # Build default (always visible) buttons
         self.default_buttons = []
         for key, val in self.default_toolbar.items():
@@ -133,6 +149,9 @@ class ToolSash(Widget):
                 btn.center_x = self.center_x
                 btn.y = current_bottom
                 current_bottom += (btn.height + btn_spacing)
+            
+            # Tooltip label not used in vertical sash
+            self.tooltip_label.opacity = 0
         else:
             # Horizontal sash: arrange buttons horizontally with 5px padding/spacing
             # Also enforce 5px vertical padding by scaling buttons to fit sash height - 10px
@@ -165,6 +184,11 @@ class ToolSash(Widget):
                 btn.center_y = self.center_y
                 btn.right = current_right
                 current_right -= (btn.width + spacing)
+            
+            # Position tooltip label - takes full width, positioned at sash position
+            self.tooltip_label.opacity = 1
+            self.tooltip_label.pos = self.pos
+            self.tooltip_label.width = self.width
 
     # Centralized action invocation helpers
     def _invoke_action(self, cb, *_args):
@@ -517,6 +541,28 @@ class SplitView(Widget):
             if self.right_widget:
                 self.right_widget.pos = self.right_container.pos
                 self.right_widget.size = self.right_container.size
+                
+                # Force immediate Canvas redraw after size change (especially after snap)
+                try:
+                    # If the right widget is a Canvas wrapper, force it to update
+                    canvas_widget = self.right_widget
+                    # Look for Canvas instance (might be wrapped in another widget)
+                    if hasattr(canvas_widget, 'get_canvas'):
+                        actual_canvas = canvas_widget.get_canvas()
+                        if actual_canvas and hasattr(actual_canvas, '_update_layout_and_redraw'):
+                            actual_canvas._update_layout_and_redraw()
+                except Exception:
+                    pass
+                
+                # Explicitly hide/show the right widget when collapsed/expanded
+                try:
+                    collapsed = right_width <= 0.5
+                    # Disable interactions and hide drawing when collapsed
+                    self.right_widget.disabled = collapsed
+                    # Opacity helps suppress any child drawing that might ignore container bounds
+                    self.right_widget.opacity = 0.0 if collapsed else 1.0
+                except Exception:
+                    pass
         else:
             # Vertical split
             total_height = self.height
@@ -554,6 +600,19 @@ class SplitView(Widget):
             if self.right_widget:
                 self.right_widget.pos = self.right_container.pos
                 self.right_widget.size = self.right_container.size
+                
+                # Force immediate Canvas redraw after size change (especially after snap)
+                try:
+                    # If the right widget is a Canvas wrapper, force it to update
+                    canvas_widget = self.right_widget
+                    # Look for Canvas instance (might be wrapped in another widget)
+                    if hasattr(canvas_widget, 'get_canvas'):
+                        actual_canvas = canvas_widget.get_canvas()
+                        if actual_canvas and hasattr(actual_canvas, '_update_layout_and_redraw'):
+                            actual_canvas._update_layout_and_redraw()
+                except Exception:
+                    pass
+                
                 # Explicitly hide/show the bottom widget when collapsed/expanded to avoid residual text
                 try:
                     collapsed = bottom_h <= 0.5

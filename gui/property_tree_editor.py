@@ -34,6 +34,7 @@ import re
 import math
 
 from kivy.uix.scrollview import ScrollView
+from kivy.effects.scroll import ScrollEffect
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
@@ -55,6 +56,7 @@ from kivy.core.window import Window
 from gui.colors import DARK_LIGHTER, LIGHT_DARKER, DARK, ACCENT_COLOR
 from utils.canvas import CustomScrollbar
 from file.SCORE import SCORE, Event
+from file.ui_metadata import get_field_tooltip, get_field_label
 from icons.icon import IconLoader
 
 # Visual constants
@@ -370,8 +372,7 @@ class PropertyTreeEditor(BoxLayout):
             do_scroll_y=True,
             bar_width=0,
             scroll_type=['bars', 'content'],
-            smooth_scroll_end=20,  # Minimal smoothing for responsive scrolling
-            scroll_distance=20,   # Smaller distance = more responsive
+            effect_cls=ScrollEffect,  # Instant scroll without smoothing/damping
         )
 
         # Content layout (no vertical gaps; align rows to stripes)
@@ -423,6 +424,11 @@ class PropertyTreeEditor(BoxLayout):
         # Row index for alternating text color bound to stripes
         self._row_counter: int = 0
         
+        # Tooltip system - sash will be set externally by GUI
+        self.tooltip_sash = None
+        self._tooltip_rows: dict[Widget, str] = {}  # row_widget -> tooltip_text
+        Window.bind(mouse_pos=self._on_mouse_move)
+        
         # Cursor management - set arrow cursor when over property tree
         Window.bind(mouse_pos=self._update_cursor_on_hover)
 
@@ -463,6 +469,24 @@ class PropertyTreeEditor(BoxLayout):
         # Check if mouse is within this widget's bounds
         if self.collide_point(*pos):
             Window.set_system_cursor('arrow')
+    
+    # ---------- Tooltip System ----------
+    
+    def _on_mouse_move(self, window, pos):
+        """Update tooltip label when mouse moves over rows."""
+        if not self.tooltip_sash:
+            return
+        
+        # Check which row the mouse is over
+        for row_widget, tooltip_text in self._tooltip_rows.items():
+            if row_widget.get_parent_window() and row_widget.collide_point(*row_widget.to_widget(*pos)):
+                self.tooltip_sash.tooltip_label.text = tooltip_text
+                return
+        
+        # No row hovered, clear tooltip
+        self.tooltip_sash.tooltip_label.text = ''
+
+    # ---------- End Tooltip System ----------
 
     # Map pixel scroll to ScrollView.scroll_y
     def _apply_scroll_px(self):
@@ -489,6 +513,10 @@ class PropertyTreeEditor(BoxLayout):
             self._scroll_px = max(0.0, min(max_scroll, (1.0 - float(self.sv.scroll_y)) * max_scroll))
         # Don't call update_layout() here - it causes scroll lag with large lists
         # The scrollbar will update itself when needed
+        
+        # Clear tooltip when scrolling
+        if self.tooltip_sash:
+            self.tooltip_sash.tooltip_label.text = ''
 
     def _update_view_and_graphics(self, *_):
         # Reserve width for custom scrollbar; prevent overlap
@@ -661,6 +689,9 @@ class PropertyTreeEditor(BoxLayout):
 
         self.layout.clear_widgets()
         self._row_counter = 0
+        
+        # Clear tooltip registrations
+        self._tooltip_rows.clear()
 
         if self._score is None:
             self._add_info_row('No SCORE bound')
@@ -989,90 +1020,122 @@ class PropertyTreeEditor(BoxLayout):
 
     def _build_value_row(self, key_label: str, attr_name: Union[str, int], value: Any, parent: Any,
                          path: Tuple[Union[str, int], ...], level: int):
+        # Get field metadata
+        field_meta = self._get_field_metadata(parent, attr_name)
+        tree_icon = field_meta['tree_icon']
+        tree_label = field_meta['tree_label']
+        tree_tooltip = field_meta['tree_tooltip']
+        tree_editable = field_meta['tree_editable']
+        tree_edit_type = field_meta['tree_edit_type']
+        tree_edit_options = field_meta['tree_edit_options']
+        
+        # Use metadata label if provided, otherwise use key_label
+        display_label = tree_label if tree_label != str(attr_name) else key_label
+        
+        # Handle dataclass objects
         if is_dataclass(value):
-            self._build_object_row(title=key_label, obj=value, path=path, level=level)
+            self._build_object_row(title=display_label, obj=value, path=path, level=level)
             return
 
+        # Handle lists
         if isinstance(value, list):
             # Event.* lists are lists of objects; never use numeric list editor even if empty
             if isinstance(parent, Event):
-                self._build_list_object_row(key_label, value, path, level)
+                self._build_list_object_row(display_label, value, path, level, 
+                                           icon_name=tree_icon, tooltip=tree_tooltip)
             else:
                 if self._list_is_numeric(value):
-                    self._build_number_list_row(key_label, value, path, level)
+                    self._build_number_list_row(display_label, value, path, level, 
+                                               icon_name=tree_icon, tooltip=tree_tooltip)
                 else:
-                    self._build_list_object_row(key_label, value, path, level)
+                    self._build_list_object_row(display_label, value, path, level, 
+                                               icon_name=tree_icon, tooltip=tree_tooltip)
             return
 
-        # Literal choice fields (e.g., blackNoteDirection: Literal['^','v']) -> choice popup with icons
-        try:
-            if isinstance(attr_name, str):
+        # Auto-detect edit type if not specified
+        if tree_edit_type is None:
+            tree_edit_type = self._auto_detect_edit_type(value, parent, attr_name)
+        
+        # Route to appropriate builder based on edit type
+        if tree_edit_type == 'readonly':
+            self._build_scalar_row(display_label, value, path, level, 
+                                  icon_name=tree_icon, tooltip=tree_tooltip)
+        elif tree_edit_type == 'choice':
+            # Get choices from metadata or fallback to type annotation
+            choices = tree_edit_options.get('choices', None)
+            if choices is None and is_dataclass(parent) and isinstance(attr_name, str):
                 choices = self._field_literal_choices(parent, attr_name)
+            if choices:
+                self._build_literal_choice_row(display_label, str(value), choices, parent, attr_name, path, level,
+                                              icon_name=tree_icon, tooltip=tree_tooltip, 
+                                              choice_labels=tree_edit_options.get('choice_labels'),
+                                              choice_icons=tree_edit_options.get('choice_icons'))
             else:
-                choices = None
-        except Exception:
-            choices = None
-        if choices:
-            self._build_literal_choice_row(key_label, str(value), choices, parent, attr_name, path, level)
-            return
+                self._build_scalar_row(display_label, value, path, level, 
+                                      icon_name=tree_icon, tooltip=tree_tooltip)
+        elif tree_edit_type == 'bool':
+            self._build_bool_row(display_label, bool(value), path, level, 
+                                icon_name=tree_icon, tooltip=tree_tooltip)
+        elif tree_edit_type == 'color':
+            self._build_color_row(display_label, value, path, level, 
+                                 icon_name=tree_icon, tooltip=tree_tooltip)
+        elif tree_edit_type == 'text':
+            self._build_string_row(display_label, value, path, level, 
+                                  icon_name=tree_icon, tooltip=tree_tooltip)
+        elif tree_edit_type == 'int':
+            self._build_int_row(display_label, value, path, level, 
+                               icon_name=tree_icon, tooltip=tree_tooltip,
+                               edit_options=tree_edit_options)
+        elif tree_edit_type == 'float':
+            self._build_float_row(display_label, value, path, level, 
+                                 icon_name=tree_icon, tooltip=tree_tooltip,
+                                 edit_options=tree_edit_options)
+        else:
+            # Unknown edit type, treat as readonly
+            self._build_scalar_row(display_label, value, path, level, 
+                                  icon_name=tree_icon, tooltip=tree_tooltip)
 
-        if isinstance(value, str):
-            if HEX_COLOR_RE.match(value or ''):
-                self._build_color_row(key_label, value, path, level)
-            else:
-                self._build_string_row(key_label, value, path, level)
-            return
-
-        # Detect boolean-alias fields (alias endswith '?').
-        # Only render as checkbox if the underlying value is bool or int (not float).
-        try:
-            alias_is_bool = False
-            if isinstance(attr_name, str):
-                alias_is_bool = self._key_json_name_ends_with_qmark(parent, attr_name)
-                # Fallback: if JSON label itself ends with '?' (extra safety)
-                if not alias_is_bool and isinstance(key_label, str) and key_label.endswith('?'):
-                    alias_is_bool = True
-            if alias_is_bool and (isinstance(value, bool) or (isinstance(value, int) and not isinstance(value, bool))):
-                self._build_bool_row(key_label, bool(value), path, level)
-                return
-        except Exception:
-            pass
-
-        if isinstance(value, int):
-            self._build_int_row(key_label, value, path, level)
-            return
-
-        if isinstance(value, float):
-            self._build_float_row(key_label, value, path, level)
-            return
-
-        self._build_scalar_row(key_label, value, path, level)
-
-    def _make_kv_row(self, level: int, key_text: str, icon_name: Optional[str] = None) -> Tuple[BoxLayout, BoxLayout]:
+    def _make_kv_row(self, level: int, key_text: str, icon_name: Optional[str] = None, tooltip: Optional[str] = None) -> Tuple[BoxLayout, BoxLayout]:
         '''
         Create a row split into:
-        - left fixed column (indent + key label)
+        - left fixed column (indent + icon + key label)
         - right stretch column (editor)
         Returns (row, right_container)
+        
+        Args:
+            level: Indentation level
+            key_text: Label text for the property
+            icon_name: Icon identifier (emoji or icon name from IconLoader)
+            tooltip: Optional tooltip text to display on hover
         '''
         tc = self._row_text_color()
         row = BoxLayout(orientation='horizontal', size_hint_y=None, height=self.STRIPE_HEIGHT, spacing=dp(6))
 
         left = BoxLayout(orientation='horizontal', size_hint_x=None, width=self.left_col_width, spacing=dp(6))
         left.add_widget(Widget(size_hint_x=None, width=self.INDENT * level))
-        # Optional property icon (non-collapsible rows)
+        
+        # Icon display using _icon_button (handles loading from IconLoader with fallback to text)
         if icon_name:
             try:
-                icon_widget = self._icon_button(icon_name, '·', lambda *_: None)
-            except Exception:
-                icon_widget = None
-            if icon_widget is not None:
+                icon_widget = self._icon_button(icon_name, icon_name, lambda *_: None)
                 left.add_widget(icon_widget)
+            except Exception:
+                # Ultimate fallback to default icon if something goes wrong
+                try:
+                    icon_widget = self._icon_button('property', '·', lambda *_: None)
+                    left.add_widget(icon_widget)
+                except Exception:
+                    pass
+        
         # Small adjustable spacer before the key label
         left.add_widget(Widget(size_hint_x=None, width=dp(self.indent_px)))
         display_key = self._humanize_label(key_text)
-        k = Label(text=f'{display_key}:', color=tc, size_hint_x=1, halign='left', valign='middle')
+        
+        label_text = f'{display_key}:'
+        
+        k = Label(text=label_text, color=tc, size_hint_x=1, halign='left', valign='middle')
         k.bind(size=k.setter('text_size'))
+        
         left.add_widget(k)
 
         right = BoxLayout(orientation='horizontal', size_hint_x=1, spacing=dp(6))
@@ -1081,10 +1144,16 @@ class PropertyTreeEditor(BoxLayout):
 
         row.add_widget(left)
         row.add_widget(right)
+        
+        # Register row for tooltip display if tooltip exists
+        if tooltip:
+            self._tooltip_rows[row] = tooltip
+        
         return row, right
 
-    def _build_scalar_row(self, key: str, value: Any, path: Tuple[Union[str, int], ...], level: int):
-        row, right = self._make_kv_row(level, key, icon_name='property')
+    def _build_scalar_row(self, key: str, value: Any, path: Tuple[Union[str, int], ...], level: int, 
+                          icon_name: Optional[str] = None, tooltip: Optional[str] = None):
+        row, right = self._make_kv_row(level, key, icon_name=icon_name or 'property', tooltip=tooltip)
         vtxt = str(value)
         if len(vtxt) > 128:
             vtxt = vtxt[:125] + '...'
@@ -1094,8 +1163,9 @@ class PropertyTreeEditor(BoxLayout):
         right.add_widget(v)
         self._finalize_row(row)
 
-    def _build_string_row(self, key: str, value: str, path: Tuple[Union[str, int], ...], level: int):
-        row, right = self._make_kv_row(key_text=key, level=level, icon_name='property')
+    def _build_string_row(self, key: str, value: str, path: Tuple[Union[str, int], ...], level: int, 
+                          icon_name: Optional[str] = None, tooltip: Optional[str] = None):
+        row, right = self._make_kv_row(key_text=key, level=level, icon_name=icon_name or 'property', tooltip=tooltip)
         _tc = self._row_text_color()
         lbl = Label(text=value or '', color=_tc, halign='left', valign='middle')
         lbl.bind(size=lbl.setter('text_size'))
@@ -1105,8 +1175,9 @@ class PropertyTreeEditor(BoxLayout):
         row.bind(on_touch_down=lambda inst, touch: self._on_row_edit_touch(inst, touch, path, 'str', value))
         self._finalize_row(row, path)
 
-    def _build_color_row(self, key: str, value: str, path: Tuple[Union[str, int], ...], level: int):
-        row, right = self._make_kv_row(key_text=key, level=level, icon_name='colorproperty')
+    def _build_color_row(self, key: str, value: str, path: Tuple[Union[str, int], ...], level: int, 
+                         icon_name: Optional[str] = None, tooltip: Optional[str] = None):
+        row, right = self._make_kv_row(key_text=key, level=level, icon_name=icon_name or 'colorproperty', tooltip=tooltip)
         # Draw a color bar as a padded button-like area that spans the right column height
         container = BoxLayout(orientation='vertical', size_hint=(1, 1), padding=dp(4))
         color_widget = Widget(size_hint=(1, 1))
@@ -1131,34 +1202,60 @@ class PropertyTreeEditor(BoxLayout):
         row.bind(on_touch_down=lambda inst, touch: self._on_row_edit_touch(inst, touch, path, 'color', value))
         self._finalize_row(row)
 
-    def _build_int_row(self, key: str, value: int, path: Tuple[Union[str, int], ...], level: int):
-        row, right = self._make_kv_row(key_text=key, level=level, icon_name='property')
-        lbl = Label(text=str(int(value)), color=self._row_text_color(), halign='left', valign='middle')
+    def _build_int_row(self, key: str, value: int, path: Tuple[Union[str, int], ...], level: int, 
+                       icon_name: Optional[str] = None, tooltip: Optional[str] = None, edit_options: dict = None):
+        row, right = self._make_kv_row(key_text=key, level=level, icon_name=icon_name or 'property', tooltip=tooltip)
+        # Handle None values for optional fields
+        if value is None:
+            display_text = "None (inherit)"
+        else:
+            display_text = str(int(value))
+        lbl = Label(text=display_text, color=self._row_text_color(), halign='left', valign='middle')
         lbl.bind(size=lbl.setter('text_size'))
         right.add_widget(lbl)
         row.bind(on_touch_down=lambda inst, touch: self._on_row_edit_touch(inst, touch, path, 'int', value))
         self._finalize_row(row, path)
 
-    def _build_float_row(self, key: str, value: float, path: Tuple[Union[str, int], ...], level: int):
-        row, right = self._make_kv_row(key_text=key, level=level, icon_name='property')
-        lbl = Label(text=_fmt_float(float(value)), color=self._row_text_color(), halign='left', valign='middle')
+    def _build_float_row(self, key: str, value: float, path: Tuple[Union[str, int], ...], level: int, 
+                         icon_name: Optional[str] = None, tooltip: Optional[str] = None, edit_options: dict = None):
+        row, right = self._make_kv_row(key_text=key, level=level, icon_name=icon_name or 'property', tooltip=tooltip)
+        # Handle None values for optional fields
+        if value is None:
+            display_text = "None (inherit)"
+        else:
+            display_text = _fmt_float(float(value))
+        lbl = Label(text=display_text, color=self._row_text_color(), halign='left', valign='middle')
         lbl.bind(size=lbl.setter('text_size'))
         right.add_widget(lbl)
         row.bind(on_touch_down=lambda inst, touch: self._on_row_edit_touch(inst, touch, path, 'float', value))
         self._finalize_row(row, path)
 
     def _build_literal_choice_row(self, key: str, current: str, choices: List[str], parent: Any,
-                                  attr_name: str, path: Tuple[Union[str, int], ...], level: int):
-        row, right = self._make_kv_row(key_text=key, level=level, icon_name='property')
-
-        # Show current selection as an icon if available; fallback to text
-        icon_name = self._literal_icon_name(attr_name, current)
-        def open_popup(*_):
-            self._open_literal_choice_popup(path, attr_name, current, choices)
-
-        if icon_name:
+                                   attr_name: str, path: Tuple[Union[str, int], ...], level: int, 
+                                   icon_name: Optional[str] = None, tooltip: Optional[str] = None,
+                                   choice_labels: Optional[List[str]] = None, 
+                                   choice_icons: Optional[List[str]] = None):
+        row, right = self._make_kv_row(key_text=key, level=level, icon_name=icon_name or 'property', tooltip=tooltip)
+        
+        # Get icon for current selection - first from metadata, then fallback to hardcoded mapping
+        current_icon_name = None
+        if choice_icons and current in choices:
             try:
-                btn = self._icon_button(icon_name, current, lambda *_: open_popup())
+                idx = choices.index(current)
+                if idx < len(choice_icons):
+                    current_icon_name = choice_icons[idx]
+            except Exception:
+                pass
+        if current_icon_name is None:
+            current_icon_name = self._literal_icon_name(attr_name, current)
+        
+        def open_popup(*_):
+            self._open_literal_choice_popup(path, attr_name, current, choices, 
+                                           choice_labels=choice_labels, choice_icons=choice_icons)
+
+        if current_icon_name:
+            try:
+                btn = self._icon_button(current_icon_name, current, lambda *_: open_popup())
             except Exception:
                 btn = Button(text=current, background_normal='', background_down='',
                              background_color=TRANSPARENT, color=self._row_text_color())
@@ -1169,11 +1266,13 @@ class PropertyTreeEditor(BoxLayout):
             btn.bind(on_press=open_popup)
         right.add_widget(btn)
         # Also allow clicking anywhere in the row to open the popup
-        row.bind(on_touch_down=lambda inst, touch: self._on_row_literal_touch(inst, touch, path, attr_name, current, choices))
+        row.bind(on_touch_down=lambda inst, touch: self._on_row_literal_touch(inst, touch, path, attr_name, current, choices, 
+                                                                                choice_labels, choice_icons))
         self._finalize_row(row)
 
-    def _build_bool_row(self, key: str, value_bool: bool, path: Tuple[Union[str, int], ...], level: int):
-        row, right = self._make_kv_row(key_text=key, level=level, icon_name='property')
+    def _build_bool_row(self, key: str, value_bool: bool, path: Tuple[Union[str, int], ...], level: int, 
+                        icon_name: Optional[str] = None, tooltip: Optional[str] = None):
+        row, right = self._make_kv_row(key_text=key, level=level, icon_name=icon_name or 'property', tooltip=tooltip)
         cb = CheckBox(active=bool(value_bool), size_hint=(None, None), size=(dp(22), dp(22)))
         # Commit boolean True/False directly so JSON writes 'true/false' and Python model keeps bools
         cb.bind(active=lambda inst, a: self._commit_value(path, bool(a)))
@@ -1181,10 +1280,9 @@ class PropertyTreeEditor(BoxLayout):
         self._finalize_row(row)
 
     def _build_number_list_row(self, key: str, values: List[Union[int, float]],
-                               path: Tuple[Union[str, int], ...], level: int):
-        row, right = self._make_kv_row(key_text=key, level=level, icon_name='property')
-
-        # Show a compact preview like: [ 1 2 3 ] and open a dialog on click
+                                path: Tuple[Union[str, int], ...], level: int, 
+                                icon_name: Optional[str] = None, tooltip: Optional[str] = None):
+        row, right = self._make_kv_row(key_text=key, level=level, icon_name=icon_name or 'property', tooltip=tooltip)        # Show a compact preview like: [ 1 2 3 ] and open a dialog on click
         bl = Label(text='[', color=self._row_text_color(), size_hint_x=None, width=dp(10), halign='center', valign='middle')
         bl.bind(size=bl.setter('text_size'))
         right.add_widget(bl)
@@ -1218,17 +1316,21 @@ class PropertyTreeEditor(BoxLayout):
         self._open_number_list_dialog(path, values, is_float_list)
         return True
 
-    def _on_row_literal_touch(self, row: Widget, touch, path, attr_name: str, current: str, choices: List[str]):
+    def _on_row_literal_touch(self, row: Widget, touch, path, attr_name: str, current: str, choices: List[str],
+                              choice_labels: Optional[List[str]] = None, choice_icons: Optional[List[str]] = None):
         if not row.collide_point(*touch.pos):
             return False
         # Avoid triggering when clicking on interactive children (like buttons)
         if hasattr(touch, 'grab_current') and touch.grab_current is not None:
             return False
-        self._open_literal_choice_popup(path, attr_name, current, choices)
+        self._open_literal_choice_popup(path, attr_name, current, choices, 
+                                       choice_labels=choice_labels, choice_icons=choice_icons)
         return True
 
     def _open_literal_choice_popup(self, path: Tuple[Union[str, int], ...], attr_name: str,
-                                   current: str, choices: List[str]):
+                                   current: str, choices: List[str],
+                                   choice_labels: Optional[List[str]] = None,
+                                   choice_icons: Optional[List[str]] = None):
         prompt = f'Set {self._path_to_prompt(path)}:'
         content = BoxLayout(orientation='vertical', spacing=dp(12), padding=dp(12))
 
@@ -1243,9 +1345,19 @@ class PropertyTreeEditor(BoxLayout):
             self._commit_value(path, choice)
             popup.dismiss()
 
-        for ch in choices:
-            # Try to use icon; fallback to text '^'/'v'
-            icon_name = self._literal_icon_name(attr_name, ch)
+        for i, ch in enumerate(choices):
+            # Get icon from metadata first, then fallback to hardcoded mapping
+            icon_name = None
+            if choice_icons and i < len(choice_icons):
+                icon_name = choice_icons[i]
+            if icon_name is None:
+                icon_name = self._literal_icon_name(attr_name, ch)
+            
+            # Get label from metadata if available
+            display_text = ch
+            if choice_labels and i < len(choice_labels):
+                display_text = choice_labels[i]
+            
             tile = PropertyTreeEditor.ChoiceTile(size_hint=(None, None), size=(BTN_SIZE, BTN_SIZE))
             # Draw solid background to ensure contrast and place content above it
             try:
@@ -1260,19 +1372,27 @@ class PropertyTreeEditor(BoxLayout):
             except Exception:
                 pass
 
-            # Centered content: icon or text
+            # Centered content: icon, emoji, or text
             added = False
             if icon_name:
-                try:
-                    icon = IconLoader.load_icon(icon_name)
-                    if icon is not None and getattr(icon, 'texture', None) is not None:
-                        img = Image(texture=icon.texture, size_hint=(None, None), size=(ICON_SIZE, ICON_SIZE))
-                        tile.add_widget(img)
-                        added = True
-                except Exception:
-                    added = False
+                # Check if it's an emoji (single character or emoji sequence)
+                if len(icon_name) <= 4 and not icon_name.isalnum():  # Likely emoji
+                    lbl = Label(text=icon_name, color=WHITE, font_size=sp(24))
+                    lbl.bind(size=lbl.setter('text_size'))
+                    tile.add_widget(lbl)
+                    added = True
+                else:
+                    # Try to load as icon from IconLoader
+                    try:
+                        icon = IconLoader.load_icon(icon_name)
+                        if icon is not None and getattr(icon, 'texture', None) is not None:
+                            img = Image(texture=icon.texture, size_hint=(None, None), size=(ICON_SIZE, ICON_SIZE))
+                            tile.add_widget(img)
+                            added = True
+                    except Exception:
+                        added = False
             if not added:
-                lbl = Label(text=str(ch), color=WHITE)
+                lbl = Label(text=display_text, color=WHITE)
                 lbl.bind(size=lbl.setter('text_size'))
                 tile.add_widget(lbl)
 
@@ -1364,7 +1484,8 @@ class PropertyTreeEditor(BoxLayout):
             pass
 
 
-    def _build_list_object_row(self, key: str, lst: List[Any], path: Tuple[Union[str, int], ...], level: int):
+    def _build_list_object_row(self, key: str, lst: List[Any], path: Tuple[Union[str, int], ...], level: int, 
+                                icon_name: Optional[str] = None, tooltip: Optional[str] = None):
         tc = self._row_text_color()
         # Header for the list
         header_path = path
@@ -1377,20 +1498,22 @@ class PropertyTreeEditor(BoxLayout):
         btn = self._icon_button('sub' if opened else 'add', '-' if opened else '+', lambda *_: self._toggle_node(header_path))
         left.add_widget(btn)
 
-        # If this is an Event.* list, show the corresponding tool icon before the title
-        event_icon_name = None
-        try:
-            if isinstance(key, str) and (key in getattr(Event, '__dataclass_fields__', {})):
-                event_icon_name = self._event_icon_name_for_key(key)
-        except Exception:
-            event_icon_name = None
-        if event_icon_name:
+        # Use provided icon_name, or try to detect Event.* icon
+        display_icon_name = icon_name
+        if display_icon_name is None:
             try:
-                icon_w = self._icon_button(event_icon_name, '·', lambda *_: None)
+                if isinstance(key, str) and (key in getattr(Event, '__dataclass_fields__', {})):
+                    display_icon_name = self._event_icon_name_for_key(key)
             except Exception:
-                icon_w = None
-            if icon_w is not None:
+                display_icon_name = None
+        
+        # Display icon if we have one using _icon_button (handles IconLoader with text fallback)
+        if display_icon_name:
+            try:
+                icon_w = self._icon_button(display_icon_name, display_icon_name, lambda *_: None)
                 left.add_widget(icon_w)
+            except Exception:
+                pass
 
         # small adjustable spacer before the list title button
         left.add_widget(Widget(size_hint_x=None, width=dp(self.indent_px)))
@@ -1435,6 +1558,75 @@ class PropertyTreeEditor(BoxLayout):
             # Empty lists are ambiguous; treat as numeric only when not under Event
             return False
         return all(_is_number(x) for x in lst)
+
+    def _get_field_metadata(self, parent_obj: Any, attr_name: Union[str, int]) -> dict:
+        '''Extract UI metadata from dataclass field.
+        
+        Returns dict with:
+            - tree_icon: str (default 'property')
+            - tree_label: str (default attr_name)
+            - tree_tooltip: str (default '')
+            - tree_editable: bool (default True)
+            - tree_edit_type: str (default None, will auto-detect)
+            - tree_edit_options: dict (default {})
+        '''
+        metadata = {}
+        
+        if is_dataclass(parent_obj) and isinstance(attr_name, str):
+            try:
+                for f in fields(parent_obj):
+                    # Check both the property name and private version (e.g., 'color' and '_color')
+                    if f.name == attr_name or f.name == f'_{attr_name}':
+                        metadata = f.metadata
+                        break
+            except Exception:
+                pass
+        
+        return {
+            'tree_icon': metadata.get('tree_icon', 'property'),
+            'tree_label': metadata.get('tree_label', str(attr_name)),
+            'tree_tooltip': metadata.get('tree_tooltip', ''),
+            'tree_editable': metadata.get('tree_editable', True),
+            'tree_edit_type': metadata.get('tree_edit_type', None),
+            'tree_edit_options': metadata.get('tree_edit_options', {}),
+        }
+
+    def _auto_detect_edit_type(self, value: Any, parent_obj: Any, attr_name: Union[str, int]) -> str:
+        '''Auto-detect edit type from value if metadata doesn't specify it.
+        
+        Returns one of: 'int', 'float', 'bool', 'text', 'color', 'choice', 'list', 'readonly'
+        '''
+        # Check for Literal choices (becomes 'choice')
+        if is_dataclass(parent_obj) and isinstance(attr_name, str):
+            choices = self._field_literal_choices(parent_obj, attr_name)
+            if choices:
+                return 'choice'
+        
+        # Check for boolean alias (field ending with '?')
+        try:
+            if isinstance(attr_name, str):
+                alias_is_bool = self._key_json_name_ends_with_qmark(parent_obj, attr_name)
+                if alias_is_bool and (isinstance(value, bool) or (isinstance(value, int) and not isinstance(value, bool))):
+                    return 'bool'
+        except Exception:
+            pass
+        
+        # Type-based detection
+        if isinstance(value, bool):
+            return 'bool'
+        if isinstance(value, list):
+            return 'list'
+        if isinstance(value, str):
+            if HEX_COLOR_RE.match(value or ''):
+                return 'color'
+            return 'text'
+        if isinstance(value, int):
+            return 'int'
+        if isinstance(value, float):
+            return 'float'
+        
+        # Default to readonly for complex types
+        return 'readonly'
 
     def _json_field_name(self, f) -> str:
         try:

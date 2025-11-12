@@ -262,6 +262,9 @@ class GUI(BoxLayout):
         self.property_tree = PropertyTreeEditor()
         self.center_split.set_left(self.editor)
         self.center_split.set_right(self.property_tree)
+        
+        # Connect property tree to sash for tooltip display
+        self.property_tree.tooltip_sash = self.center_split.sash
 
         # RIGHT: PrintView
         self.print_view = PrintView()
@@ -383,11 +386,9 @@ class GUI(BoxLayout):
                 pass
 
     def on_exit(self):
-        try:
-            from kivy.app import App
-            App.get_running_app().stop()
-        except Exception:
-            pass
+        """Exit the application with unsaved changes check."""
+        # Use file manager's exit_app which guards against unsaved changes
+        self.file_manager.exit_app()
 
     def on_about(self):
         ...

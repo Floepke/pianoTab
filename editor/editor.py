@@ -47,7 +47,7 @@ class Editor(
     '''
     
     def __init__(self, editor_canvas: Canvas, score: SCORE = None, gui=None):
-        self.canvas: Canvas = editor_canvas  # Fixed: use consistent attribute name
+        self.canvas: Canvas = editor_canvas
         self.score: SCORE = None  # Will be initialized via new_score() or load_score()
         self.gui = gui
         
@@ -520,6 +520,17 @@ class Editor(
         # First, let selection manager try to handle (for copy/paste/delete/arrows/escape)
         if self.selection_manager.on_key_press(key, x, y):
             return True
+        
+        # If Escape wasn't handled by selection (no active selection), request app exit
+        if key == 'escape':
+            try:
+                from kivy.app import App
+                app = App.get_running_app()
+                if hasattr(app, 'file_manager') and app.file_manager:
+                    app.file_manager.exit_app()
+                    return True
+            except Exception:
+                return False
         
         # Otherwise, dispatch to active tool
         if self.tool_manager:

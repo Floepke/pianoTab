@@ -8,6 +8,7 @@ and selection manipulation (copy, cut, paste, delete, move, transpose).
 from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, List, Dict, Any, Tuple
 from kivy.core.window import Window
+from gui.colors import ACCENT_COLOR_HEX
 
 if TYPE_CHECKING:
     from editor.editor import Editor
@@ -89,6 +90,8 @@ class SelectionManager:
             
             # Clear any previous selection
             self.clear_selection()
+
+            self.editor.canvas.delete_by_tag('cursor')
             
             return True  # Consume event - don't let tool handle it
         
@@ -155,11 +158,10 @@ class SelectionManager:
                 y1_mm=y1,
                 x2_mm=x2,
                 y2_mm=y2,
-                fill=True,
-                fill_color='#3380FF33',  # Light blue transparent
+                fill=False,  # Light blue transparent
                 outline=True,
-                outline_color='#3380FFFF',  # Blue outline (solid, fully opaque)
-                outline_width_mm=0.5,  # Thicker so it's visible
+                outline_color=ACCENT_COLOR_HEX,  # Blue outline (solid, fully opaque)
+                outline_width_mm=0.25,  # Thicker so it's visible
                 tags={'selection_rect'}
             )
             

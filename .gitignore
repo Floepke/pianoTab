@@ -12,6 +12,6 @@ venv/
 
 # Project artifacts
 piano_files/
+tests/
 
 # Ignore built/packaged assets
-# (add more as needed)

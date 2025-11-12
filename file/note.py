@@ -8,30 +8,171 @@ if TYPE_CHECKING:
 @dataclass_json
 @dataclass
 class Note:
-    '''
-    Musical note event with automatic property inheritance.
+    '''Musical note event with automatic property inheritance.'''
     
-    Set values naturally:
-        note.color = '#AAAAAA'  # Explicit color
-        note.color = None       # Inherit from globalNote.color
+    id: int = field(
+        default=0,
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'Unique note identifier',
+            'tree_editable': False,  # IDs shouldn't be edited
+            'tree_edit_type': 'readonly',
+        }
+    )
     
-    Access values directly:
-        actual_color = note.color  # Auto-resolves inheritance
-    '''
-    id: int = 0
-    time: float = 0.0
-    duration: float = field(default=256.0, metadata=config(field_name='duration'))
-    pitch: int = 40
-    velocity: int = field(default=80, metadata=config(field_name='velocity'))
-    articulation: List[Articulation] = field(default_factory=list, metadata=config(field_name='art'))
-    hand: Literal['<', '>'] = '>'
+    time: float = field(
+        default=0.0,
+        metadata={
+            **config(field_name='time'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'Start time in time units',
+            'tree_edit_type': 'float',
+            'tree_edit_options': {
+                'min': 0.0,
+                'step': 1.0,
+            }
+        }
+    )
     
-    # Storage fields for inherited properties (serialize to JSON with clean names)
-    _color: Optional[str] = field(default=None, metadata=config(field_name='color'))
-    _colorMidiLeftNote: Optional[str] = field(default=None, metadata=config(field_name='colorMidiLeftNote'))
-    _colorMidiRightNote: Optional[str] = field(default=None, metadata=config(field_name='colorMidiRightNote'))
-    _blackNoteDirection: Optional[Literal['^', 'v']] = field(default=None, metadata=config(field_name='blackNoteDirection'))
-    _stemLengthMm: Optional[float] = field(default=None, metadata=config(field_name='stemLengthMm'))
+    duration: float = field(
+        default=256.0,
+        metadata={
+            **config(field_name='duration'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'Note duration in time units',
+            'tree_edit_type': 'float',
+            'tree_edit_options': {
+                'min': 1.0,
+                'step': 1.0,
+            }
+        }
+    )
+    
+    pitch: int = field(
+        default=40,
+        metadata={
+            'tree_icon': 'accidental',
+            'tree_tooltip': 'MIDI pitch (36=C2, 60=C4, 84=C6)',
+            'tree_edit_type': 'int',
+            'tree_edit_options': {
+                'min': 0,
+                'max': 127,
+                'step': 1,
+            }
+        }
+    )
+    
+    velocity: int = field(
+        default=80,
+        metadata={
+            **config(field_name='velocity'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'Note velocity/dynamics (0-127, only affects MIDI playback)',
+            'tree_edit_type': 'int',
+            'tree_edit_options': {
+                'min': 0,
+                'max': 127,
+                'step': 1,
+            }
+        }
+    )
+    
+    articulation: List[Articulation] = field(
+        default_factory=list,
+        metadata={
+            **config(field_name='art'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'List of articulations applied to this note',
+            'tree_edit_type': 'list',  # Expandable list in tree
+        }
+    )
+    
+    hand: Literal['<', '>'] = field(
+        default='>',
+        metadata={
+            **config(field_name='hand'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'Hand assignment: < = left hand, > = right hand',
+            'tree_edit_type': 'choice',
+            'tree_edit_options': {
+                'choices': ['<', '>'],
+                'choice_labels': ['Left Hand', 'Right Hand'],
+                'choice_icons': ['noteLeft', 'noteRight'],
+            }
+        }
+    )
+    
+    _color: Optional[str] = field(
+        default=None,
+        metadata={
+            **config(field_name='color'),
+            'tree_icon': 'colorproperty',
+            'tree_tooltip': 'Color of the note head (None = inherit from globalNote)',
+            'tree_edit_type': 'color',
+            'tree_edit_options': {
+                'allow_none': True,  # Can be set to None for inheritance
+            }
+        }
+    )
+    
+    _colorMidiLeftNote: Optional[str] = field(
+        default=None,
+        metadata={
+            **config(field_name='colorMidiLeftNote'),
+            'tree_icon': 'colorproperty',
+            'tree_label': 'MIDI Color (Left)',  # Override display name
+            'tree_tooltip': 'Color of MIDI rectangle for left hand notes',
+            'tree_edit_type': 'color',
+            'tree_edit_options': {
+                'allow_none': True,
+            }
+        }
+    )
+    
+    _colorMidiRightNote: Optional[str] = field(
+        default=None,
+        metadata={
+            **config(field_name='colorMidiRightNote'),
+            'tree_icon': 'colorproperty',
+            'tree_label': 'MIDI Color (Right)',  # Override display name
+            'tree_tooltip': 'Color of MIDI rectangle for right hand notes',
+            'tree_edit_type': 'color',
+            'tree_edit_options': {
+                'allow_none': True,
+            }
+        }
+    )
+    
+    _blackNoteDirection: Optional[Literal['^', 'v']] = field(
+        default=None,
+        metadata={
+            **config(field_name='blackNoteDirection'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'Stem direction for black notes',
+            'tree_edit_type': 'choice',
+            'tree_edit_options': {
+                'choices': ['^', 'v', None],
+                'choice_labels': ['Up', 'Down', 'Inherit'],
+                'choice_icons': ['blacknoteup', 'blacknotedown', 'previous'],
+            }
+        }
+    )
+    
+    _stemLengthMm: Optional[float] = field(
+        default=None,
+        metadata={
+            **config(field_name='stemLengthMm'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'Length of note stem in millimeters',
+            'tree_edit_type': 'float',
+            'tree_edit_options': {
+                'min': 0.0,
+                'max': 50.0,
+                'step': 0.5,
+                'allow_none': True,  # None = inherit
+            }
+        }
+    )
 
     def __post_init__(self):
         '''Initialize score reference as a non-dataclass attribute.'''

@@ -58,8 +58,8 @@ class SCORE:
     quarterNoteUnit: float = 256.0
 
     def __post_init__(self):
-        # Initialize ID generator starting from 0:
-        self._id = IDGenerator(start_id=0)
+        # Initialize ID generator starting from 1:
+        self._id = IDGenerator(start_id=1)
 
         # Ensure there's always a 'locked' lineBreak at time 0:
         if not self.lineBreak or not any(lb.time == 0.0 and lb.type == 'locked' for lb in self.lineBreak):
@@ -333,7 +333,7 @@ class SCORE:
 
     def renumber_id(self) -> None:
         '''Renumber all events across all staves with sequential IDs.'''
-        self._id.reset(0)
+        self._id.reset(1)  # Start renumbering from ID 1
         
         # Get event type names directly from the Event dataclass
         event_types = list(Event.__dataclass_fields__.keys())
@@ -453,18 +453,6 @@ class SCORE:
                             return data_key
                     except Exception:
                         pass
-                # # Fallback: parse string repr for data_key/field_name messed up code
-                # try:
-                #     s = str(cfg)
-                #     import re as _re
-                #     m = _re.search(r'data_key=['\']([^'\']+)['\']', s)
-                #     if m:
-                #         return m.group(1)
-                #     m2 = _re.search(r'field_name=['\']([^'\']+)['\']', s)
-                #     if m2:
-                #         return m2.group(1)
-                # except Exception:
-                #     pass
         except Exception:
             pass
         return f.name

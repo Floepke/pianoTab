@@ -7,11 +7,24 @@ import sys
 import os
 
 os.environ['KIVY_METRICS_DENSITY'] = '1.5'
-# Try to force a specific window provider to avoid issues
-os.environ['KIVY_WINDOW'] = 'sdl2'
-# Disable vsync which can cause hanging
-os.environ['KIVY_GL_BACKEND'] = 'gl'
-# Additional environment variables to help with stability
+
+# Platform-specific OpenGL backend configuration
+if sys.platform == 'win32':
+    # Windows: Use ANGLE (DirectX-based) for best compatibility
+    os.environ['KIVY_GL_BACKEND'] = 'angle_sdl2'
+    os.environ['KIVY_WINDOW'] = 'sdl2'
+    # Disable problematic features on Windows
+    os.environ['KIVY_GLES_LIMITS'] = '1'
+elif sys.platform == 'darwin':
+    # macOS: Native OpenGL works well
+    os.environ['KIVY_GL_BACKEND'] = 'gl'
+    os.environ['KIVY_WINDOW'] = 'sdl2'
+else:
+    # Linux: Native OpenGL is best
+    os.environ['KIVY_GL_BACKEND'] = 'gl'
+    os.environ['KIVY_WINDOW'] = 'sdl2'
+
+# Stability settings (all platforms)
 os.environ['KIVY_GL_DEBUG'] = '0'
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -29,22 +42,13 @@ except Exception:
 from kivy.config import Config
 
 # Configure Kivy before importing other Kivy modules
-Config.set('graphics', 'width', '3840')
-Config.set('graphics', 'height', '2160')
+Config.set('graphics', 'width', '1920')
+Config.set('graphics', 'height', '1080')
 Config.set('graphics', 'minimum_width', '800')
 Config.set('graphics', 'minimum_height', '600')
 Config.set('graphics', 'resizable', True)
+Config.set('graphics', 'gl_version', '1')
 # Config.set('graphics', 'multisamples', '2')  # Disable multisampling to avoid graphics issues
-
-# Platform-specific window state configuration
-import platform as py_platform
-if py_platform.system() == 'Linux':
-    # Keep config-based maximization disabled to avoid segfault
-    # Use only runtime maximization instead
-    pass
-else:
-    # Keep windowed for macOS and Windows for better compatibility
-    pass
 
 Config.set('kivy', 'keyboard_mode', '')
 # Disable vsync
@@ -61,9 +65,8 @@ Config.set('postproc', 'double_tap_distance', '20')
 # Disable multitouch emulation (prevents red circle on right-click)
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 
-# Enable Escape key exit behavior for development convenience
-# (SelectionManager handles Escape when selection is active, otherwise it closes the app)
-Config.set('kivy', 'exit_on_escape', '1')
+# Disable automatic Escape key exit - we'll handle it manually to check for unsaved changes
+Config.set('kivy', 'exit_on_escape', '0')
 
 from kivy.app import App
 from kivy.core.window import Window
@@ -76,7 +79,7 @@ from editor.editor import Editor
 from file.SCORE import SCORE
 from utils.file_manager import FileManager
 from utils.settings_manager import SettingsManager
-from utils.embedded_font import cleanup_embedded_fonts
+from font import load_embedded_font, cleanup_font, FONT_NAME, apply_default_font
 
 class pianoTAB(App):
     '''Main pianoTAB application.'''
@@ -89,12 +92,21 @@ class pianoTAB(App):
         self.editor = None
         self.gui = None
         self.file_manager = None
+        self._close_allowed = False  # Flag to control when app can actually close
         # App-wide settings available from anywhere via App.get_running_app().settings
         self.settings: SettingsManager = SettingsManager()
         self.settings.load()
     
     def build(self):
         '''Build and return the root widget - UI construction only.'''
+        # Load embedded font before creating any widgets
+        try:
+            load_embedded_font()
+            apply_default_font()
+            Logger.info(f'pianoTAB: Using embedded font: {FONT_NAME}')
+        except Exception as e:
+            Logger.warning(f'pianoTAB: Could not load embedded font: {e}')
+        
         # Window setup
         Window.clearcolor = DARK
         
@@ -110,9 +122,9 @@ class pianoTAB(App):
         from kivy.utils import platform
         if platform == 'linux':
             try:
-                # Use a safer delayed maximization approach for Linux
-                Clock.schedule_once(self._safe_maximize_linux, 1.0)
-                Logger.info('pianoTAB: Scheduled safe window maximization for Linux')
+                # Use immediate maximization
+                Clock.schedule_once(self._safe_maximize_linux, 0)
+                Logger.info('pianoTAB: Scheduled window maximization for Linux')
             except Exception as e:
                 Logger.warning(f'pianoTAB: Could not schedule window maximization: {e}')
         
@@ -151,7 +163,7 @@ class pianoTAB(App):
         # Create initial score once canvas is ready (event-driven)
         def _initialize_score():
             # Load test file on startup
-            test_file = '/home/floepie/Documents/pianoTab/piano_files/unknown.piano'
+            test_file = '/home/floepie/Documents/pianoTab/test.piano'
             
             if os.path.exists(test_file):
                 self.file_manager.load_file_manually(test_file)
@@ -179,6 +191,12 @@ class pianoTAB(App):
         # Bind global keyboard shortcuts for zooming
         try:
             Window.bind(on_key_down=self._on_key_down)
+        except Exception:
+            pass
+        
+        # Bind window close request to handle unsaved changes
+        try:
+            Window.bind(on_request_close=self.on_request_close)
         except Exception:
             pass
 
@@ -307,6 +325,39 @@ class pianoTAB(App):
         except Exception:
             Logger.debug('pianoTAB: Fullscreen/maximize not supported on this platform')
     
+    def on_request_close(self, window, *args, **kwargs):
+        '''Handle window close request (including window manager close button).
+        
+        Returns False to prevent immediate close, allowing save dialog to show.
+        The file_manager will call self.stop() after handling unsaved changes.
+        '''
+        # If close was already approved (by file_manager calling stop()), allow it
+        if self._close_allowed:
+            Logger.info('pianoTAB: Close approved, allowing window to close')
+            return False  # Return False means "allow close"
+        
+        Logger.info('pianoTAB: Window close requested, checking for unsaved changes')
+        # Use file manager's exit routine which guards unsaved changes
+        if self.file_manager:
+            # This will show the dialog and eventually call self.stop() if user confirms
+            self.file_manager.exit_app()
+            # Return True to prevent immediate close - dialog will handle it
+            Logger.info('pianoTAB: Blocking close to show save dialog')
+            return True  # Return True means "prevent close"
+        else:
+            # No file manager, allow close
+            Logger.info('pianoTAB: No file manager, allowing close')
+            self._close_allowed = True
+            return False  # Allow close
+    
+    def stop(self, *args, **kwargs):
+        '''Override stop to set the close_allowed flag and close the window.'''
+        Logger.info('pianoTAB: stop() called, allowing close')
+        self._close_allowed = True
+        # Close the window which will trigger on_request_close again, but this time it will be allowed
+        Window.close()
+        return super().stop(*args, **kwargs)
+    
     def on_stop(self):
         '''Cleanup when app is closing.'''
         Logger.info('pianoTAB: Application stopping')
@@ -321,7 +372,7 @@ class pianoTAB(App):
         
         # Clean up temporary font files
         try:
-            cleanup_embedded_fonts()
+            cleanup_font()
             Logger.info('pianoTAB: Cleaned up temporary font files')
         except Exception as e:
             Logger.warning(f'pianoTAB: Could not clean up font files: {e}')
