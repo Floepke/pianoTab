@@ -134,7 +134,7 @@ class SettingsManager:
     # Internal ------------------------------------------------------------
     def _safe_write(self, data: Dict[str, Any]) -> None:
         try:
-            # Write atomically via a temp file
+            # Write automically via a temp file
             tmp = self.path.with_suffix(self.path.suffix + '.tmp')
             tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
             tmp.replace(self.path)

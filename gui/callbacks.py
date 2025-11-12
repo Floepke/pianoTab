@@ -47,7 +47,10 @@ class AppCallbacks(Protocol):
     def on_export_pdf(self) -> None: ...
     def on_exit(self) -> None: ...
 
-    # Edit menu (currently implemented subset)
+    # Edit menu
+    def on_cut(self) -> None: ...
+    def on_copy(self) -> None: ...
+    def on_paste(self) -> None: ...
     def on_draw_thinnest_line(self) -> None: ...
 
     # Help menu
@@ -83,22 +86,21 @@ def create_menu_config(app_instance: AppCallbacks) -> MenuConfig:
     return {
         'File': {
             'New': partial(callback_new, app_instance),
-            'Load...': (partial(callback_load, app_instance), 'cmd / ctrl + o'),
+            'Load': (partial(callback_load, app_instance), 'cmd / ctrl + o'),
             'Save': partial(callback_save, app_instance),
-            'Save as...': partial(callback_save_as, app_instance),
-            'Export to PDF...': partial(callback_export_pdf, app_instance),
-            '---': None,  # Separator
+            'Save as': partial(callback_save_as, app_instance),
+            '---1': None,  # Separator (unique key)
+            'Export to PDF': partial(callback_export_pdf, app_instance),
+            '---2': None,  # Separator (unique key)
             'Exit': partial(callback_exit, app_instance),
         },
         'Edit': {
             'Undo': None,  # TODO: Implement
             'Redo': None,  # TODO: Implement
-            '---': None,   # Separator
-            'Cut': None,   # TODO: Implement
-            'Copy': None,  # TODO: Implement
-            'Paste': None, # TODO: Implement
-            '---': None,
-            'Draw thinnest line (Editor)': partial(callback_draw_thinnest_line, app_instance),
+            '---1': None,   # Separator
+            'Cut': (partial(callback_cut, app_instance), 'Ctrl+X'),
+            'Copy': (partial(callback_copy, app_instance), 'Ctrl+C'),
+            'Paste': (partial(callback_paste, app_instance), 'Ctrl+V'),
         },
         'Help': {
             'About': partial(callback_about, app_instance),
@@ -221,8 +223,16 @@ def callback_exit(app: AppCallbacks) -> None:
     _invoke(app, ('on_exit',), lambda _a: _not_implemented('Exit')())
 
 
-def callback_draw_thinnest_line(app: AppCallbacks) -> None:
-    _invoke(app, ('on_draw_thinnest_line',), lambda _a: _not_implemented('Draw thinnest line (Editor)')())
+def callback_cut(app: AppCallbacks) -> None:
+    _invoke(app, ('on_cut',), lambda _a: _not_implemented('Cut')())
+
+
+def callback_copy(app: AppCallbacks) -> None:
+    _invoke(app, ('on_copy',), lambda _a: _not_implemented('Copy')())
+
+
+def callback_paste(app: AppCallbacks) -> None:
+    _invoke(app, ('on_paste',), lambda _a: _not_implemented('Paste')())
 
 
 def callback_about(app: AppCallbacks) -> None:

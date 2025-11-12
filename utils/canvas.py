@@ -1066,7 +1066,7 @@ class Canvas(Widget):
         if item_handle in self._draw_order:
             self._draw_order.remove(item_handle)
 
-    def get_item_at_position(self, x_px: float, y_px: float) -> Optional[int]:
+    def get_topmost_item_at_position(self, x_px: float, y_px: float) -> Optional[int]:
         """
         Find the topmost canvas item at the given pixel position.
         
@@ -1089,6 +1089,32 @@ class Canvas(Widget):
                 return item_id
         
         return None
+
+    def get_all_items_at_position(self, x_px: float, y_px: float) -> list[int]:
+        """
+        Find ALL canvas items at the given pixel position (not just topmost).
+        
+        Args:
+            x_px: X position in pixels
+            y_px: Y position in pixels
+            
+        Returns:
+            List of item IDs (ordered from top to bottom), or empty list if none
+        """
+        items_at_position = []
+        
+        # Iterate through items in reverse order (top to bottom)
+        for item_id in reversed(self._draw_order):
+            if item_id not in self._items:
+                continue
+            
+            item = self._items[item_id]
+            
+            # Check if point is within item bounds
+            if self._point_in_item(x_px, y_px, item):
+                items_at_position.append(item_id)
+        
+        return items_at_position
 
     def _point_in_item(self, x_px: float, y_px: float, item: dict) -> bool:
         """

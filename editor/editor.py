@@ -588,8 +588,6 @@ class Editor(
         Returns:
             True if event was handled
         """
-        from kivy.core.window import Window
-        print(f"Editor.handle_mouse_down: button={button}, modifiers={Window.modifiers}, pos=({x:.1f}, {y:.1f})")
         
         # Track which button is down and where
         self._mouse_button_down = button
@@ -672,7 +670,6 @@ class Editor(
         
         # Check if selection manager is handling drag
         if self._mouse_button_down == 'left' and self._mouse_down_pos:
-            print(f"Editor.handle_mouse_move: Checking selection drag, is_drawing_rect={self.selection_manager.is_drawing_rect}")
             if self.selection_manager.on_drag(x, y, self._mouse_down_pos[0], self._mouse_down_pos[1]):
                 return True  # Selection manager is handling the drag
         

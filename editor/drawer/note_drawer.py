@@ -350,7 +350,7 @@ class NoteDrawerMixin:
                 fill=True,
                 fill_color=color,
                 outline=False,
-                tags=['continuation_dot', base_tag]
+                tags=['leftdot', base_tag]
             )
             print('dot drawn at time:', dot_time)
 

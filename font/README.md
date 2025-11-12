@@ -9,6 +9,7 @@ This directory contains the embedded FiraCode-SemiBold font system for pianoTab.
 - **font_data.py** - Auto-generated base64 encoded font data (DO NOT EDIT)
 - **font_loader.py** - Loads and registers the embedded font with Kivy
 - **apply_font.py** - Configures Kivy widgets to use the font by default
+- **font_utils.py** - Utilities for working with FiraCode monospace font (width calculations, etc.)
 - **__init__.py** - Package exports
 
 ## How It Works
@@ -61,6 +62,27 @@ from font import FONT_NAME
 
 Label(text='Hello', font_name=FONT_NAME)
 ```
+
+## Monospace Width Calculations
+
+Since FiraCode is a monospace font, you can calculate exact text widths:
+
+```python
+from font import calculate_text_width, prevent_label_wrap
+
+# Calculate width for specific text
+width = calculate_text_width('00:00:00', font_size='14sp', padding=16)
+
+# Create label with exact width to prevent wrapping
+label = Label(text='00:00:00', size_hint_x=None, width=width)
+prevent_label_wrap(label)  # Sets text_size to prevent wrapping
+```
+
+This is especially useful for:
+- Clock displays
+- Menu items
+- Fixed-width UI elements
+- Code displays
 
 ## Benefits
 

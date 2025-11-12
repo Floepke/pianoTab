@@ -264,7 +264,7 @@ class GridSelector(BoxLayout):
         
         # Grid step display label
         self.grid_label = Label(
-            text='Grid Unit: 256.0',
+            text='Unit: 256.0',
             size_hint_y=None,
             height=self.widget_height,
             font_size='16sp',
@@ -313,7 +313,7 @@ class GridSelector(BoxLayout):
         self.add_widget(gridlist_container)
         
         # Subdivision section - bottom DARK_LIGHTER rounded box with centered labels (÷ and number)
-        # Layout: [ - button | centered (÷  value) | + button ]
+        # Layout: [ - button | centered (÷ value) | + button ]
         # Buttons are vertically centered relative to the box; labels centered in the box.
         subdiv_container = SubdivContainer(self,
             orientation='horizontal',
@@ -364,9 +364,9 @@ class GridSelector(BoxLayout):
         left_spacer = _W(size_hint_x=1)
         right_spacer = _W(size_hint_x=1)
 
-        # Unified clickable label: '÷   <number>'
+        # Unified clickable label: '÷ <number>'
         self.subdiv_combo_label = ClickableLabel(
-            text=f'÷   {int(self.subdivision)}',
+            text=f'÷ {int(self.subdivision)}',
             size_hint=(None, None),
             height=56,
             font_size='24sp',
@@ -459,7 +459,7 @@ class GridSelector(BoxLayout):
         '''Reflect subdivision change into UI and fire callback.'''
         # Update unified label text
         if hasattr(self, 'subdiv_combo_label'):
-            self.subdiv_combo_label.text = f'÷   {int(self.subdivision)}'
+            self.subdiv_combo_label.text = f'÷ {int(self.subdivision)}'
         self.update_grid_step_label()
         if self.callback:
             self.callback(self.current_grid_step)
@@ -489,7 +489,7 @@ class GridSelector(BoxLayout):
         if '.' not in grid_text:
             grid_text += '.0'
         
-        self.grid_label.text = f'Grid Unit: {grid_text}'
+        self.grid_label.text = f'Unit: {grid_text}'
     
     def get_grid_step(self):
         '''Calculate and return current grid step value in piano ticks.'''

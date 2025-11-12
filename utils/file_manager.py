@@ -14,12 +14,14 @@ from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.textinput import TextInput
 from kivy.metrics import dp
 from kivy.logger import Logger
+from kivy.properties import ObjectProperty
 import shutil
 
 from gui.colors import DARK, DARK_LIGHTER, LIGHT
 from kivy.core.window import Window
 from file.SCORE import SCORE
 from typing import Any
+from font import FONT_NAME  # Import font name for Popup titles
 
 
 DEFAULT_EXT = '.piano'
@@ -28,6 +30,26 @@ FILE_FILTERS = ['*.piano']
 # Max size for Load/Save popups (tweak here to fine-tune on large screens like 4K)
 LOAD_SAVE_MAX_WIDTH = 1400
 LOAD_SAVE_MAX_HEIGHT = 900
+
+
+class IconFileChooserListView(FileChooserListView):
+    '''FileChooserListView with icons for folders and .piano files.'''
+    
+    def _create_entry_widget(self, entry):
+        """Override to add icons to file/folder names."""
+        # Call parent to create the default entry
+        widget = super()._create_entry_widget(entry)
+        
+        # Find the label showing the filename
+        for child in widget.walk():
+            if isinstance(child, Label):
+                # Add icon prefix based on entry type
+                # entry is a dict with keys: name, size, path, isdir, etc.
+                if entry.get('name', '').endswith('.piano'):
+                    child.text = '♪ ' + child.text
+                break
+        
+        return widget
 
 
 class LoadDialog(BoxLayout):
@@ -57,7 +79,7 @@ class LoadDialog(BoxLayout):
         self.add_widget(self.path_label)
         
         # File chooser
-        self.file_chooser = FileChooserListView(
+        self.file_chooser = IconFileChooserListView(
             path=start_path,
             filters=FILE_FILTERS,
             size_hint=(1, 1),
@@ -316,7 +338,7 @@ class LoadDialog(BoxLayout):
         btn_row.add_widget(ok_btn)
         content.add_widget(btn_row)
         
-        popup = Popup(title=title, content=content, size_hint=(None, None), size=(dp(400), dp(200)))
+        popup = Popup(title=title, content=content, size_hint=(None, None), size=(dp(400), dp(200)), title_font=FONT_NAME)
         cancel_btn.bind(on_release=popup.dismiss)
         ok_btn.bind(on_release=lambda *args: (callback(text_input.text), popup.dismiss()))
         
@@ -348,7 +370,7 @@ class LoadDialog(BoxLayout):
         btn_row.add_widget(yes_btn)
         content.add_widget(btn_row)
         
-        popup = Popup(title='Confirm', content=content, size_hint=(None, None), size=(dp(350), dp(170)))
+        popup = Popup(title='Confirm', content=content, size_hint=(None, None), size=(dp(350), dp(170)), title_font=FONT_NAME)
         no_btn.bind(on_release=popup.dismiss)
         yes_btn.bind(on_release=lambda *args: (callback(), popup.dismiss()))
         
@@ -376,7 +398,7 @@ class LoadDialog(BoxLayout):
         ok_btn = Button(text='OK', size_hint_y=None, height=dp(40), background_normal='', background_color=DARK, color=LIGHT)
         content.add_widget(ok_btn)
         
-        popup = Popup(title='Error', content=content, size_hint=(None, None), size=(dp(350), dp(170)))
+        popup = Popup(title='Error', content=content, size_hint=(None, None), size=(dp(350), dp(170)), title_font=FONT_NAME)
         ok_btn.bind(on_release=popup.dismiss)
         
         # Keyboard handling
@@ -418,7 +440,7 @@ class SaveDialog(BoxLayout):
         self.add_widget(self.path_label)
         
         # File chooser
-        self.file_chooser = FileChooserListView(
+        self.file_chooser = IconFileChooserListView(
             path=start_path,
             filters=FILE_FILTERS,
             dirselect=True,  # Allow folder selection
@@ -692,7 +714,7 @@ class SaveDialog(BoxLayout):
         btn_row.add_widget(ok_btn)
         content.add_widget(btn_row)
         
-        popup = Popup(title=title, content=content, size_hint=(None, None), size=(dp(400), dp(200)))
+        popup = Popup(title=title, content=content, size_hint=(None, None), size=(dp(400), dp(200)), title_font=FONT_NAME)
         cancel_btn.bind(on_release=popup.dismiss)
         ok_btn.bind(on_release=lambda *args: (callback(text_input.text), popup.dismiss()))
         
@@ -724,7 +746,7 @@ class SaveDialog(BoxLayout):
         btn_row.add_widget(yes_btn)
         content.add_widget(btn_row)
         
-        popup = Popup(title='Confirm', content=content, size_hint=(None, None), size=(dp(350), dp(170)))
+        popup = Popup(title='Confirm', content=content, size_hint=(None, None), size=(dp(350), dp(170)), title_font=FONT_NAME)
         no_btn.bind(on_release=popup.dismiss)
         yes_btn.bind(on_release=lambda *args: (callback(), popup.dismiss()))
         
@@ -752,7 +774,7 @@ class SaveDialog(BoxLayout):
         ok_btn = Button(text='OK', size_hint_y=None, height=dp(40), background_normal='', background_color=DARK, color=LIGHT)
         content.add_widget(ok_btn)
         
-        popup = Popup(title='Error', content=content, size_hint=(None, None), size=(dp(350), dp(170)))
+        popup = Popup(title='Error', content=content, size_hint=(None, None), size=(dp(350), dp(170)), title_font=FONT_NAME)
         ok_btn.bind(on_release=popup.dismiss)
         
         # Keyboard handling
@@ -833,7 +855,8 @@ class FileManager:
                 content=content,
                 size_hint=(None, None),
                 size=(target_w, target_h),
-                auto_dismiss=False
+                auto_dismiss=False,
+                title_font=FONT_NAME
             )
             self._popup.open()
         
@@ -920,7 +943,8 @@ class FileManager:
             content=content,
             size_hint=(None, None),
             size=(target_w, target_h),
-            auto_dismiss=False
+            auto_dismiss=False,
+            title_font=FONT_NAME
         )
         self._popup.open()
 
@@ -1161,7 +1185,8 @@ def _dialog_shell(title: str, inner, *, btns: list[Button]) -> Popup:
         size_hint=(None, None),
         size=(500, 260),  # Larger dialog with more vertical space
         auto_dismiss=False,
-        separator_height=4  # Clear separation between title and content
+        separator_height=4,  # Clear separation between title and content
+        title_font=FONT_NAME
     )
     root.add_widget(inner)
     btn_row = BoxLayout(orientation='horizontal', size_hint_y=None, height=44, spacing=12)

@@ -356,7 +356,7 @@ class SCORE:
                 data = self._to_dict_with_bool_aliases()
             except Exception:
                 data = self.to_dict()
-            json.dump(data, f, ensure_ascii=True, indent=4)
+            json.dump(data, f, ensure_ascii=True, separators=(',', ':'))
     
     @classmethod
     def load(cls, filename: str) -> 'SCORE':

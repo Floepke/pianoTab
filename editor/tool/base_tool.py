@@ -191,6 +191,7 @@ class BaseTool(ABC):
     def get_element_at_position(self, x: float, y: float, element_types=None):
         """
         Find score element at the given position using canvas item hit detection.
+        Ignores cursor items and returns the first real element found.
         
         Args:
             x, y: Position in canvas coordinates (mm)
@@ -209,57 +210,63 @@ class BaseTool(ABC):
         x_px = x * self.editor.canvas._px_per_mm
         y_px = y * self.editor.canvas._px_per_mm
         
-        # Get canvas item ID at this position
-        item_id = self.editor.canvas.get_item_at_position(x_px, y_px)
+        # Get ALL canvas items at this position (not just topmost)
+        item_ids = self.editor.canvas.get_all_items_at_position(x_px, y_px)
         
-        if item_id is None:
+        if not item_ids:
             return (None, None, None)
         
-        # Get tags from the canvas item
-        tags = self.editor.canvas.get_tags(item_id)
-        
-        if not tags:
-            return (None, None, None)
-        
-        # Parse tags to determine element type and ID
-        # Tags format: ['element_type', 'element_id'] or ['cursor']
-        element_type = None
-        element_id = None
-        
-        for tag in tags:
-            # Skip special tags
-            if tag in ('cursor', 'cursorLine', 'select/edit'):
+        # Iterate through all items, skipping cursor/temporary items
+        for item_id in item_ids:
+            # Get tags from the canvas item
+            tags = self.editor.canvas.get_tags(item_id)
+            
+            if not tags:
                 continue
             
-            # Check if it's a numeric ID
-            if tag.isdigit():
-                element_id = int(tag)
-            # Check if it's an element type tag
-            elif tag in ('notehead', 'midinote', 'stem', 'leftdot', 'beam', 'slur', 
-                        'tempo', 'text', 'barline', 'gracenote'):
-                element_type = tag
+            # Skip cursor and temporary tags
+            if any(tag in ('cursor', 'cursorLine', 'select/edit', 'stem') for tag in tags):
+                continue
+            
+            # Parse tags to determine element type and ID
+            # Tags format: ['element_type', 'element_id']
+            element_type = None
+            element_id = None
+            
+            for tag in tags:
+                # Check if it's a numeric ID
+                if tag.isdigit():
+                    element_id = int(tag)
+                # Check if it's an element type tag
+                elif tag in ('notehead', 'midinote', 'leftdot', 'beam', 'slur', 
+                            'tempo', 'text', 'barline', 'gracenote'):
+                    element_type = tag
+            
+            # If we didn't find a valid element in this item, continue to next
+            if element_id is None or element_type is None:
+                continue
+            
+            # Normalize element type
+            normalized_type = self._normalize_element_type(element_type)
+            
+            # Filter by element types if specified
+            if element_types is not None and normalized_type not in element_types:
+                continue
+            
+            # Use SCORE.find_by_id() to get the element
+            element = self.editor.score.find_by_id(element_id)
+            
+            if element is None:
+                continue
+            
+            # Find which stave contains this element
+            stave_idx = self._find_stave_for_element(element)
+            
+            # Found a valid element - return it
+            return (element, normalized_type, stave_idx)
         
-        # If we didn't find a valid element, return None
-        if element_id is None or element_type is None:
-            return (None, None, None)
-        
-        # Normalize element type
-        normalized_type = self._normalize_element_type(element_type)
-        
-        # Filter by element types if specified
-        if element_types is not None and normalized_type not in element_types:
-            return (None, None, None)
-        
-        # Use SCORE.find_by_id() to get the element
-        element = self.editor.score.find_by_id(element_id)
-        
-        if element is None:
-            return (None, None, None)
-        
-        # Find which stave contains this element
-        stave_idx = self._find_stave_for_element(element)
-        
-        return (element, normalized_type, stave_idx)
+        # No valid element found at this position
+        return (None, None, None)
 
     def _normalize_element_type(self, canvas_tag: str) -> str:
         """Convert canvas tag to normalized element type name."""

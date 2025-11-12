@@ -35,8 +35,7 @@ class SCORE:
         articulation: List[Articulation] = [],
         hand: Literal['<', '>'] = ">",
         color: Optional[str] = None,
-        colorMidiLeftNote: Optional[str] = None,
-        colorMidiRightNote: Optional[str] = None,
+        colorMidiNote: Optional[str] = None,
         blackNoteDirection: Optional[Literal['^', 'v']] = None,
         stemLengthMm: Optional[float] = None,
     ) -> Note: ...

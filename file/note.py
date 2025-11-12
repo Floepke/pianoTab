@@ -52,11 +52,11 @@ class Note:
         default=40,
         metadata={
             'tree_icon': 'accidental',
-            'tree_tooltip': 'MIDI pitch (36=C2, 60=C4, 84=C6)',
+            'tree_tooltip': 'pianoTAB pitch (key 1-88, C4=40, A4=49)',
             'tree_edit_type': 'int',
             'tree_edit_options': {
-                'min': 0,
-                'max': 127,
+                'min': 1,
+                'max': 88,
                 'step': 1,
             }
         }
@@ -115,27 +115,13 @@ class Note:
         }
     )
     
-    _colorMidiLeftNote: Optional[str] = field(
+    _colorMidiNote: Optional[str] = field(
         default=None,
         metadata={
-            **config(field_name='colorMidiLeftNote'),
+            **config(field_name='colorMidiNote'),
             'tree_icon': 'colorproperty',
-            'tree_label': 'MIDI Color (Left)',  # Override display name
-            'tree_tooltip': 'Color of MIDI rectangle for left hand notes',
-            'tree_edit_type': 'color',
-            'tree_edit_options': {
-                'allow_none': True,
-            }
-        }
-    )
-    
-    _colorMidiRightNote: Optional[str] = field(
-        default=None,
-        metadata={
-            **config(field_name='colorMidiRightNote'),
-            'tree_icon': 'colorproperty',
-            'tree_label': 'MIDI Color (Right)',  # Override display name
-            'tree_tooltip': 'Color of MIDI rectangle for right hand notes',
+            'tree_label': 'MIDI Color',
+            'tree_tooltip': 'Color of MIDI rectangle (inherits from globalNote based on hand)',
             'tree_edit_type': 'color',
             'tree_edit_options': {
                 'allow_none': True,
@@ -194,54 +180,47 @@ class Note:
         '''Set color - use None to reset to inheritance.'''
         self._color = value
     
-    # Property: colorMidiLeftNote
-    @property
-    def colorMidiLeftNote(self) -> str:
-        '''Get left MIDI note color - inherits from globalNote.colorLeftMidiNote if None.'''
-        if self._colorMidiLeftNote is not None:
-            return self._colorMidiLeftNote
-        if self.score is None:
-            print('Warning: Note has no score reference for property inheritance.')
-            return '#000000'  # Fallback if no score reference
-        return self.score.properties.globalNote.colorLeftMidiNote
-    
-    @colorMidiLeftNote.setter
-    def colorMidiLeftNote(self, value: Optional[str]):
-        '''Set left MIDI note color - use None to reset to inheritance.'''
-        self._colorMidiLeftNote = value
-    
-    # Property: colorMidiRightNote
-    @property
-    def colorMidiRightNote(self) -> str:
-        '''Get right MIDI note color - inherits from globalNote.colorRightMidiNote if None.'''
-        if self._colorMidiRightNote is not None:
-            return self._colorMidiRightNote
-        if self.score is None:
-            print('Warning: Note has no score reference for property inheritance.')
-            return '#000000'  # Fallback if no score reference
-        return self.score.properties.globalNote.colorRightMidiNote
-    
-    @colorMidiRightNote.setter
-    def colorMidiRightNote(self, value: Optional[str]):
-        '''Set right MIDI note color - use None to reset to inheritance.'''
-        self._colorMidiRightNote = value
-    
-    # Property: colorMidiNote (hand-dependent inheritance - deprecated, use colorMidiLeftNote/colorMidiRightNote)
+    # Property: colorMidiNote (hand-dependent inheritance)
     @property
     def colorMidiNote(self) -> str:
-        '''Get MIDI note color - inherits based on hand (left '<' or right '>').'''
+        '''Get MIDI note color - inherits from globalNote based on hand if None.'''
+        if self._colorMidiNote is not None:
+            return self._colorMidiNote
+        if self.score is None:
+            print('Warning: Note has no score reference for property inheritance.')
+            return '#000000'  # Fallback if no score reference
+        
+        # Inherit based on hand assignment
         if self.hand == '<':
-            return self.colorMidiLeftNote
+            return self.score.properties.globalNote.colorLeftMidiNote
         else:
-            return self.colorMidiRightNote
+            return self.score.properties.globalNote.colorRightMidiNote
     
     @colorMidiNote.setter
     def colorMidiNote(self, value: Optional[str]):
-        '''Set MIDI note color for current hand.'''
-        if self.hand == '<':
-            self._colorMidiLeftNote = value
-        else:
-            self._colorMidiRightNote = value
+        '''Set MIDI note color - use None to reset to inheritance.'''
+        self._colorMidiNote = value
+    
+    # Deprecated aliases for backward compatibility
+    @property
+    def colorMidiLeftNote(self) -> str:
+        '''[DEPRECATED] Use colorMidiNote instead. Returns MIDI color (hand-aware).'''
+        return self.colorMidiNote
+    
+    @colorMidiLeftNote.setter
+    def colorMidiLeftNote(self, value: Optional[str]):
+        '''[DEPRECATED] Use colorMidiNote instead.'''
+        self._colorMidiNote = value
+    
+    @property
+    def colorMidiRightNote(self) -> str:
+        '''[DEPRECATED] Use colorMidiNote instead. Returns MIDI color (hand-aware).'''
+        return self.colorMidiNote
+    
+    @colorMidiRightNote.setter
+    def colorMidiRightNote(self, value: Optional[str]):
+        '''[DEPRECATED] Use colorMidiNote instead.'''
+        self._colorMidiNote = value
     
     # Property: blackNoteDirection
     @property

@@ -350,6 +350,9 @@ class GUI(BoxLayout):
         except Exception:
             pass
         sp.set_snap_ratio_from_aspect(aspect_ratio)
+        
+        # Actually snap to the calculated position
+        Clock.schedule_once(self._simulate_snap_drag, 0.1)
 
     # ----- Compatibility API expected by App and menu callbacks -----
 
@@ -389,6 +392,45 @@ class GUI(BoxLayout):
         """Exit the application with unsaved changes check."""
         # Use file manager's exit_app which guards against unsaved changes
         self.file_manager.exit_app()
+
+    def on_cut(self):
+        """Cut selected elements (Ctrl+X)."""
+        from kivy.uix.popup import Popup
+        from kivy.uix.label import Label
+        
+        popup = Popup(
+            title='Info',
+            content=Label(text='Pasting finally requires mouse cursor position.\nUse Ctrl/Cmd + X/C/V for cut/copy/paste.'),
+            size_hint=(None, None),
+            size=(800, 200)
+        )
+        popup.open()
+
+    def on_copy(self):
+        """Copy selected elements (Ctrl+C)."""
+        from kivy.uix.popup import Popup
+        from kivy.uix.label import Label
+        
+        popup = Popup(
+            title='Info',
+            content=Label(text='Pasting finally requires mouse cursor position.\nUse Ctrl/Cmd + X/C/V for cut/copy/paste.'),
+            size_hint=(None, None),
+            size=(800, 200)
+        )
+        popup.open()
+
+    def on_paste(self):
+        """Paste elements from clipboard (Ctrl+V)."""
+        from kivy.uix.popup import Popup
+        from kivy.uix.label import Label
+        
+        popup = Popup(
+            title='Info',
+            content=Label(text='Pasting finally requires mouse cursor position.\nUse Ctrl/Cmd + X/C/V for cut/copy/paste.'),
+            size_hint=(None, None),
+            size=(800, 200)
+        )
+        popup.open()
 
     def on_about(self):
         ...
