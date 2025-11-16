@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from editor.editor import Editor
     from file.SCORE import SCORE
 
+# Import engraver for automatic rendering on score changes
+from engraver import get_engraver_instance
+
 
 class BaseTool(ABC):
     """Abstract base class for all editor tools."""
@@ -24,7 +27,7 @@ class BaseTool(ABC):
             editor: The Editor instance that owns this tool
         """
         self.editor = editor
-        self.score: SCORE = editor.score
+        # Don't cache score - always access via editor.score to get current value
         self.canvas = editor.canvas
         
         # Track mouse state for drag detection
@@ -35,15 +38,20 @@ class BaseTool(ABC):
         # Cursor state (shared by all tools - horizontal time line)
         self._cursor_time: Optional[float] = None
     
+    @property
+    def score(self) -> SCORE:
+        """Get the current score from the editor."""
+        return self.editor.score
+    
     # === Event Handlers (called by Editor) ===
     
     def on_left_click(self, x: float, y: float) -> bool:
         """
-        Handle left mouse button click (no drag).
-        
+        Called when the left mouse button is released without having dragged.
+
         Args:
             x, y: Mouse position in canvas coordinates
-            
+
         Returns:
             True if event was handled, False otherwise
         """
@@ -51,12 +59,12 @@ class BaseTool(ABC):
     
     def on_right_click(self, x: float, y: float) -> bool:
         """
-        Handle right mouse button click (no drag).
+        Called when the right mouse button is pressed.
         Default behavior: remove/delete element at position.
-        
+
         Args:
             x, y: Mouse position in canvas coordinates
-            
+
         Returns:
             True if event was handled, False otherwise
         """
@@ -64,14 +72,11 @@ class BaseTool(ABC):
     
     def on_left_unpress(self, x: float, y: float) -> bool:
         """
-        Handle left mouse button release without drag.
-        
-        Called when left button is pressed and released at approximately
-        the same position (no drag occurred).
-        
+        Called when the left mouse button is released without having dragged.
+
         Args:
             x, y: Mouse position in canvas coordinates
-            
+
         Returns:
             True if event was handled, False otherwise
         """
@@ -79,14 +84,11 @@ class BaseTool(ABC):
     
     def on_right_unpress(self, x: float, y: float) -> bool:
         """
-        Handle right mouse button release without drag.
-        
-        Called when right button is pressed and released at approximately
-        the same position (no drag occurred).
-        
+        Called when the right mouse button is released without having dragged.
+
         Args:
             x, y: Mouse position in canvas coordinates
-            
+
         Returns:
             True if event was handled, False otherwise
         """
@@ -94,11 +96,11 @@ class BaseTool(ABC):
     
     def on_left_press(self, x: float, y: float) -> bool:
         """
-        Handle left mouse button press (before drag).
-        
+        Called when the left mouse button is pressed.
+
         Args:
             x, y: Mouse position in canvas coordinates
-            
+
         Returns:
             True if event was handled, False otherwise
         """
@@ -108,42 +110,42 @@ class BaseTool(ABC):
     
     def on_right_release(self, x: float, y: float) -> bool:
         """
-        Handle right mouse button release.
-        
+        Called when the right mouse button is released.
+
         Args:
             x, y: Mouse position in canvas coordinates
-            
+
         Returns:
             True if event was handled, False otherwise
         """
         was_dragging = self._is_dragging
         self._mouse_down_pos = None
         self._is_dragging = False
-        
+
         # If there was no drag, trigger unpress event
         result = False
         if not was_dragging:
             result = self.on_right_unpress(x, y)
-        
+
         # Always call post-release hook (for drawing order updates, etc.)
         self.on_any_mouse_release(x, y, button='right', was_dragging=was_dragging)
-        
+
         return result
 
     def on_left_release(self, x: float, y: float) -> bool:
         """
-        Handle left mouse button release.
-        
+        Called when the left mouse button is released.
+
         Args:
             x, y: Mouse position in canvas coordinates
-            
+
         Returns:
             True if event was handled, False otherwise
         """
         was_dragging = self._is_dragging
         self._mouse_down_pos = None
         self._is_dragging = False
-        
+
         # If it was a drag, handle drag end first
         result = False
         if was_dragging:
@@ -151,20 +153,20 @@ class BaseTool(ABC):
         else:
             # No drag, trigger unpress event
             result = self.on_left_unpress(x, y)
-        
+
         # Always call post-release hook (for drawing order updates, etc.)
         self.on_any_mouse_release(x, y, button='left', was_dragging=was_dragging)
-        
+
         return result
     
     def on_drag_start(self, x: float, y: float, start_x: float, start_y: float) -> bool:
         """
-        Handle start of drag operation.
-        
+        Called when a drag operation begins (mouse moved beyond threshold while button down).
+
         Args:
             x, y: Current mouse position
             start_x, start_y: Position where drag started
-            
+
         Returns:
             True if event was handled, False otherwise
         """
@@ -172,12 +174,12 @@ class BaseTool(ABC):
     
     def on_drag(self, x: float, y: float, start_x: float, start_y: float) -> bool:
         """
-        Handle mouse drag (continuous movement with button down).
-        
+        Called during drag operation (continuous mouse movement with button down).
+
         Args:
             x, y: Current mouse position
             start_x, start_y: Position where drag started
-            
+
         Returns:
             True if event was handled, False otherwise
         """
@@ -185,11 +187,11 @@ class BaseTool(ABC):
     
     def on_drag_end(self, x: float, y: float) -> bool:
         """
-        Handle end of drag operation.
-        
+        Called when drag operation ends (button released after drag).
+
         Args:
             x, y: Final mouse position
-            
+
         Returns:
             True if event was handled, False otherwise
         """
@@ -197,11 +199,11 @@ class BaseTool(ABC):
     
     def on_any_mouse_release(self, x: float, y: float, button: str, was_dragging: bool) -> None:
         """
-        Called on every mouse release (left or right, drag or click).
-        
+        Called on every mouse button release (left or right, drag or click).
+
         This is useful for operations that need to happen after any mouse interaction,
         such as updating drawing order, refreshing displays, etc.
-        
+
         Args:
             x, y: Mouse position in canvas coordinates
             button: Which button was released ('left' or 'right')
@@ -212,38 +214,38 @@ class BaseTool(ABC):
     
     def on_mouse_move(self, x: float, y: float) -> bool:
         """
-        Handle mouse movement (no buttons pressed).
+        Called when mouse moves (no buttons pressed, or during drag detection).
         Useful for hover effects, cursor changes, etc.
-        
+
         Args:
             x, y: Mouse position in canvas coordinates
-            
+
         Returns:
             True if event was handled, False otherwise
         """
         # Update and draw the horizontal time cursor
         self._update_time_cursor(y)
-        
+
         # Check if we should start a drag
         if self._mouse_down_pos is not None:
             start_x, start_y = self._mouse_down_pos
             distance = ((x - start_x)**2 + (y - start_y)**2) ** 0.5
-            
+
             if distance > self._drag_threshold and not self._is_dragging:
                 self._is_dragging = True
                 return self.on_drag_start(x, y, start_x, start_y)
             elif self._is_dragging:
                 return self.on_drag(x, y, start_x, start_y)
-        
+
         return False
     
     def on_double_click(self, x: float, y: float) -> bool:
         """
-        Handle double-click event.
-        
+        Called on double-click.
+
         Args:
             x, y: Mouse position in canvas coordinates
-            
+
         Returns:
             True if event was handled, False otherwise
         """
@@ -345,7 +347,7 @@ class BaseTool(ABC):
             'barline': 'barline',
             'gracenote': 'gracenote',
         }
-        return tag_to_type.get(canvas_tag, canvas_tag)
+        return tag_to_type[canvas_tag] if canvas_tag in tag_to_type else canvas_tag
 
     def _find_stave_for_element(self, element) -> Optional[int]:
         """Find which stave contains the given element."""
@@ -369,6 +371,69 @@ class BaseTool(ABC):
             self.canvas.request_redraw()
         elif hasattr(self.editor, 'refresh'):
             self.editor.refresh()
+    
+    def trigger_engrave(self):
+        """
+        Trigger engraving of the current score for ALL canvases.
+        
+        Call this method after ANY modification to the SCORE model to
+        queue a layout calculation and rendering task.
+        
+        The engraver automatically handles:
+        - Running layout calculations in a background thread
+        - Discarding old render tasks when new changes arrive
+        - Drawing results on the canvas on the main thread
+        
+        Triggers engraving for:
+        - Editor canvas (main editing view)
+        - Print preview canvas (if available via editor.gui)
+        """
+        try:
+            # Safety check - don't engrave if score is None
+            if self.score is None:
+                print("BaseTool: Cannot trigger engrave - score is None")
+                return
+                
+            engraver = get_engraver_instance()
+            
+            # ONLY trigger for print preview canvas (not the editor canvas!)
+            # The editor has its own drawing system (piano roll)
+            if hasattr(self.editor, 'gui') and self.editor.gui:
+                preview_canvas = self.editor.gui.get_preview_widget()
+                if preview_canvas:
+                    engraver.do_engrave(
+                        score=self.score,
+                        canvas=preview_canvas,
+                        callback=self._on_preview_engrave_complete
+                    )
+        except Exception as e:
+            print(f"BaseTool: Failed to trigger engrave: {e}")
+    
+    def _on_engrave_complete(self, success: bool, error: Optional[str]):
+        """
+        Callback invoked when editor canvas engraving completes.
+        
+        Args:
+            success: True if engraving succeeded
+            error: Error message if success is False, None otherwise
+        """
+        if success:
+            print("BaseTool: Editor engraving completed successfully")
+        else:
+            print(f"BaseTool: Editor engraving failed: {error}")
+    
+    def _on_preview_engrave_complete(self, success: bool, error: Optional[str]):
+        """
+        Callback invoked when print preview canvas engraving completes.
+        
+        Args:
+            success: True if engraving succeeded
+            error: Error message if success is False, None otherwise
+        """
+        if success:
+            print("BaseTool: Preview engraving completed successfully")
+        else:
+            print(f"BaseTool: Preview engraving failed: {error}")
     
     # === Lifecycle Methods ===
     
@@ -590,13 +655,13 @@ class BaseTool(ABC):
         return self.editor.time_to_y(time_ticks)
     
     def on_key_press(self, key: str, x: float, y: float) -> bool:
-        """Handle key press events.
-        
+        """Called when a key is pressed.
+
         Args:
             key: The key that was pressed
             x: Current mouse x position in mm
             y: Current mouse y position in mm
-            
+
         Returns:
             True if the tool handled the key press, False otherwise
         """

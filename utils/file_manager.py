@@ -953,8 +953,20 @@ class FileManager:
         self._guard_unsaved_then(lambda: self.app.stop())
 
     def mark_dirty(self):
-        '''Mark the current file as having unsaved changes.'''
+        '''Mark the current file as having unsaved changes and trigger print preview update.'''
         self.dirty = True
+        
+        # Trigger engraver to update print preview
+        try:
+            from engraver import get_engraver_instance
+            score = self.get_score()
+            if score and hasattr(self, 'gui') and self.gui:
+                preview_canvas = self.gui.get_preview_widget()
+                if preview_canvas:
+                    engraver = get_engraver_instance()
+                    engraver.do_engrave(score, preview_canvas, None)
+        except Exception as e:
+            print(f"FileManager: Failed to trigger engraver: {e}")
 
     # Convenience: single place to access the current SCORE
     def get_score(self) -> Optional[SCORE]:

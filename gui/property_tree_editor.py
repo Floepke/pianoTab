@@ -371,7 +371,7 @@ class PropertyTreeEditor(BoxLayout):
             do_scroll_x=False,
             do_scroll_y=True,
             bar_width=0,
-            scroll_type=['bars', 'content'],
+            scroll_type=['bars'],  # Disable content scrolling to let CustomScrollbar handle mouse wheel
             effect_cls=ScrollEffect,  # Instant scroll without smoothing/damping
         )
 
@@ -456,6 +456,13 @@ class PropertyTreeEditor(BoxLayout):
         # For tree editor, nothing to redraw in canvas terms; just update ScrollView position.
         self._apply_scroll_px()
 
+    def _point_in_view_px(self, x_px: float, y_px: float) -> bool:
+        # Check if point is within the scrollable view area
+        right_boundary = self._view_x + self._view_w
+        return (self._view_x <= x_px <= right_boundary) and (
+            self._view_y <= y_px <= self._view_y + self._view_h
+        )
+
     def _update_border(self):
         # No border for tree editor; method present for CustomScrollbar compatibility.
         pass
@@ -504,6 +511,30 @@ class PropertyTreeEditor(BoxLayout):
         except Exception:
             pass
 
+    def on_touch_down(self, touch):
+        # Only handle mouse wheel if within the scrollable view area
+        if self._point_in_view_px(*touch.pos):
+            if hasattr(touch, 'button') and touch.button in ('scrollup', 'scrolldown'):
+                content_h = self._content_height_px()
+                if content_h > self._view_h:  # Only scroll if content taller than viewport
+                    step = 20  # Fixed step for property tree
+                    max_scroll = max(0.0, content_h - self._view_h)
+                    if touch.button == 'scrollup':
+                        # Scroll up (show lower content)
+                        new_scroll = min(max_scroll, self._scroll_px + step)
+                        self._scroll_px = new_scroll
+                    elif touch.button == 'scrolldown':
+                        # Scroll down (show higher content)
+                        new_scroll = max(0.0, self._scroll_px - step)
+                        self._scroll_px = new_scroll
+
+                    # Update ScrollView and scrollbar
+                    self._apply_scroll_px()
+                    self.custom_scrollbar.update_layout()
+                return True
+
+        return super().on_touch_down(touch)
+
     def _on_sv_scroll_y(self, *_):
         # When ScrollView changes (e.g., mouse wheel), sync _scroll_px so CustomScrollbar reflects it
         max_scroll = max(0, self._content_height_px() - self._view_h)
@@ -513,7 +544,7 @@ class PropertyTreeEditor(BoxLayout):
             self._scroll_px = max(0.0, min(max_scroll, (1.0 - float(self.sv.scroll_y)) * max_scroll))
         # Don't call update_layout() here - it causes scroll lag with large lists
         # The scrollbar will update itself when needed
-        
+
         # Clear tooltip when scrolling
         if self.tooltip_sash:
             self.tooltip_sash.tooltip_label.text = ''

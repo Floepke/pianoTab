@@ -15,8 +15,6 @@ from utils.CONSTANTS import DEFAULT_GRID_STEP_TICKS
 
 
 # Monkey-patch Popup to automatically reclaim canvas keyboard on dismiss
-_canvas_class_ref = None  # Will be set when Canvas class is defined
-
 def _setup_popup_keyboard_reclaim():
     '''Set up automatic keyboard reclaim when popups close.
     
@@ -27,23 +25,43 @@ def _setup_popup_keyboard_reclaim():
     try:
         from kivy.uix.popup import Popup
         
-        # Store original dismiss method
-        _original_popup_dismiss = Popup.dismiss
+        # Check if already patched
+        if hasattr(Popup, '_original_dismiss_method'):
+            return
         
-        def _patched_dismiss(self, *args, **kwargs):
+        # Store original dismiss as a class attribute
+        Popup._original_dismiss_method = Popup.dismiss
+        
+        def patched_dismiss(self, *args, **kwargs):
             '''Patched dismiss that reclaims canvas keyboard.'''
+            print(f"Popup.dismiss called (patched): {self.title if hasattr(self, 'title') else 'untitled'}")
+            
             # Call original dismiss
-            result = _original_popup_dismiss(self, *args, **kwargs)
+            result = Popup._original_dismiss_method(self, *args, **kwargs)
+
+            # Check for remaining popups after a small delay to ensure Kivy has
+            # fully removed this popup from the window hierarchy
+            def check_and_reclaim(dt):
+                from kivy.core.window import Window
+                from kivy.uix.popup import Popup
+                remaining_popups = [child for child in Window.children if isinstance(child, Popup)]
+                print(f"Popup.dismiss: {len(remaining_popups)} remaining popups after dismiss")
+                
+                if not remaining_popups:
+                    # No more popups, safe to reclaim keyboard
+                    from utils.canvas import Canvas
+                    Canvas.reclaim_keyboard_after_popup()
             
-            # Trigger canvas keyboard reclaim if Canvas class is ready
-            if _canvas_class_ref is not None:
-                _canvas_class_ref.reclaim_keyboard_after_popup()
-            
+            from kivy.clock import Clock
+            Clock.schedule_once(check_and_reclaim, 0.05)
+
             return result
-        
-        # Replace dismiss method
-        Popup.dismiss = _patched_dismiss
-        print("Canvas: Popup keyboard reclaim patch installed")
+
+        # Set the function name to match the original method name for Kivy bindings
+        patched_dismiss.__name__ = 'dismiss'
+
+        # Replace dismiss method on the class
+        Popup.dismiss = patched_dismiss
         
     except Exception as e:
         print(f"Canvas: Failed to patch Popup for keyboard reclaim: {e}")
@@ -318,10 +336,14 @@ class Canvas(Widget):
         This is bound globally to all Popup instances to ensure the canvas
         always regains keyboard focus after modal dialogs close.
         '''
+        print("Canvas: reclaim_keyboard_after_popup called")
         if cls._global_keyboard_canvas is not None:
             from kivy.clock import Clock
-            # Small delay to ensure popup is fully dismissed
-            Clock.schedule_once(lambda dt: cls._global_keyboard_canvas._reclaim_keyboard(), 0.05)
+            print("Canvas: Scheduling keyboard reclaim for global canvas")
+            # Delay to ensure popup is fully dismissed and TextInput has released keyboard
+            Clock.schedule_once(lambda dt: cls._global_keyboard_canvas._reclaim_keyboard(), 0.1)
+        else:
+            print("Canvas: No global keyboard canvas set, cannot reclaim")
 
     def __init__(
         self,
@@ -374,27 +396,25 @@ class Canvas(Widget):
 
         # Drawing containers
         with self.canvas:
-            # Clipping to view area
+            # Clipping to view area (push at the beginning)
             self._scissor = ScissorPush(x=0, y=0, width=0, height=0)
 
             # Background for visible viewport (widget area)
             self._bg_color_instr = Color(*self.background_color)
             self._bg_rect = Rectangle(pos=(0, 0), size=(0, 0))
 
-            # Layer groups will be added here in z-index order during initialization
-            # (no parent group needed - each layer is added directly to canvas)
-
             # Border drawn inside scissor (so it clips)
             self._border_color_instr = Color(*self.border_color)
             self._border_line = Line(rectangle=(0, 0, 0, 0), width=self.border_width_px)
-
-            # Close clipping
-            self._scissor_pop = ScissorPop()
 
         # Layer-based instruction groups (one group per z_index layer)
         # These are added to canvas in z-order, so layer 0 is behind layer 1, etc.
         self._layer_groups: Dict[int, InstructionGroup] = {}
         self._initialize_layer_groups()
+
+        # Close clipping after all layer groups (pop at the very end)
+        self._scissor_pop = ScissorPop()
+        self.canvas.add(self._scissor_pop)
 
         # Items and tags
         self._next_id: int = 1
@@ -515,11 +535,19 @@ class Canvas(Widget):
             if self._point_in_view_px(*touch.pos):
                 # Convert to mm
                 mm_x, mm_y = self._px_to_mm(*touch.pos)
-                button = getattr(touch, 'button', 'left')
+                button = getattr(touch, 'button', None)
+                
+                print(f"DEBUG Canvas._on_touch_up: button={button}, hasattr='button'={hasattr(touch, 'button')}, touch.uid={touch.uid}")
+                
+                # If no button attribute, it's probably a scroll event that lost its button attribute
+                if button is None:
+                    print(f"DEBUG Canvas._on_touch_up: No button attribute, ignoring")
+                    return result
                 
                 # Normalize button name
                 if button in ('scrollup', 'scrolldown'):
                     # Ignore scroll events - don't dispatch to editor
+                    print(f"DEBUG Canvas._on_touch_up: Ignoring scroll button release")
                     return result
                 elif button == 'right':
                     button_name = 'right'
@@ -527,6 +555,7 @@ class Canvas(Widget):
                     button_name = 'left'
                 
                 # Dispatch to editor
+                print(f"DEBUG Canvas._on_touch_up: Dispatching to editor.handle_mouse_up({mm_x}, {mm_y}, {button_name})")
                 try:
                     editor.handle_mouse_up(mm_x, mm_y, button_name)
                 except Exception as e:
@@ -1476,6 +1505,10 @@ class Canvas(Widget):
         pass
 
     def on_touch_down(self, touch):
+        # Debug: log all touch events
+        button = getattr(touch, 'button', None)
+        print(f"DEBUG Canvas.on_touch_down: button={button}, pos={touch.pos}, uid={touch.uid}")
+        
         # Only handle if inside our widget
         if not self.collide_point(*touch.pos):
             return super().on_touch_down(touch)
@@ -1490,13 +1523,22 @@ class Canvas(Widget):
 
         # Mouse wheel vertical scrolling in scale_to_width mode
         if self.scale_to_width and hasattr(touch, 'button') and touch.button in ('scrollup', 'scrolldown'):
+            print(f"DEBUG Canvas.on_touch_down: SCROLL EVENT detected, button={touch.button}")
             content_h = self._content_height_px()
             if content_h > self._view_h:  # scrolling only if content taller than viewport
+                print(f"DEBUG Canvas.on_touch_down: Processing scroll (content_h={content_h} > view_h={self._view_h})")
+                # Get mouse position in mm before scrolling
+                mm_before = self._px_to_mm(*touch.pos)
+                
                 # Calculate scroll step based on current grid step
                 grid_step_px = self._calculate_grid_step_pixels()
                 # Use exact grid step in pixels (rounded), allow fractional scales; clamp to at least 1px
                 step = max(1, int(round(grid_step_px)))
                 max_scroll = max(0.0, content_h - self._view_h)
+                
+                # Determine scroll direction
+                scroll_delta = step if touch.button == 'scrollup' else -step
+                
                 if touch.button == 'scrollup':
                     # macOS natural: scroll up gesture moves content down (show lower parts)
                     new_scroll = min(max_scroll, self._scroll_px + step)
@@ -1512,6 +1554,18 @@ class Canvas(Widget):
                 self._update_border()
                 # Update scrollbar to reflect new position
                 self.custom_scrollbar.update_layout()
+                
+                # Notify editor's selection manager about scroll (after redraw, so coordinates are updated)
+                mm_after = self._px_to_mm(*touch.pos)
+                editor = getattr(self, 'piano_roll_editor', None)
+                if editor is not None and hasattr(editor, 'selection_manager'):
+                    print(f"DEBUG Canvas.on_touch_down: Notifying selection_manager.on_scroll({mm_after[0]}, {mm_after[1]}, 0.0, {scroll_delta})")
+                    editor.selection_manager.on_scroll(
+                        mm_after[0], mm_after[1], 
+                        0.0,  # scroll_x (no horizontal scroll)
+                        scroll_delta  # scroll_y delta in pixels
+                    )
+            print(f"DEBUG Canvas.on_touch_down: Scroll event processed, returning True")
             return True
 
         # Convert to mm (top-left origin)
@@ -1642,9 +1696,11 @@ class Canvas(Widget):
         # No need to notify editor or trigger expensive recalculations - _redraw_all() 
         # handles everything efficiently with viewport culling.
 
-        # Update scissor and background rect
-        self._scissor.x = int(self._view_x)
-        self._scissor.y = int(self._view_y)
+        # Update scissor and background rect (scissor uses window coordinates)
+        window_x, _ = self.to_window(self._view_x, 0)
+        _, window_y = self.to_window(0, self._view_y)
+        self._scissor.x = int(window_x)
+        self._scissor.y = int(window_y)
         self._scissor.width = int(self._view_w)
         self._scissor.height = int(self._view_h)
 
@@ -1719,7 +1775,11 @@ class Canvas(Widget):
             # Only redraw items that intersect the visible range
             visible_count = 0
             for item_id, item_data in self._items.items():
-                if self._item_in_y_range(item_id, cull_y_min_mm, cull_y_max_mm):
+                # Always draw active UI elements like selection rectangle and cursor
+                tags = item_data.get('tags', set())
+                is_active_ui = 'selection_rect' in tags or 'cursorLine' in tags
+                
+                if is_active_ui or self._item_in_y_range(item_id, cull_y_min_mm, cull_y_max_mm):
                     self._redraw_item(item_id)
                     visible_count += 1
                 else:
@@ -2335,6 +2395,3 @@ class Canvas(Widget):
 
         return grid_step_pixels
 
-
-# Set the Canvas class reference for the Popup keyboard reclaim patch
-_canvas_class_ref = Canvas

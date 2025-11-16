@@ -27,7 +27,7 @@ class NoteDrawerMixin:
     '''
     
     # Threshold-based comparison operator for time values
-    _time_op = OperatorThreshold(threshold=0.001)
+    _time_op = OperatorThreshold(threshold=7.0)
     
     # Type hints for Editor attributes used by this mixin
     if TYPE_CHECKING:
@@ -352,7 +352,6 @@ class NoteDrawerMixin:
                 outline=False,
                 tags=['leftdot', base_tag]
             )
-            print('dot drawn at time:', dot_time)
 
     def _redraw_overlapping_notes(self, stave_idx: int, note: Note) -> None:
         '''Redraw all notes that overlap with the given note's time range.

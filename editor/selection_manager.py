@@ -8,6 +8,7 @@ and selection manipulation (copy, cut, paste, delete, move, transpose).
 from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, List, Dict, Any, Tuple
 from kivy.core.window import Window
+from kivy.clock import Clock
 from gui.colors import ACCENT_COLOR_HEX
 from utils import clipboard  # Musical element clipboard
 from utils.keyboard import matches_shortcut  # Cross-platform key matching
@@ -39,6 +40,15 @@ class SelectionManager:
         self.shift_pressed: bool = False
         self.shift_was_released_during_drag: bool = False
         
+        # Independent mouse button tracking to work around Kivy/SDL2 bugs
+        # We track button state ourselves and ignore spurious touch events
+        self._left_button_is_down: bool = False
+        self._right_button_is_down: bool = False
+        
+        # Track last drag position to detect spurious releases
+        self._last_drag_pos: Optional[Tuple[float, float]] = None
+        self._last_drag_time: float = 0.0
+        
         # Mouse position tracking for paste
         self._last_mouse_x: float = 0.0
         self._last_mouse_y: float = 0.0
@@ -54,8 +64,8 @@ class SelectionManager:
         """Called when Shift key is released."""
         self.shift_pressed = False
         
-        # If we're currently drawing a rectangle, mark that shift was released
-        # but don't stop the drawing - wait for mouse release
+        # If we're drawing, just mark that shift was released
+        # Don't finalize yet - wait for mouse release
         if self.is_drawing_rect:
             self.shift_was_released_during_drag = True
         
@@ -78,6 +88,11 @@ class SelectionManager:
         Returns:
             True if selection rectangle started (consume event), False otherwise
         """
+        # Track that left button is now down (independent tracking)
+        print(f"DEBUG SelectionManager: on_left_press() setting _left_button_is_down = True")
+        self._left_button_is_down = True
+        self._last_drag_pos = (x, y)
+        
         # Check if shift is actually held using Window modifiers (more reliable than tracking key events)
         shift_held = 'shift' in Window.modifiers
                 
@@ -96,7 +111,7 @@ class SelectionManager:
         
         return False  # Let tool handle the click
     
-    def on_drag(self, x: float, y: float, start_x: float, start_y: float) -> bool:
+    def on_left_drag(self, x: float, y: float) -> bool:
         """
         Called during mouse drag.
         
@@ -105,9 +120,56 @@ class SelectionManager:
         Returns:
             True if handling selection drag (consume event), False otherwise
         """
+        print(f"DEBUG SelectionManager: on_left_drag() _left_button_is_down={self._left_button_is_down}, is_drawing_rect={self.is_drawing_rect}")
+        
+        # Track the last drag position and time
+        from time import time
+        self._last_drag_pos = (x, y)
+        self._last_drag_time = time()
+        
+        # If we receive a drag event, the button is definitely still down
+        # This re-sets the flag if a spurious release cleared it
+        if self.is_drawing_rect:
+            self._left_button_is_down = True
+        
         if self.is_drawing_rect and self.rect_start is not None:
             # Update selection rectangle
             self._draw_selection_rect(self.rect_start[0], self.rect_start[1], x, y)
+            
+            # Auto-scroll when mouse is near the edge of the viewport (in widget pixels)
+            # This avoids the Kivy/SDL2 bug and provides better UX
+            canvas = self.editor.canvas
+            
+            # Convert mm mouse position to widget pixel coordinates
+            _, y_widget_px = canvas._mm_to_px_point(x, y)
+            
+            scroll_margin_px = 50  # pixels from edge to trigger auto-scroll
+            scroll_speed_mm = 2.5  # mm to scroll per drag event (half of original 5mm)
+            
+            # Get viewport bounds in px
+            viewport_bottom_px = canvas._view_y
+            viewport_top_px = canvas._view_y + canvas._view_h
+            
+            # Scroll down if near bottom of widget
+            if y_widget_px < viewport_bottom_px + scroll_margin_px:
+                content_height_px = canvas._content_height_px()
+                viewport_height_px = canvas.height
+                max_scroll = max(0, content_height_px - viewport_height_px)
+                new_scroll = min(max_scroll, canvas._scroll_px + scroll_speed_mm * canvas._px_per_mm)
+                canvas._scroll_px = new_scroll
+                canvas._redraw_all()
+                # Update scrollbar handle position
+                if hasattr(canvas, 'custom_scrollbar'):
+                    canvas.custom_scrollbar.update_layout()
+            # Scroll up if near top of widget
+            elif y_widget_px > viewport_top_px - scroll_margin_px:
+                new_scroll = max(0, canvas._scroll_px - scroll_speed_mm * canvas._px_per_mm)
+                canvas._scroll_px = new_scroll
+                canvas._redraw_all()
+                # Update scrollbar handle position
+                if hasattr(canvas, 'custom_scrollbar'):
+                    canvas.custom_scrollbar.update_layout()
+            
             return True  # Consume event
         
         return False  # Let tool handle the drag
@@ -121,11 +183,24 @@ class SelectionManager:
         Returns:
             True if finishing selection (consume event), False otherwise
         """
+        print(f"DEBUG SelectionManager: on_left_release() at ({x:.1f}, {y:.1f}), _left_button_is_down={self._left_button_is_down}, is_drawing_rect={self.is_drawing_rect}")
+        
+        # Ignore release if button wasn't down
+        if not self._left_button_is_down:
+            print("DEBUG: Ignoring release (button not down)")
+            return False
+        
+        # Process the release
+        print("DEBUG: Processing release, finalizing selection")
+        self._left_button_is_down = False
+        self._last_drag_pos = None
+        
         if self.is_drawing_rect and self.rect_start is not None:
             start_x, start_y = self.rect_start
             
             # Check if it's just a click (no drag) - clear selection
             distance = ((x - start_x)**2 + (y - start_y)**2) ** 0.5
+            
             if distance < 3.0:  # 3mm threshold
                 self.clear_selection()
             else:
@@ -141,6 +216,19 @@ class SelectionManager:
             return True  # Consume event
         
         return False  # Let tool handle the release
+    
+    def on_scroll(self, x: float, y: float, scroll_x: float, scroll_y: float) -> bool:
+        """
+        Called during mouse scroll (if scroll is enabled).
+        
+        During selection rectangle drawing, scroll is disabled at canvas level,
+        so this shouldn't be called. If it is called, just ignore it.
+        
+        Returns:
+            False to allow normal scroll handling
+        """
+        # Nothing to do - scrolling is disabled during selection
+        return False
     
     # === Selection Rectangle Drawing ===
     

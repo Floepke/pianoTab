@@ -194,6 +194,32 @@ class pianoTAB(App):
 
             # redraw_pianoroll because the editor initially draws it's pixels per quarter wrong.
             Clock.schedule_once(lambda dt: self.editor.redraw_pianoroll(), 0)
+            
+            # Trigger initial engraving for both canvases
+            def _trigger_initial_engrave(dt):
+                Logger.info('pianoTAB: Triggering initial engraving')
+                try:
+                    # Safety check - make sure score is loaded
+                    if self.editor.score is None:
+                        Logger.warning('pianoTAB: Cannot engrave - score is None')
+                        return
+                    
+                    from engraver import get_engraver_instance
+                    engraver = get_engraver_instance()
+                    
+                    # ONLY engrave print preview canvas (editor has its own drawing system)
+                    preview_canvas = self.gui.get_preview_widget()
+                    if preview_canvas:
+                        engraver.do_engrave(
+                            score=self.editor.score,
+                            canvas=preview_canvas
+                        )
+                except Exception as e:
+                    Logger.warning(f'pianoTAB: Initial engraving failed: {e}')
+                    import traceback
+                    traceback.print_exc()
+            
+            Clock.schedule_once(_trigger_initial_engrave, 0.2)
 
         try:
             self.editor.canvas.on_ready(_initialize_score)
@@ -226,15 +252,15 @@ class pianoTAB(App):
     def _on_properties_changed(self, score):
         '''Invoked by PropertyTreeEditor after edits.
         
-        Simply redraw the editor to reflect updated SCORE properties and mark dirty.
+        Marks file as dirty, which triggers engraving for print preview via FileManager.
+        Editor canvas uses its own drawing system (piano roll).
         '''
         try:
-            if self.editor is not None:
-                self.editor.redraw_pianoroll()
+            # Mark file as dirty (which will trigger engraving via FileManager.mark_dirty)
             if self.file_manager is not None:
                 self.file_manager.mark_dirty()
-        except Exception:
-            pass
+        except Exception as e:
+            Logger.warning(f'pianoTAB: Failed to mark dirty on property change: {e}')
 
     def _on_key_down(self, window, key, scancode, codepoint, modifiers):
         '''Handle global key presses for zooming.

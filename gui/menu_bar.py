@@ -220,31 +220,31 @@ class MenuBar(BoxLayout):
         return button
 
     def _add_hover_effect(self, btn, normal_bg, normal_fg):
-        '''Add hover effect to button that inverts background and text colors.'''
+        '''Add hover effect to button that highlights with ACCENT_COLOR.'''
         # Store original colors
         btn._normal_bg = normal_bg
         btn._normal_fg = normal_fg
-        
+
         def on_mouse_pos(window, pos):
             '''Check if mouse is over button and update colors.'''
             if btn.get_root_window():  # Only if button is still attached
                 if btn.collide_point(*btn.to_widget(*pos)):
-                    # Mouse over - invert colors
-                    btn.background_color = normal_fg
-                    btn.color = normal_bg
+                    # Mouse over - highlight with ACCENT_COLOR
+                    btn.background_color = ACCENT_COLOR
+                    btn.color = LIGHT
                 else:
                     # Mouse not over - restore normal colors
                     btn.background_color = normal_bg
                     btn.color = normal_fg
-        
+
         # Bind to window mouse position
         Window.bind(mouse_pos=on_mouse_pos)
-        
+
         # Clean up when button is removed
         def on_parent(instance, value):
             if value is None:  # Button removed from parent
                 Window.unbind(mouse_pos=on_mouse_pos)
-        
+
         btn.bind(parent=on_parent)
 
     def _add_menu_item(self, dropdown, text, value):

@@ -86,6 +86,10 @@ class NoteTool(BaseTool):
         """
         super().on_left_press(x, y)
         
+        # Clear any existing selection when starting to draw/edit a note
+        if hasattr(self.editor, 'selection_manager'):
+            self.editor.selection_manager.clear_selection()
+        
         # Guard: Prevent creating a new note if one is already being edited
         if self.edit_note is not None:
             print(f"NoteTool: Ignoring duplicate on_left_press (note {self.edit_note.id} already being edited)")
@@ -130,6 +134,10 @@ class NoteTool(BaseTool):
         # delete any existing cursor drawing
         self.editor.canvas.delete_by_tag('cursor')
         
+        # Mark as modified (which will trigger engraving via FileManager)
+        if hasattr(self.editor, 'on_modified') and self.editor.on_modified:
+            self.editor.on_modified()
+        
         print(f"NoteTool: Creating new note {self.edit_note.id}")
         return True
 
@@ -156,6 +164,8 @@ class NoteTool(BaseTool):
         # Delete any existing cursor drawing
         self.editor.canvas.delete_by_tag('cursor')
         
+        # Don't trigger engraver during drag - wait until drag ends
+        
         return True
 
     def on_left_unpress(self, x: float, y: float) -> bool:
@@ -174,7 +184,7 @@ class NoteTool(BaseTool):
         # Redraw overlapping notes to update their continuation dots
         self.editor._redraw_overlapping_notes(self.edit_stave_idx, self.edit_note)
         
-        # Mark as modified
+        # Mark as modified (which will trigger engraving via FileManager)
         if hasattr(self.editor, 'on_modified') and self.editor.on_modified:
             self.editor.on_modified()
         
@@ -233,7 +243,7 @@ class NoteTool(BaseTool):
                     temp_note = TempNote(note_time, note_duration, note_id, note_hand)
                     self.editor._redraw_overlapping_notes(stave_idx, temp_note)
                     
-                    # Mark as modified
+                    # Mark as modified (which will trigger engraving via FileManager)
                     if hasattr(self.editor, 'on_modified') and self.editor.on_modified:
                         self.editor.on_modified()
                     
@@ -275,7 +285,7 @@ class NoteTool(BaseTool):
         # Redraw overlapping notes to update their continuation dots
         self.editor._redraw_overlapping_notes(self.edit_stave_idx, self.edit_note)
         
-        # Mark as modified
+        # Mark as modified (which will trigger engraving via FileManager)
         if hasattr(self.editor, 'on_modified') and self.editor.on_modified:
             self.editor.on_modified()
         

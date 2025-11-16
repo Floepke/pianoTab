@@ -581,6 +581,7 @@ class Editor(
         Returns:
             True if event was handled
         """
+        print(f"DEBUG Editor.handle_mouse_down: button={button}, pos=({x:.1f}, {y:.1f})")
         
         # Track which button is down and where
         self._mouse_button_down = button
@@ -609,8 +610,10 @@ class Editor(
         Returns:
             True if event was handled
         """
+        print(f"DEBUG Editor.handle_mouse_up: button={button}, _mouse_button_down={self._mouse_button_down}, pos=({x:.1f}, {y:.1f})")
         # Check if this was the button that was down
         if self._mouse_button_down != button:
+            print(f"DEBUG Editor.handle_mouse_up: Button mismatch, returning False")
             return False
         
         # Determine if it was a drag based on tool's internal state
@@ -658,7 +661,7 @@ class Editor(
         
         # Check if selection manager is handling drag
         if self._mouse_button_down == 'left' and self._mouse_down_pos:
-            if self.selection_manager.on_drag(x, y, self._mouse_down_pos[0], self._mouse_down_pos[1]):
+            if self.selection_manager.on_left_drag(x, y):
                 return True  # Selection manager is handling the drag
         
         # Otherwise, dispatch to active tool
