@@ -68,26 +68,6 @@ def get_visual_semitone_positions():
     '''Get the number of visible semitone positions in the editor.'''
     return PHYSICAL_SEMITONE_POSITIONS - VISUAL_SEMITONE_POSITIONS_OFFSET
 
-def midi_to_key_number(midi_pitch: int) -> int:
-    '''Convert MIDI pitch (21-108) to piano key number (1-88).'''
-    return midi_pitch - MIDI_KEY_OFFSET
-
-def key_number_to_midi(key_number: int) -> int:
-    '''Convert piano key number (1-88) to MIDI pitch (21-108).'''
-    return key_number + MIDI_KEY_OFFSET
-
-def ticks_to_quarters(ticks: float) -> float:
-    '''Convert ticks to quarter note units.'''
-    return ticks / PIANOTICK_QUARTER
-
-def quarters_to_ticks(quarters: float) -> float:
-    '''Convert quarter note units to ticks.'''
-    return quarters * PIANOTICK_QUARTER
-
-def is_black_key(key_number: int) -> bool:
-    '''Check if a piano key number corresponds to a black key.'''
-    return key_number in BLACK_KEYS
-
 '''
 Canvas Drawing Layer Order
 ===========================
@@ -108,12 +88,12 @@ useful for setting canvas element stacking with the tag_raise() method.
 DRAWING_LAYERS = [
     'midinote',
     #stave     
-    'stavethreeline',  
-    'stavetwoline',    
-    'staveclefline',   
     'gridline',        
     'barline',
     'stemwhitespace',        
+    'stavethreeline',  
+    'stavetwoline',    
+    'staveclefline',   
     'connectstem',     
     'accidental',      
     'stopsign',        
@@ -133,7 +113,7 @@ DRAWING_LAYERS = [
     'countline',
     # UI elements (top layers)
     'cursorLine',      # Time cursor line
-    'selection_rect',  # Selection rectangle
+    'selectionrect',  # Selection rectangle
 ]
 
 # Create a lookup dict for quick tag->layer mapping

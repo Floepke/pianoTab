@@ -1246,9 +1246,9 @@ class FileManager:
         )
 
     def _confirm_yes_no_cancel(self, *, title: str, message: str, 
-                                on_yes: Callable[[], None],
-                                on_no: Callable[[], None],
-                                on_cancel: Callable[[], None]):
+                            on_yes: Callable[[], None],
+                            on_no: Callable[[], None],
+                            on_cancel: Callable[[], None]):
         '''Show a Yes/No/Cancel confirmation dialog.'''
         lbl = Label(
             text=message, 
@@ -1266,11 +1266,58 @@ class FileManager:
         
         popup = _dialog_shell(title, lbl, btns=[btn_cancel, btn_no, btn_yes])
         
-        btn_yes.bind(on_release=lambda *_: (popup.dismiss(), on_yes()))
-        btn_no.bind(on_release=lambda *_: (popup.dismiss(), on_no()))
-        btn_cancel.bind(on_release=lambda *_: (popup.dismiss(), on_cancel()))
+        def do_yes(*args):
+            print("DEBUG: Yes button clicked")
+            popup.dismiss()
+            on_yes()
         
-        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
+        def do_no(*args):
+            print("DEBUG: No button clicked")
+            popup.dismiss()
+            on_no()
+        
+        def do_cancel(*args):
+            print("DEBUG: Cancel button clicked")
+            popup.dismiss()
+            on_cancel()
+        
+        btn_yes.bind(on_release=do_yes)
+        btn_no.bind(on_release=do_no)
+        btn_cancel.bind(on_release=do_cancel)
+
+        # Store reference to Canvas to release/reclaim keyboard
+        from utils.canvas import Canvas
+        canvas_widget = Canvas._global_keyboard_canvas
+
+        # Keyboard handling - Escape = Cancel, Enter = Yes
+        def on_key_down(instance, key, scancode, codepoint, modifier):
+            if key == 27:  # Escape = Cancel
+                print("DEBUG: Dialog keyboard handler - Escape pressed")
+                popup.dismiss()
+                on_cancel()
+                return True  # Consume the key event - prevents propagation
+            elif key == 13:  # Return/Enter = Yes
+                popup.dismiss()
+                on_yes()
+                return True  # Consume the key event
+            return False  # Let other keys pass through
+        
+        def on_popup_open(*args):
+            # Release Canvas keyboard so dialog can capture keys
+            if canvas_widget and canvas_widget._keyboard:
+                canvas_widget._keyboard.release()
+                canvas_widget._keyboard = None
+            # Bind dialog keyboard handler
+            Window.bind(on_key_down=on_key_down)
+        
+        def on_popup_dismiss(*args):
+            # Unbind dialog keyboard handler
+            Window.unbind(on_key_down=on_key_down)
+            # Reclaim keyboard focus for Canvas
+            self._reclaim_keyboard()
+        
+        popup.bind(on_open=on_popup_open)
+        popup.bind(on_dismiss=on_popup_dismiss)
         popup.open()
 
     def _confirm_yes_no(self, *, title: str, message: str, 
@@ -1295,7 +1342,20 @@ class FileManager:
         btn_yes.bind(on_release=lambda *_: (popup.dismiss(), on_yes()))
         btn_no.bind(on_release=lambda *_: (popup.dismiss(), on_no()))
         
-        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
+        # Keyboard handling - Escape = No, Enter = Yes
+        def on_key_down(instance, key, scancode, codepoint, modifier):
+            if key == 27:  # Escape = No
+                popup.dismiss()
+                on_no()
+                return True  # Consume the key event
+            elif key == 13:  # Return/Enter = Yes
+                popup.dismiss()
+                on_yes()
+                return True
+            return False
+        
+        popup.bind(on_open=lambda *args: Window.bind(on_key_down=on_key_down))
+        popup.bind(on_dismiss=lambda *args: (Window.unbind(on_key_down=on_key_down), self._reclaim_keyboard()))
         popup.open()
 
     def _error(self, message: str):
@@ -1312,7 +1372,16 @@ class FileManager:
         btn_ok = Button(text='OK', size_hint=(None, None), width=120, height=34)
         popup = _dialog_shell('Error', lbl, btns=[btn_ok])
         btn_ok.bind(on_release=lambda *_: popup.dismiss())
-        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
+        
+        # Keyboard handling - Escape or Enter = OK
+        def on_key_down(instance, key, scancode, codepoint, modifier):
+            if key in (27, 13):  # Escape or Return/Enter
+                popup.dismiss()
+                return True
+            return False
+        
+        popup.bind(on_open=lambda *args: Window.bind(on_key_down=on_key_down))
+        popup.bind(on_dismiss=lambda *args: (Window.unbind(on_key_down=on_key_down), self._reclaim_keyboard()))
         popup.open()
 
     def _info(self, message: str):
@@ -1329,7 +1398,16 @@ class FileManager:
         btn_ok = Button(text='OK', size_hint=(None, None), width=120, height=34)
         popup = _dialog_shell('Info', lbl, btns=[btn_ok])
         btn_ok.bind(on_release=lambda *_: popup.dismiss())
-        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
+        
+        # Keyboard handling - Escape or Enter = OK
+        def on_key_down(instance, key, scancode, codepoint, modifier):
+            if key in (27, 13):  # Escape or Return/Enter
+                popup.dismiss()
+                return True
+            return False
+        
+        popup.bind(on_open=lambda *args: Window.bind(on_key_down=on_key_down))
+        popup.bind(on_dismiss=lambda *args: (Window.unbind(on_key_down=on_key_down), self._reclaim_keyboard()))
         popup.open()
 
 

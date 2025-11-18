@@ -219,7 +219,7 @@ class pianoTAB(App):
                     import traceback
                     traceback.print_exc()
             
-            Clock.schedule_once(_trigger_initial_engrave, 0.2)
+            # Clock.schedule_once(_trigger_initial_engrave, 0.2)
 
         try:
             self.editor.canvas.on_ready(_initialize_score)

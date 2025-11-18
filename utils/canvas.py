@@ -1710,7 +1710,7 @@ class Canvas(Widget):
             for item_id, item_data in self._items.items():
                 # Always draw active UI elements like selection rectangle and cursor
                 tags = item_data.get('tags', set())
-                is_active_ui = 'selection_rect' in tags or 'cursorLine' in tags
+                is_active_ui = 'selectionrect' in tags or 'cursorLine' in tags
                 
                 if is_active_ui or self._item_in_y_range(item_id, cull_y_min_mm, cull_y_max_mm):
                     self._redraw_item(item_id)

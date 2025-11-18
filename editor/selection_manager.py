@@ -265,7 +265,7 @@ class SelectionManager:
                 outline=True,
                 outline_color=ACCENT_COLOR_HEX,  # Blue outline (solid, fully opaque)
                 outline_width_mm=0.25,  # Thicker so it's visible
-                tags={'selection_rect'}
+                tags={'selectionrect'}
             )
             
         except Exception as e:
@@ -278,7 +278,7 @@ class SelectionManager:
         if self.rect_id is not None:
             self.editor.canvas.delete(self.rect_id)
             self.rect_id = None
-        self.editor.canvas.delete_by_tag('selection_rect')
+        self.editor.canvas.delete_by_tag('selectionrect')
     
     # === Element Finding ===
     

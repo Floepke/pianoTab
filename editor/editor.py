@@ -11,8 +11,7 @@ from utils.canvas import Canvas
 from utils.CONSTANTS import (
     PHYSICAL_SEMITONE_POSITIONS, BE_GAPS, BLACK_KEYS, PIANOTICK_QUARTER,
     MIDI_KEY_OFFSET, PIANO_KEY_COUNT,
-    get_visual_semitone_positions, midi_to_key_number, key_number_to_midi,
-    ticks_to_quarters, quarters_to_ticks, is_black_key
+    get_visual_semitone_positions
 )
 from editor.tool_manager import ToolManager
 from editor.selection_manager import SelectionManager
