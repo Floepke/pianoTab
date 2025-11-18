@@ -76,7 +76,7 @@ class Editor(
         
         # Auto-scroll configuration
         self.AUTO_SCROLL_MARGIN_PX = 75  # pixels from edge to trigger auto-scroll
-        self.AUTO_SCROLL_MAX_SPEED_MM = 5  # maximum mm to scroll per interval
+        self.AUTO_SCROLL_MAX_SPEED_MM = 15  # maximum mm to scroll per interval
         self.AUTO_SCROLL_INTERVAL = 0.02  # seconds between scroll updates
         
         # Auto-scroll state

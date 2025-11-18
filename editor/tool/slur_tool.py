@@ -42,7 +42,11 @@ class SlurTool(BaseTool):
         return False
     
     def on_left_press(self, x: float, y: float) -> bool:
-        """Called when left mouse button is pressed down."""
+        """
+        Called when left mouse button is pressed down.
+        
+        Used for starting slur creation or editing existing slurs.
+        """
         super().on_left_press(x, y)
         self._slur_start_pos = (x, y)
         print(f"SlurTool: Start slur at ({x}, {y})")
@@ -53,14 +57,19 @@ class SlurTool(BaseTool):
         # TODO: Handle click (if needed for slurs)
         return False
     
-    def on_left_release(self, x: float, y: float) -> bool:
-        """Called when left mouse button is released."""
-        super().on_left_release(x, y)
-        # TODO: Handle mouse up (after click or drag)
+    def on_left_unpress(self, x: float, y: float) -> bool:
+        """Called when left mouse button is released without having dragged."""
+        # TODO: Finalize slur on click (no drag)
         return False
     
+    def on_left_release(self, x: float, y: float) -> bool:
+        """Called when left mouse button is released (after drag or click)."""
+        # Let parent handle the drag_end vs unpress logic
+        result = super().on_left_release(x, y)
+        return result
+    
     def on_right_click(self, x: float, y: float) -> bool:
-        """Called when right mouse button is clicked."""
+        """Called when right mouse button is clicked (without drag)."""
         # TODO: Remove slur at the clicked position
         print(f"SlurTool: Remove slur at ({x}, {y})")
         return False  # Return False until implemented - allows selection clearing
@@ -76,7 +85,7 @@ class SlurTool(BaseTool):
         return False
     
     def on_drag(self, x: float, y: float, start_x: float, start_y: float) -> bool:
-        """Called continuously while dragging."""
+        """Called continuously while dragging WITH button pressed."""
         # TODO: Show slur preview while dragging
         print(f"SlurTool: Preview slur from ({start_x}, {start_y}) to ({x}, {y})")
         return True

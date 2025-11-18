@@ -39,7 +39,11 @@ class TextTool(BaseTool):
         return False
     
     def on_left_press(self, x: float, y: float) -> bool:
-        """Called when left mouse button is pressed down."""
+        """
+        Called when left mouse button is pressed down.
+        
+        Used for starting text creation or editing existing text.
+        """
         super().on_left_press(x, y)
         # TODO: Handle mouse down (before knowing if it's click or drag)
         return False
@@ -50,14 +54,19 @@ class TextTool(BaseTool):
         print(f"TextTool: Add text at ({x}, {y})")
         return True
     
-    def on_left_release(self, x: float, y: float) -> bool:
-        """Called when left mouse button is released."""
-        super().on_left_release(x, y)
-        # TODO: Handle mouse up (after click or drag)
+    def on_left_unpress(self, x: float, y: float) -> bool:
+        """Called when left mouse button is released without having dragged."""
+        # TODO: Finalize text creation on click (no drag)
         return False
     
+    def on_left_release(self, x: float, y: float) -> bool:
+        """Called when left mouse button is released (after drag or click)."""
+        # Let parent handle the drag_end vs unpress logic
+        result = super().on_left_release(x, y)
+        return result
+    
     def on_right_click(self, x: float, y: float) -> bool:
-        """Called when right mouse button is clicked."""
+        """Called when right mouse button is clicked (without drag)."""
         # TODO: Remove text annotation at the clicked position
         print(f"TextTool: Remove text at ({x}, {y})")
         return False  # Return False until implemented - allows selection clearing
@@ -74,7 +83,7 @@ class TextTool(BaseTool):
         return False
     
     def on_drag(self, x: float, y: float, start_x: float, start_y: float) -> bool:
-        """Called continuously while dragging."""
+        """Called continuously while dragging WITH button pressed."""
         # TODO: Update drag preview
         return False
     

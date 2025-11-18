@@ -122,6 +122,7 @@ TAG_TO_LAYER = {tag: idx for idx, tag in enumerate(DRAWING_LAYERS)}
 OPERATOR_TRESHOLD = 7.0
 '''
     I use this treshold to concider two float numbers as equal even though they differ slightly. 
-    It seems quite big but smaller numbers then 8 means smaller then 128th note length which is 
-    unusual to use in music notation.
+    It seems quite big but smaller numbers then 8 means smaller then 128th note (8=128th note)
+    length which is unusual/unpractical to use in music notation. 128th note is the smallest 
+    note length in this app.
 '''

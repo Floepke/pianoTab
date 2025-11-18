@@ -39,7 +39,11 @@ class LineBreakTool(BaseTool):
         return False
     
     def on_left_press(self, x: float, y: float) -> bool:
-        """Called when left mouse button is pressed down."""
+        """
+        Called when left mouse button is pressed down.
+        
+        Used for starting line break creation or editing existing line breaks.
+        """
         super().on_left_press(x, y)
         # TODO: Handle mouse down (before knowing if it's click or drag)
         return False
@@ -50,14 +54,19 @@ class LineBreakTool(BaseTool):
         print(f"LineBreakTool: Add line break at ({x}, {y})")
         return True
     
-    def on_left_release(self, x: float, y: float) -> bool:
-        """Called when left mouse button is released."""
-        super().on_left_release(x, y)
-        # TODO: Handle mouse up (after click or drag)
+    def on_left_unpress(self, x: float, y: float) -> bool:
+        """Called when left mouse button is released without having dragged."""
+        # TODO: Finalize line break creation on click (no drag)
         return False
     
+    def on_left_release(self, x: float, y: float) -> bool:
+        """Called when left mouse button is released (after drag or click)."""
+        # Let parent handle the drag_end vs unpress logic
+        result = super().on_left_release(x, y)
+        return result
+    
     def on_right_click(self, x: float, y: float) -> bool:
-        """Called when right mouse button is clicked."""
+        """Called when right mouse button is clicked (without drag)."""
         # TODO: Remove line break at the clicked position
         print(f"LineBreakTool: Remove line break at ({x}, {y})")
         return False  # Return False until implemented - allows selection clearing
@@ -73,7 +82,7 @@ class LineBreakTool(BaseTool):
         return False
     
     def on_drag(self, x: float, y: float, start_x: float, start_y: float) -> bool:
-        """Called continuously while dragging."""
+        """Called continuously while dragging WITH button pressed."""
         # TODO: Update drag preview
         return False
     
