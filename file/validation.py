@@ -153,7 +153,7 @@ def validate_and_fix_score(score_dict: Dict[str, Any]) -> Tuple[Dict[str, Any], 
     from file.properties import Properties
     from file.globalProperties import (
         GlobalNote, GlobalArticulation, GlobalBeam, GlobalGraceNote,
-        GlobalCountLine, GlobalSlur, GlobalText, GlobalBarline,
+        GlobalCountLine, GlobalSlur, GlobalText,
         GlobalBasegrid, GlobalStave, GlobalPage, GlobalSection,
         GlobalStartRepeat, GlobalEndRepeat
     )
@@ -193,7 +193,6 @@ def validate_and_fix_score(score_dict: Dict[str, Any]) -> Tuple[Dict[str, Any], 
             'globalCountLine': GlobalCountLine,
             'globalSlur': GlobalSlur,
             'globalText': GlobalText,
-            'globalBarline': GlobalBarline,
             'globalBasegrid': GlobalBasegrid,
             'globalStave': GlobalStave,
             'globalPage': GlobalPage,

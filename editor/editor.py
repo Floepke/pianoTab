@@ -74,6 +74,15 @@ class Editor(
         # Immediately apply preferences (incl. zoom) from SCORE model to avoid mismatch
         self._apply_settings_from_score()
         
+        # Auto-scroll configuration
+        self.AUTO_SCROLL_MARGIN_PX = 75  # pixels from edge to trigger auto-scroll
+        self.AUTO_SCROLL_MAX_SPEED_MM = 5  # maximum mm to scroll per interval
+        self.AUTO_SCROLL_INTERVAL = 0.02  # seconds between scroll updates
+        
+        # Auto-scroll state
+        self._auto_scroll_event = None
+        self._last_mouse_y_px = None  # Store screen pixel position (doesn't change with scroll)
+        
         # Current view state
         self.scroll_time_offset: float = 0.0
         self.selected_notes: List[Note] = []
@@ -293,43 +302,100 @@ class Editor(
         Returns:
             True if scrolling occurred, False otherwise
         '''
+        # Convert to screen pixel position and store (this stays constant as we scroll)
+        _, y_px = self.canvas._mm_to_px_point(0, y_mm)
+        self._last_mouse_y_px = y_px
+        
+        # Check if we need to scroll and calculate speed
+        scroll_speed_mm = self._calculate_scroll_speed(y_px)
+        
+        if scroll_speed_mm != 0:
+            # Start scheduled scrolling if not already running
+            if not self._auto_scroll_event:
+                self._auto_scroll_event = Clock.schedule_interval(
+                    lambda dt: self._perform_auto_scroll(),
+                    self.AUTO_SCROLL_INTERVAL
+                )
+        else:
+            # Stop auto-scroll if no longer near edge
+            if self._auto_scroll_event:
+                self._auto_scroll_event.cancel()
+                self._auto_scroll_event = None
+        
+        return False
+    
+    def _calculate_scroll_speed(self, y_px: float) -> float:
+        '''Calculate scroll speed based on mouse distance from edge.
+        
+        Args:
+            y_px: Current mouse Y position in screen pixel coordinates
+            
+        Returns:
+            Scroll speed in mm per interval (positive = down, negative = up, 0 = no scroll)
+        '''
         canvas = self.canvas
-        
-        # Convert mm mouse position to widget pixel coordinates
-        _, y_widget_px = canvas._mm_to_px_point(0, y_mm)
-        
-        scroll_margin_px = 40  # pixels from edge to trigger auto-scroll
-        scroll_speed_mm = 2.5  # mm to scroll per call
         
         # Get viewport bounds in px
         viewport_bottom_px = canvas._view_y
         viewport_top_px = canvas._view_y + canvas._view_h
         
-        scrolled = False
+        # Calculate mouse position relative to viewport (screen-relative)
+        # This stays constant even as the viewport scrolls
+        y_relative_to_viewport = y_px - viewport_bottom_px
         
-        # Scroll down if near bottom of widget
-        if y_widget_px < viewport_bottom_px + scroll_margin_px:
+        # Check if near bottom edge (scroll down)
+        if y_relative_to_viewport < self.AUTO_SCROLL_MARGIN_PX:
+            distance_from_edge = self.AUTO_SCROLL_MARGIN_PX - y_relative_to_viewport
+            # Calculate speed proportional to distance (0 at margin edge, max at viewport edge)
+            speed_factor = distance_from_edge / self.AUTO_SCROLL_MARGIN_PX
+            return self.AUTO_SCROLL_MAX_SPEED_MM * speed_factor
+        
+        # Check if near top edge (scroll up)
+        elif y_relative_to_viewport > canvas._view_h - self.AUTO_SCROLL_MARGIN_PX:
+            distance_from_edge = y_relative_to_viewport - (canvas._view_h - self.AUTO_SCROLL_MARGIN_PX)
+            # Calculate speed proportional to distance (0 at margin edge, max at viewport edge)
+            speed_factor = distance_from_edge / self.AUTO_SCROLL_MARGIN_PX
+            return -self.AUTO_SCROLL_MAX_SPEED_MM * speed_factor
+        
+        return 0
+    
+    def _perform_auto_scroll(self) -> bool:
+        '''Perform the actual scroll operation based on current mouse position.
+        
+        Returns:
+            True if scrolling occurred, False otherwise
+        '''
+        if self._last_mouse_y_px is None:
+            return False
+        
+        scroll_speed_mm = self._calculate_scroll_speed(self._last_mouse_y_px)
+        
+        if scroll_speed_mm == 0:
+            # Stop auto-scrolling if no longer near edge
+            if self._auto_scroll_event:
+                self._auto_scroll_event.cancel()
+                self._auto_scroll_event = None
+            return False
+        
+        canvas = self.canvas
+        
+        # Apply scroll
+        if scroll_speed_mm > 0:  # Scroll down
             content_height_px = canvas._content_height_px()
             viewport_height_px = canvas.height
             max_scroll = max(0, content_height_px - viewport_height_px)
             new_scroll = min(max_scroll, canvas._scroll_px + scroll_speed_mm * canvas._px_per_mm)
             canvas._scroll_px = new_scroll
-            canvas._redraw_all()
-            # Update scrollbar handle position
-            if hasattr(canvas, 'custom_scrollbar'):
-                canvas.custom_scrollbar.update_layout()
-            scrolled = True
-        # Scroll up if near top of widget
-        elif y_widget_px > viewport_top_px - scroll_margin_px:
-            new_scroll = max(0, canvas._scroll_px - scroll_speed_mm * canvas._px_per_mm)
+        else:  # Scroll up
+            new_scroll = max(0, canvas._scroll_px + scroll_speed_mm * canvas._px_per_mm)
             canvas._scroll_px = new_scroll
-            canvas._redraw_all()
-            # Update scrollbar handle position
-            if hasattr(canvas, 'custom_scrollbar'):
-                canvas.custom_scrollbar.update_layout()
-            scrolled = True
         
-        return scrolled
+        canvas._redraw_all()
+        # Update scrollbar handle position
+        if hasattr(canvas, 'custom_scrollbar'):
+            canvas.custom_scrollbar.update_layout()
+        
+        return True
     
     def get_score_length_in_ticks(self) -> float:
         '''Calculate total score length in ticks based on your algorithm.'''
@@ -727,10 +793,16 @@ class Editor(
         Returns:
             True if event was handled
         """
-        # Auto-scroll when mouse is near top or bottom edge (40px margin)
+        # Auto-scroll when mouse is near top or bottom edge
         # Trigger for both left (tool drag) and right (selection rectangle) mouse buttons
         if self._mouse_button_down in ('left', 'right'):
             self.auto_scroll_if_near_edge(y)
+        else:
+            # Stop auto-scroll if no button is down
+            if self._auto_scroll_event:
+                self._auto_scroll_event.cancel()
+                self._auto_scroll_event = None
+            self._last_mouse_y_px = None
         
         # Always track mouse position for selection manager
         self.selection_manager.on_mouse_move(x, y)

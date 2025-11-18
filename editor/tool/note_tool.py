@@ -44,14 +44,32 @@ class NoteTool(BaseTool):
             self.hand_cursor = '<'  # Left hand
             # Redraw cursor at current mouse position
             pitch, time = self.get_pitch_and_time(x, y)
-            cursor = Note(time=time, pitch=pitch, hand=self.hand_cursor)
+            duration = self.editor.grid_selector.get_grid_step()
+            
+            # Clamp time to valid range
+            score_length = self.editor.get_score_length_in_ticks()
+            if time + duration > score_length:
+                time = score_length - duration
+            if time < 0:
+                time = 0
+            
+            cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor)
             self._draw_note_cursor(cursor, type='cursor')
             return True  # We handled this key
         elif key == '.' or key == 'period':
             self.hand_cursor = '>'  # Right hand
             # Redraw cursor at current mouse position
             pitch, time = self.get_pitch_and_time(x, y)
-            cursor = Note(time=time, pitch=pitch, hand=self.hand_cursor)
+            duration = self.editor.grid_selector.get_grid_step()
+            
+            # Clamp time to valid range
+            score_length = self.editor.get_score_length_in_ticks()
+            if time + duration > score_length:
+                time = score_length - duration
+            if time < 0:
+                time = 0
+            
+            cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor)
             self._draw_note_cursor(cursor, type='cursor')
             return True  # We handled this key
         
@@ -69,7 +87,16 @@ class NoteTool(BaseTool):
         
         # draw note cursor using current hand setting
         pitch, time = self.get_pitch_and_time(x, y)
-        cursor = Note(time=time, pitch=pitch, duration=self.editor.grid_selector.get_grid_step(), hand=self.hand_cursor)
+        duration = self.editor.grid_selector.get_grid_step()
+        
+        # Clamp time to valid range
+        score_length = self.editor.get_score_length_in_ticks()
+        if time + duration > score_length:
+            time = score_length - duration
+        if time < 0:
+            time = 0
+        
+        cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor)
         
         # redraw cursor
         self._draw_note_cursor(cursor, type='cursor')
@@ -119,12 +146,22 @@ class NoteTool(BaseTool):
         # CREATE MODE: No note clicked, create new one
         pitch, time = self.get_pitch_and_time(x, y)
         
+        # Boundary check: Clamp time to valid range
+        score_length = self.editor.get_score_length_in_ticks()
+        duration = self.editor.grid_selector.get_grid_step()
+        
+        # Clamp time to valid range (0 to score_length - duration)
+        if time + duration > score_length:
+            time = score_length - duration
+        if time < 0:
+            time = 0
+        
         self.edit_note = self.editor.score.new_note(
             stave_idx=0,  # TODO: determine correct stave
             time=time,
             pitch=pitch,
             hand=self.hand_cursor,
-            duration=self.editor.grid_selector.get_grid_step(),
+            duration=duration,
             velocity=100
         )
         self.edit_stave_idx = 0
@@ -149,12 +186,30 @@ class NoteTool(BaseTool):
         
         # Get mouse position
         pitch, time = self.get_pitch_and_time(x, y)
-
-        # Specific editor mouse behavior
-        self.edit_note.duration = max(self.editor.grid_selector.get_grid_step(), time - self.edit_note.time)
-        if time < self.edit_note.time or y < self.editor.editor_margin: 
-            # We edit the pitch in this case
+        
+        # Boundary check: Prevent dragging note outside valid time range
+        score_length = self.editor.get_score_length_in_ticks()
+        
+        # Calculate proposed duration
+        proposed_duration = max(self.editor.grid_selector.get_grid_step(), time - self.edit_note.time)
+        
+        # Check if dragging up (changing pitch)
+        if time < self.edit_note.time or y < self.editor.editor_margin:
+            # We edit the pitch in this case - allow it (no time boundary check needed)
             self.edit_note.pitch = pitch
+        else:
+            # We edit the duration - check boundaries
+            proposed_end_time = self.edit_note.time + proposed_duration
+            
+            # Only update duration if it stays within bounds
+            if proposed_end_time <= score_length:
+                self.edit_note.duration = proposed_duration
+            else:
+                # Cap duration at score boundary
+                max_duration = score_length - self.edit_note.time
+                if max_duration > 0:
+                    self.edit_note.duration = max_duration
+                # If max_duration <= 0, keep current duration (don't update)
         
         # Redraw in 'select/edit' mode
         self.editor._draw_single_note(self.edit_stave_idx, self.edit_note, draw_mode='select/edit')

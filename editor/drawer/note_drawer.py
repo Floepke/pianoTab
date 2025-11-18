@@ -175,7 +175,7 @@ class NoteDrawerMixin:
                     y1_mm=y,
                     x2_mm=xx - 2,
                     y2_mm=y,
-                    width_mm=self.score.properties.globalNote.stemWidthMm,
+                    width_mm=self.score.properties.globalBasegrid.barlineWidthMm,
                     color='#FFFFFF',
                     tags=['stemwhitespace', base_tag],
                     cap='flat'
@@ -186,7 +186,7 @@ class NoteDrawerMixin:
                     y1_mm=y,
                     x2_mm=xx + 2,
                     y2_mm=y,
-                    width_mm=self.score.properties.globalNote.stemWidthMm,
+                    width_mm=self.score.properties.globalBasegrid.barlineWidthMm,
                     color='#FFFFFF',
                     tags=['stemwhitespace', base_tag],
                     cap='flat'
@@ -223,7 +223,7 @@ class NoteDrawerMixin:
                 continue
             
             # Only connect notes in the same hand or continue if we check our current note.
-            if other_note.hand != note.hand or other_note.id == note.id:
+            if other_note.hand != note.hand:
                 continue
             
             # Check if notes have the same start time (using threshold)
@@ -243,8 +243,21 @@ class NoteDrawerMixin:
                     y2_mm=y2,
                     width_mm=self.score.properties.globalNote.stemWidthMm,
                     color=color,
-                    tags=['chord_connection', base_tag]
+                    tags=['connectstem', base_tag]
                 )
+
+                # draw stemwhitespace for chord connection if on barline
+                if any(self._time_op.equal(note.time, barline_time) for barline_time in self.get_barline_positions()):
+                    self.canvas.add_line(
+                        x1_mm=x1,
+                        y1_mm=y1,
+                        x2_mm=x2,
+                        y2_mm=y1,
+                        width_mm=self.score.properties.globalBasegrid.barlineWidthMm,
+                        color='#FFFFFF',
+                        tags=['stemwhitespace', base_tag],
+                        cap='flat'
+                    )
 
     def _is_followed_by_rest(self, stave_idx: int, note: Note) -> bool:
         '''Check if a note is followed by a rest (gap) in the same hand.

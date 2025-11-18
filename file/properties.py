@@ -4,7 +4,7 @@ from typing import List, Literal
 from file.globalProperties import (
         GlobalNote, GlobalArticulation, GlobalBeam, 
         GlobalGraceNote, GlobalCountLine, GlobalSlur, 
-        GlobalText, GlobalBarline, GlobalBasegrid, 
+        GlobalText, GlobalBasegrid, 
         GlobalStave, GlobalPage, GlobalSection,
         GlobalStartRepeat, GlobalEndRepeat, GlobalMeasureNumbering
     )
@@ -19,7 +19,6 @@ class Properties:
     globalCountLine: GlobalCountLine = field(default_factory=GlobalCountLine)
     globalSlur: GlobalSlur = field(default_factory=GlobalSlur)
     globalText: GlobalText = field(default_factory=GlobalText)
-    globalBarLine: GlobalBarline = field(default_factory=GlobalBarline)
     globalBasegrid: GlobalBasegrid = field(default_factory=GlobalBasegrid)
     globalMeasureNumbering: GlobalMeasureNumbering = field(default_factory=GlobalMeasureNumbering)
     globalStave: GlobalStave = field(default_factory=GlobalStave)

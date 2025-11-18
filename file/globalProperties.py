@@ -67,13 +67,6 @@ class GlobalText:
 
 @dataclass_json
 @dataclass
-class GlobalBarline:
-    color: str = '#000000'
-    widthMm: float = 1.0
-    visible: int = field(default=1, metadata=config(field_name='visible?'))
-
-@dataclass_json
-@dataclass
 class GlobalBasegrid:
     gridlineColor: str = '#000000'
     gridlineWidthMm: float = .125

@@ -42,7 +42,7 @@ class GridDrawerMixin:
                     x1_mm=self.editor_margin, y1_mm=y_pos,
                     x2_mm=self.editor_margin + self.stave_width, y2_mm=y_pos,
                     color=self.barline_color,
-                    width_mm=self.barline_width,
+                    width_mm=self.score.properties.globalBasegrid.barlineWidthMm,
                     tags=['barline', f'barline_{measure_number}']
                 )
                 barlines_drawn += 1
@@ -94,6 +94,6 @@ class GridDrawerMixin:
                 x1_mm=self.editor_margin, y1_mm=final_y_pos,
                 x2_mm=self.editor_margin + self.stave_width, y2_mm=final_y_pos,
                 color=self.barline_color,
-                width_mm=self.barline_width * 2,  # Double thickness for end barline
+                width_mm=self.score.properties.globalBasegrid.barlineWidthMm * 2,  # Double thickness for end barline
                 tags=['barline', 'endBarline']
             )

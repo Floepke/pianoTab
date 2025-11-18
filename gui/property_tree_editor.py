@@ -222,6 +222,17 @@ class NumericSpinBox(BoxLayout):
 
     def _commit_from_text(self, *_):
         txt = self.input.text.strip()
+        
+        # Strip leading zeros to prevent issues with octal interpretation or parsing errors
+        # e.g., "0567.0" -> "567.0", "0042" -> "42"
+        # But keep single "0" or "0.xxx" valid
+        if txt and txt[0] == '0' and len(txt) > 1 and txt[1] not in ('.', ''):
+            # Remove leading zeros but keep at least one digit before decimal point
+            txt = txt.lstrip('0') or '0'
+            # If we ended up with just a decimal point, prepend zero
+            if txt.startswith('.'):
+                txt = '0' + txt
+        
         try:
             if self._is_float:
                 v = float(txt) if txt != '' else float(self._value)
