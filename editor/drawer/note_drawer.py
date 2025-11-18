@@ -80,6 +80,10 @@ class NoteDrawerMixin:
         else:
             color = note.color
 
+        # Guard against startup race condition
+        if not self.score:
+            return
+        
         # position
         x = self.pitch_to_x(note.pitch)
         y = self.time_to_y(note.time)
@@ -163,8 +167,89 @@ class NoteDrawerMixin:
             tags=['stem', base_tag]
         )
 
+        # draw stemwhitespace: it highlights the stem if the stem is written on a barline.
+        if any(self._time_op.equal(note.time, barline_time) for barline_time in self.get_barline_positions()):
+            if note.hand == '<':
+                self.canvas.add_line(
+                    x1_mm=x + 2,
+                    y1_mm=y,
+                    x2_mm=xx - 2,
+                    y2_mm=y,
+                    width_mm=self.score.properties.globalNote.stemWidthMm,
+                    color='#FFFFFF',
+                    tags=['stemwhitespace', base_tag],
+                    cap='flat'
+                )
+            else:
+                self.canvas.add_line(
+                    x1_mm=x - 2,
+                    y1_mm=y,
+                    x2_mm=xx + 2,
+                    y2_mm=y,
+                    width_mm=self.score.properties.globalNote.stemWidthMm,
+                    color='#FFFFFF',
+                    tags=['stemwhitespace', base_tag],
+                    cap='flat'
+                )
+
+        # connect the notes that are in a chord (same time)
+        self._draw_chord_connections(stave_idx, note, base_tag=base_tag, color=color)
+        
         # draw continuation dots
         self._draw_note_continuation_dot(stave_idx, note, draw_mode=draw_mode)
+
+    def _draw_chord_connections(self, stave_idx: int, note: Note, base_tag: str, color: str) -> None:
+        '''Draw connection lines between notes that form a chord (same time).
+        
+        Args:
+            stave_idx: Index of the stave containing the note
+            note: The note to check for chord connections
+            base_tag: Tag for canvas items
+            color: Color for the connection line
+        '''
+        # Guard against startup race condition
+        if not self.score:
+            return
+        
+        # Get the stave's note list
+        if stave_idx >= len(self.score.stave):
+            return
+        
+        stave = self.score.stave[stave_idx]
+        if not hasattr(stave.event, 'note'):
+            return
+        
+        note_list = stave.event.note
+        
+        # Find notes with the same time and same hand
+        for other_note in note_list:
+            # Skip the current note itself
+            if other_note.id == note.id:
+                continue
+            
+            # Only connect notes in the same hand or continue if we check our current note.
+            if other_note.hand != note.hand or other_note.id == note.id:
+                continue
+            
+            # Check if notes have the same start time (using threshold)
+            if self._time_op.equal(note.time, other_note.time):
+                # Calculate positions for both notes
+                x1 = self.pitch_to_x(note.pitch)
+                y1 = self.time_to_y(note.time)
+                
+                x2 = self.pitch_to_x(other_note.pitch)
+                y2 = self.time_to_y(other_note.time)  # Should be same as y1 within threshold
+                
+                # Draw connection line between the two chord notes
+                self.canvas.add_line(
+                    x1_mm=x1,
+                    y1_mm=y1,
+                    x2_mm=x2,
+                    y2_mm=y2,
+                    width_mm=self.score.properties.globalNote.stemWidthMm,
+                    color=color,
+                    tags=['chord_connection', base_tag]
+                )
 
     def _is_followed_by_rest(self, stave_idx: int, note: Note) -> bool:
         '''Check if a note is followed by a rest (gap) in the same hand.
@@ -177,6 +262,10 @@ class NoteDrawerMixin:
             True if there's a gap after this note before the next note in the same hand,
             False if another note in the same hand starts immediately at or before this note ends.
         '''
+        # Guard against startup race condition
+        if not self.score:
+            return True  # Default to showing note stop
+        
         # Get the stave's note list
         if stave_idx >= len(self.score.stave):
             return True  # Default to showing note stop if stave not found

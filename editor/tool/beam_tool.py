@@ -60,7 +60,7 @@ class BeamTool(BaseTool):
         """Called when right mouse button is clicked."""
         # TODO: Remove beam at the clicked position
         print(f"BeamTool: Remove beam at ({x}, {y})")
-        return True
+        return False  # Return False until implemented - allows selection clearing
     
     def on_double_click(self, x: float, y: float) -> bool:
         """Called when mouse is double-clicked."""

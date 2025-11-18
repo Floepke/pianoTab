@@ -40,7 +40,7 @@ from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
 from kivy.uix.checkbox import CheckBox
-from kivy.uix.popup import Popup
+from kivy.uix.modalview import ModalView
 from kivy.uix.widget import Widget
 from kivy.uix.colorpicker import ColorPicker
 from kivy.uix.floatlayout import FloatLayout
@@ -317,7 +317,19 @@ class ColorField(BoxLayout):
         buttons.add_widget(ok)
         content.add_widget(buttons)
 
-        popup = Popup(title='Select Color...', content=content, size_hint=(None, None), size=(dp(500), dp(400)))
+        # Title bar
+        title_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), padding=[dp(10), dp(5)])
+        title_label = Label(text='Select Color...', color=WHITE, halign='left', valign='middle')
+        title_label.bind(size=lambda *args: setattr(title_label, 'text_size', (title_label.width, None)))
+        title_bar.add_widget(title_label)
+        
+        # Main container with title
+        main_box = BoxLayout(orientation='vertical', spacing=0)
+        main_box.add_widget(title_bar)
+        main_box.add_widget(content)
+        
+        popup = ModalView(size_hint=(None, None), size=(dp(500), dp(400)), auto_dismiss=False)
+        popup.add_widget(main_box)
 
         def _on_cancel(*_):
             popup.dismiss()
@@ -331,6 +343,7 @@ class ColorField(BoxLayout):
 
         cancel.bind(on_press=_on_cancel)
         ok.bind(on_press=_on_ok)
+        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
         popup.open()
 
     def _set_hex(self, hx: str):
@@ -446,6 +459,12 @@ class PropertyTreeEditor(BoxLayout):
         self._rebuild()
         # Debounce flag for rebuilds scheduled within the same frame
         self._rebuild_pending = False
+    
+    def _reclaim_keyboard(self):
+        '''Reclaim keyboard focus for the editor canvas after dialogs close.'''
+        from utils.canvas import Canvas
+        if Canvas._global_keyboard_canvas:
+            Canvas._global_keyboard_canvas._reclaim_keyboard()
 
     # ---------- CustomScrollbar adapter API ----------
 
@@ -1437,7 +1456,21 @@ class PropertyTreeEditor(BoxLayout):
         content.add_widget(Widget())
         content.add_widget(btn_row)
         content.add_widget(Widget())
-        popup = Popup(title=prompt, content=content, size_hint=(None, None), size=(dp(420), dp(200)))
+        
+        # Title bar
+        title_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), padding=[dp(10), dp(5)])
+        title_label = Label(text=prompt, color=WHITE, halign='left', valign='middle')
+        title_label.bind(size=lambda *args: setattr(title_label, 'text_size', (title_label.width, None)))
+        title_bar.add_widget(title_label)
+        
+        # Main container with title
+        main_box = BoxLayout(orientation='vertical', spacing=0)
+        main_box.add_widget(title_bar)
+        main_box.add_widget(content)
+        
+        popup = ModalView(size_hint=(None, None), size=(dp(420), dp(200)), auto_dismiss=False)
+        popup.add_widget(main_box)
+        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
         popup.open()
 
     def _open_number_list_dialog(self, path: Tuple[Union[str, int], ...], values: List[Union[int, float]], is_float_list: bool):
@@ -1468,7 +1501,20 @@ class PropertyTreeEditor(BoxLayout):
         content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(10))
         content.add_widget(ti)
         content.add_widget(btns)
-        popup = Popup(title=prompt, content=content, size_hint=(None, None), size=(dp(560), dp(180)))
+        
+        # Title bar
+        title_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), padding=[dp(10), dp(5)])
+        title_label = Label(text=prompt, color=WHITE, halign='left', valign='middle')
+        title_label.bind(size=lambda *args: setattr(title_label, 'text_size', (title_label.width, None)))
+        title_bar.add_widget(title_label)
+        
+        # Main container with title
+        main_box = BoxLayout(orientation='vertical', spacing=0)
+        main_box.add_widget(title_bar)
+        main_box.add_widget(content)
+        
+        popup = ModalView(size_hint=(None, None), size=(dp(560), dp(180)), auto_dismiss=False)
+        popup.add_widget(main_box)
 
         def parse_int_list(s: str) -> List[int]:
             parts = [p for p in s.strip().split() if p and p != '.']
@@ -1506,6 +1552,7 @@ class PropertyTreeEditor(BoxLayout):
         cancel.bind(on_press=lambda *_: popup.dismiss())
         ok.bind(on_press=do_ok)
         ti.bind(on_text_validate=do_ok)
+        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
         popup.open()
         # Focus input immediately and on next frame to ensure focus sticks
         try:
@@ -2101,7 +2148,20 @@ class PropertyTreeEditor(BoxLayout):
         content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(10))
         content.add_widget(ti)
         content.add_widget(btns)
-        popup = Popup(title=prompt, content=content, size_hint=(None, None), size=(dp(520), dp(160)))
+        
+        # Title bar
+        title_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), padding=[dp(10), dp(5)])
+        title_label = Label(text=prompt, color=WHITE, halign='left', valign='middle')
+        title_label.bind(size=lambda *args: setattr(title_label, 'text_size', (title_label.width, None)))
+        title_bar.add_widget(title_label)
+        
+        # Main container with title
+        main_box = BoxLayout(orientation='vertical', spacing=0)
+        main_box.add_widget(title_bar)
+        main_box.add_widget(content)
+        
+        popup = ModalView(size_hint=(None, None), size=(dp(520), dp(160)), auto_dismiss=False)
+        popup.add_widget(main_box)
 
         def do_ok(*_):
             self._commit_value(path, ti.text)
@@ -2110,6 +2170,7 @@ class PropertyTreeEditor(BoxLayout):
         cancel.bind(on_press=lambda *_: popup.dismiss())
         ok.bind(on_press=do_ok)
         ti.bind(on_text_validate=do_ok)
+        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
         popup.open()
         # Focus input immediately and on next frame to ensure focus sticks
         try:
@@ -2139,7 +2200,20 @@ class PropertyTreeEditor(BoxLayout):
         content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(10))
         content.add_widget(ti)
         content.add_widget(btns)
-        popup = Popup(title=prompt, content=content, size_hint=(None, None), size=(dp(520), dp(160)))
+        
+        # Title bar
+        title_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), padding=[dp(10), dp(5)])
+        title_label = Label(text=prompt, color=WHITE, halign='left', valign='middle')
+        title_label.bind(size=lambda *args: setattr(title_label, 'text_size', (title_label.width, None)))
+        title_bar.add_widget(title_label)
+        
+        # Main container with title
+        main_box = BoxLayout(orientation='vertical', spacing=0)
+        main_box.add_widget(title_bar)
+        main_box.add_widget(content)
+        
+        popup = ModalView(size_hint=(None, None), size=(dp(520), dp(160)), auto_dismiss=False)
+        popup.add_widget(main_box)
 
         def do_ok(*_):
             txt = ti.text.strip()
@@ -2157,6 +2231,7 @@ class PropertyTreeEditor(BoxLayout):
         cancel.bind(on_press=lambda *_: popup.dismiss())
         ok.bind(on_press=do_ok)
         ti.bind(on_text_validate=do_ok)
+        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
         popup.open()
         # Focus input immediately and on next frame to ensure focus sticks
         try:
@@ -2177,7 +2252,20 @@ class PropertyTreeEditor(BoxLayout):
         content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(8))
         content.add_widget(picker)
         content.add_widget(btns)
-        popup = Popup(title=prompt, content=content, size_hint=(None, None), size=(dp(500), dp(420)))
+        
+        # Title bar
+        title_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), padding=[dp(10), dp(5)])
+        title_label = Label(text=prompt, color=WHITE, halign='left', valign='middle')
+        title_label.bind(size=lambda *args: setattr(title_label, 'text_size', (title_label.width, None)))
+        title_bar.add_widget(title_label)
+        
+        # Main container with title
+        main_box = BoxLayout(orientation='vertical', spacing=0)
+        main_box.add_widget(title_bar)
+        main_box.add_widget(content)
+        
+        popup = ModalView(size_hint=(None, None), size=(dp(500), dp(420)), auto_dismiss=False)
+        popup.add_widget(main_box)
 
         def do_ok(*_):
             hx = _rgba_to_hex(picker.color)
@@ -2186,6 +2274,7 @@ class PropertyTreeEditor(BoxLayout):
 
         cancel.bind(on_press=lambda *_: popup.dismiss())
         ok.bind(on_press=do_ok)
+        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
         popup.open()
 
     def _read_at_path(self, root: Any, path: Tuple[Union[str, int], ...]) -> Any:

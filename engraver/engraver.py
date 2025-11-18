@@ -728,17 +728,7 @@ class Engraver:
         print(f"Engraver: Is print preview canvas: {is_print_preview}")
         
         # Clear canvas
-        try:
-            if hasattr(canvas, 'clear'):
-                canvas.clear()
-                print(f"Engraver: Cleared canvas using clear()")
-            elif hasattr(canvas, 'delete_all'):
-                canvas.delete_all()
-                print(f"Engraver: Cleared canvas using delete_all()")
-        except Exception as e:
-            print(f"Engraver: Warning - could not clear canvas: {e}")
-            import traceback
-            traceback.print_exc()
+        canvas.clear()
         
         # Prepare all drawing operations as a list of callables
         draw_operations = []

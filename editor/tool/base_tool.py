@@ -59,14 +59,15 @@ class BaseTool(ABC):
     
     def on_right_click(self, x: float, y: float) -> bool:
         """
-        Called when the right mouse button is pressed.
+        Called when the right mouse button is clicked (without drag).
         Default behavior: remove/delete element at position.
 
         Args:
             x, y: Mouse position in canvas coordinates
 
         Returns:
-            True if event was handled, False otherwise
+            True if an element was found and handled/deleted, False otherwise.
+            Returning False allows the editor to clear selection on empty-space clicks.
         """
         return False
     

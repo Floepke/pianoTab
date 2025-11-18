@@ -58,9 +58,9 @@ class TextTool(BaseTool):
     
     def on_right_click(self, x: float, y: float) -> bool:
         """Called when right mouse button is clicked."""
-        # TODO: Remove text at the clicked position
+        # TODO: Remove text annotation at the clicked position
         print(f"TextTool: Remove text at ({x}, {y})")
-        return True
+        return False  # Return False until implemented - allows selection clearing
     
     def on_double_click(self, x: float, y: float) -> bool:
         """Called when mouse is double-clicked."""

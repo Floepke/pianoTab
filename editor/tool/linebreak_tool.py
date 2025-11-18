@@ -60,7 +60,7 @@ class LineBreakTool(BaseTool):
         """Called when right mouse button is clicked."""
         # TODO: Remove line break at the clicked position
         print(f"LineBreakTool: Remove line break at ({x}, {y})")
-        return True
+        return False  # Return False until implemented - allows selection clearing
     
     def on_double_click(self, x: float, y: float) -> bool:
         """Called when mouse is double-clicked."""

@@ -59,6 +59,10 @@ class NoteTool(BaseTool):
     
     def on_mouse_move(self, x: float, y: float) -> bool:
         """Handle mouse movement (hover, no buttons pressed)."""
+        # Guard against startup race condition (mouse moves before file loaded)
+        if not self.score:
+            return False
+        
         # Call parent first - handles time cursor and drag detection
         if super().on_mouse_move(x, y):
             return True  # Parent is handling drag - stop here
@@ -204,7 +208,9 @@ class NoteTool(BaseTool):
         return result
     
     def on_right_click(self, x: float, y: float) -> bool:
-        """Called when right mouse button is clicked."""
+        """Called when right mouse button is clicked (without drag)."""
+        
+        print(f"NoteTool.on_right_click called at ({x:.1f}, {y:.1f})")
         
         # delete any existing cursor drawing
         self.editor.canvas.delete_by_tag('cursor')

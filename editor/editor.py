@@ -285,6 +285,53 @@ class Editor(
         ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
         return time_quarters * ql
     
+    def auto_scroll_if_near_edge(self, y_mm: float) -> bool:
+        '''Auto-scroll the editor if mouse is near the top or bottom edge.
+        
+        Args:
+            y_mm: Current mouse Y position in mm coordinates
+            
+        Returns:
+            True if scrolling occurred, False otherwise
+        '''
+        canvas = self.canvas
+        
+        # Convert mm mouse position to widget pixel coordinates
+        _, y_widget_px = canvas._mm_to_px_point(0, y_mm)
+        
+        scroll_margin_px = 40  # pixels from edge to trigger auto-scroll
+        scroll_speed_mm = 2.5  # mm to scroll per call
+        
+        # Get viewport bounds in px
+        viewport_bottom_px = canvas._view_y
+        viewport_top_px = canvas._view_y + canvas._view_h
+        
+        scrolled = False
+        
+        # Scroll down if near bottom of widget
+        if y_widget_px < viewport_bottom_px + scroll_margin_px:
+            content_height_px = canvas._content_height_px()
+            viewport_height_px = canvas.height
+            max_scroll = max(0, content_height_px - viewport_height_px)
+            new_scroll = min(max_scroll, canvas._scroll_px + scroll_speed_mm * canvas._px_per_mm)
+            canvas._scroll_px = new_scroll
+            canvas._redraw_all()
+            # Update scrollbar handle position
+            if hasattr(canvas, 'custom_scrollbar'):
+                canvas.custom_scrollbar.update_layout()
+            scrolled = True
+        # Scroll up if near top of widget
+        elif y_widget_px > viewport_top_px - scroll_margin_px:
+            new_scroll = max(0, canvas._scroll_px - scroll_speed_mm * canvas._px_per_mm)
+            canvas._scroll_px = new_scroll
+            canvas._redraw_all()
+            # Update scrollbar handle position
+            if hasattr(canvas, 'custom_scrollbar'):
+                canvas.custom_scrollbar.update_layout()
+            scrolled = True
+        
+        return scrolled
+    
     def get_score_length_in_ticks(self) -> float:
         '''Calculate total score length in ticks based on your algorithm.'''
         total_ticks = 0.0
@@ -595,7 +642,10 @@ class Editor(
             # Otherwise, dispatch to active tool
             return self.tool_manager.dispatch_left_press(x, y)
         elif button == 'right':
-            return self.tool_manager.dispatch_right_click(x, y)
+            # Track right press for potential drag-to-select
+            self.selection_manager.on_right_press(x, y)
+            # Don't consume - let tool handle click if no drag occurs
+            return False
         return False
     
     def handle_mouse_up(self, x: float, y: float, button: str, was_dragging: bool = False) -> bool:
@@ -634,7 +684,29 @@ class Editor(
             if active_tool and not active_tool._is_dragging:
                 self.tool_manager.dispatch_left_click(x, y)
         elif button == 'right':
+            # Check if selection manager is finishing rectangle selection
+            if self.selection_manager.on_right_release(x, y):
+                # Clear tracking state
+                self._mouse_button_down = None
+                self._mouse_down_pos = None
+                return True  # Selection manager handled it
+            
+            # Right-click without drag - check if tool handled an element deletion
+            # If not, clear selection (right-click in empty space)
+            active_tool = self.tool_manager.get_active_tool()
+            
+            # First, dispatch to active tool
             result = self.tool_manager.dispatch_right_release(x, y)
+            
+            # If not dragging, also dispatch click to tool
+            if active_tool and not active_tool._is_dragging:
+                tool_handled = self.tool_manager.dispatch_right_click(x, y)
+                
+                # If tool didn't handle it (no element at position), clear selection
+                if not tool_handled:
+                    print(f"DEBUG Editor: Right-click in empty space, clearing selection")
+                    self.selection_manager.clear_selection()
+                    result = True  # We handled it by clearing selection
         else:
             result = False
         
@@ -656,12 +728,22 @@ class Editor(
         Returns:
             True if event was handled
         """
+        # Auto-scroll when mouse is near top or bottom edge (40px margin)
+        # Only when left mouse button is pressed
+        if self._mouse_button_down == 'left':
+            scrolled = self.auto_scroll_if_near_edge(y)
+            if scrolled:
+                print(f"DEBUG: Auto-scrolled at y={y:.1f}mm")
+        
         # Always track mouse position for selection manager
         self.selection_manager.on_mouse_move(x, y)
         
         # Check if selection manager is handling drag
         if self._mouse_button_down == 'left' and self._mouse_down_pos:
             if self.selection_manager.on_left_drag(x, y):
+                return True  # Selection manager is handling the drag
+        elif self._mouse_button_down == 'right' and self._mouse_down_pos:
+            if self.selection_manager.on_right_drag(x, y):
                 return True  # Selection manager is handling the drag
         
         # Otherwise, dispatch to active tool
@@ -677,13 +759,7 @@ class Editor(
         Returns:
             True if event was handled
         """
-        # If Shift is held, treat as regular click for selection (not double-click)
-        from kivy.core.window import Window
-        if 'shift' in Window.modifiers:
-            print("Editor: Converting double-click to regular click because Shift is held (selection mode)")
-            # Treat as a regular mouse down event
-            return self.handle_mouse_down(x, y, 'left')
-        
+        # Forward to active tool
         return self.tool_manager.dispatch_double_click(x, y)
     
     def set_active_tool(self, tool_name: str) -> bool:

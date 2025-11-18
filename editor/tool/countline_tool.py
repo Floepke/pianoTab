@@ -61,7 +61,7 @@ class CountLineTool(BaseTool):
         """Called when right mouse button is clicked."""
         # TODO: Remove count line at the clicked position
         print(f"CountLineTool: Remove count line at ({x}, {y})")
-        return True
+        return False  # Return False until implemented - allows selection clearing
     
     def on_double_click(self, x: float, y: float) -> bool:
         """Called when mouse is double-clicked."""

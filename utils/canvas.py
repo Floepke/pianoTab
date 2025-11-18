@@ -14,62 +14,6 @@ from gui.colors import LIGHT, LIGHT_DARKER, DARK_LIGHTER, DARK, ACCENT_COLOR
 from utils.CONSTANTS import DEFAULT_GRID_STEP_TICKS
 
 
-# Monkey-patch Popup to automatically reclaim canvas keyboard on dismiss
-def _setup_popup_keyboard_reclaim():
-    '''Set up automatic keyboard reclaim when popups close.
-    
-    This patches the Popup class so ANY popup (from anywhere in the app)
-    will automatically trigger canvas keyboard reclaim when dismissed.
-    Zero maintenance required!
-    '''
-    try:
-        from kivy.uix.popup import Popup
-        
-        # Check if already patched
-        if hasattr(Popup, '_original_dismiss_method'):
-            return
-        
-        # Store original dismiss as a class attribute
-        Popup._original_dismiss_method = Popup.dismiss
-        
-        def patched_dismiss(self, *args, **kwargs):
-            '''Patched dismiss that reclaims canvas keyboard.'''
-            print(f"Popup.dismiss called (patched): {self.title if hasattr(self, 'title') else 'untitled'}")
-            
-            # Call original dismiss
-            result = Popup._original_dismiss_method(self, *args, **kwargs)
-
-            # Check for remaining popups after a small delay to ensure Kivy has
-            # fully removed this popup from the window hierarchy
-            def check_and_reclaim(dt):
-                from kivy.core.window import Window
-                from kivy.uix.popup import Popup
-                remaining_popups = [child for child in Window.children if isinstance(child, Popup)]
-                print(f"Popup.dismiss: {len(remaining_popups)} remaining popups after dismiss")
-                
-                if not remaining_popups:
-                    # No more popups, safe to reclaim keyboard
-                    from utils.canvas import Canvas
-                    Canvas.reclaim_keyboard_after_popup()
-            
-            from kivy.clock import Clock
-            Clock.schedule_once(check_and_reclaim, 0.05)
-
-            return result
-
-        # Set the function name to match the original method name for Kivy bindings
-        patched_dismiss.__name__ = 'dismiss'
-
-        # Replace dismiss method on the class
-        Popup.dismiss = patched_dismiss
-        
-    except Exception as e:
-        print(f"Canvas: Failed to patch Popup for keyboard reclaim: {e}")
-
-# Install the patch immediately
-_setup_popup_keyboard_reclaim()
-
-
 class CustomScrollbar(Widget):
     '''
     Custom scrollbar widget for the Canvas that looks consistent across all platforms.
@@ -326,24 +270,8 @@ class Canvas(Widget):
 
     __events__ = ('on_item_click',)
     
-    # Class variable to track the canvas that should reclaim keyboard after popups
+    # Class variable to track the canvas that should reclaim keyboard
     _global_keyboard_canvas = None
-    
-    @classmethod
-    def reclaim_keyboard_after_popup(cls):
-        '''Called automatically when any Popup is dismissed.
-        
-        This is bound globally to all Popup instances to ensure the canvas
-        always regains keyboard focus after modal dialogs close.
-        '''
-        print("Canvas: reclaim_keyboard_after_popup called")
-        if cls._global_keyboard_canvas is not None:
-            from kivy.clock import Clock
-            print("Canvas: Scheduling keyboard reclaim for global canvas")
-            # Delay to ensure popup is fully dismissed and TextInput has released keyboard
-            Clock.schedule_once(lambda dt: cls._global_keyboard_canvas._reclaim_keyboard(), 0.1)
-        else:
-            print("Canvas: No global keyboard canvas set, cannot reclaim")
 
     def __init__(
         self,
@@ -434,7 +362,6 @@ class Canvas(Widget):
         # Keyboard handling (only for editor canvas, not print preview)
         self._keyboard = None
         self._enable_keyboard = enable_keyboard  # Store flag for re-requesting keyboard
-        self._keyboard_reclaim_event = None  # Track scheduled reclaim event
         if enable_keyboard:
             self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
             if self._keyboard:
@@ -442,8 +369,10 @@ class Canvas(Widget):
                 self._keyboard.bind(on_key_up=self._on_keyboard_up)
             
             # Register this canvas as the global keyboard reclaim target
-            # Any popup that closes will trigger keyboard reclaim
             Canvas._global_keyboard_canvas = self
+            
+            # Bind to window focus to auto-reclaim keyboard
+            Window.bind(on_focus=self._on_window_focus)
 
         # Defer expensive redraws during resize
         self._resched = None
@@ -569,28 +498,35 @@ class Canvas(Widget):
         '''Keyboard has been released (e.g., by a TextInput widget).
         
         This is called when another widget takes keyboard focus.
-        The keyboard will be automatically reclaimed when the popup dismisses.
+        The keyboard will be automatically reclaimed when the window regains focus.
         '''
         if hasattr(self, '_keyboard') and self._keyboard:
             self._keyboard.unbind(on_key_down=self._on_keyboard_down)
             self._keyboard.unbind(on_key_up=self._on_keyboard_up)
             self._keyboard = None
     
-    def _reclaim_keyboard(self, dt=None):
+    def _on_window_focus(self, window, focused):
+        '''Called when window focus changes.
+        
+        Args:
+            window: The Window instance
+            focused: True if window gained focus, False if lost
+        '''
+        if focused and self._enable_keyboard:
+            print("Canvas: Window gained focus, reclaiming keyboard")
+            self._reclaim_keyboard()
+    
+    def _reclaim_keyboard(self):
         '''Reclaim keyboard focus for the canvas.
         
-        Called automatically after a popup is dismissed or when canvas is clicked.
+        Called automatically when window regains focus or canvas is clicked.
         '''
         # Only reclaim if enabled and we don't already have keyboard
-        if not (hasattr(self, '_enable_keyboard') and self._enable_keyboard):
-            return
-        
-        if self._keyboard is not None:
-            return  # Already have it
+        if not self._enable_keyboard or self._keyboard is not None:
+            return  # Already have it or not enabled
         
         # Reclaim keyboard for canvas
         try:
-            from kivy.core.window import Window
             self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
             if self._keyboard:
                 self._keyboard.bind(on_key_down=self._on_keyboard_down)
@@ -598,23 +534,6 @@ class Canvas(Widget):
                 print("Canvas: Keyboard focus reclaimed")
         except Exception as e:
             print(f"Canvas: Failed to reclaim keyboard: {e}")
-    
-    def on_touch_down(self, touch):
-        '''Override to reclaim keyboard focus when canvas is clicked.
-        
-        This provides immediate keyboard reclaim when user clicks the canvas,
-        as a fallback to the automatic reclaim in _keyboard_closed.
-        '''
-        # If keyboard was released and not yet reclaimed, do it now
-        if hasattr(self, '_enable_keyboard') and self._enable_keyboard and not self._keyboard:
-            # Cancel any pending automatic reclaim since we're doing it now
-            if hasattr(self, '_keyboard_reclaim_event') and self._keyboard_reclaim_event:
-                self._keyboard_reclaim_event.cancel()
-                self._keyboard_reclaim_event = None
-            
-            self._reclaim_keyboard()
-        
-        return super().on_touch_down(touch)
     
     def _on_keyboard_down(self, keyboard, keycode, text, modifiers):
         '''Handle keyboard events and forward to editor.
@@ -1056,6 +975,7 @@ class Canvas(Widget):
         width_mm: float = 0.25,
         dash: bool = False,
         dash_pattern_mm: Tuple[float, float] = (2.0, 2.0),
+        cap: str = 'round',
         tags: Optional[Iterable[str]] = None,
         z_index: Optional[int] = None,
         id: Optional[Iterable[str]] = None,
@@ -1063,6 +983,9 @@ class Canvas(Widget):
         '''Add a straight line segment between two points in mm.
 
         Colors are hex strings like '#RRGGBB'. Dash pattern is in mm.
+        
+        Args:
+            cap: Line cap style - 'round' (default) or 'square'
         '''
         item_id = self._new_item_id()
         
@@ -1087,6 +1010,7 @@ class Canvas(Widget):
             'close': False,
             'dash': bool(dash),
             'dash_mm': (float(dash_pattern_mm[0]), float(dash_pattern_mm[1])),
+            'cap': str(cap).lower(),
             'tags': set(tags or id or []),
             'z_index': final_z_index,
         }
@@ -1505,6 +1429,10 @@ class Canvas(Widget):
         pass
 
     def on_touch_down(self, touch):
+        # Reclaim keyboard focus when canvas is clicked
+        if self._enable_keyboard and not self._keyboard:
+            self._reclaim_keyboard()
+        
         # Debug: log all touch events
         button = getattr(touch, 'button', None)
         print(f"DEBUG Canvas.on_touch_down: button={button}, pos={touch.pos}, uid={touch.uid}")
@@ -1602,13 +1530,18 @@ class Canvas(Widget):
         return super().on_touch_up(touch)
 
     def on_mouse_motion(self, window, pos):
-        '''Handle mouse motion - set cursor for non-editor canvases.'''
+        '''Handle mouse motion - set cursor for non-editor canvases and forward to editor.'''
         mouse_x, mouse_y = pos
 
         # Check if mouse is over the canvas drawable view area (excluding scrollbar)
         if self._point_in_view_px(mouse_x, mouse_y):
             # Mouse is over the canvas content area
             ed = getattr(self, 'piano_roll_editor', None)
+            
+            # Forward mouse motion to editor for auto-scroll (even without drag)
+            if ed is not None and hasattr(ed, 'handle_mouse_move'):
+                mm_pos = self._px_to_mm(mouse_x, mouse_y)
+                ed.handle_mouse_move(mm_pos[0], mm_pos[1])
             
             # For non-editor Canvas (e.g., print preview) - set arrow cursor
             # Editor canvas cursor is handled by Editor._update_cursor_on_hover
@@ -1925,12 +1858,17 @@ class Canvas(Widget):
             pts_px += list(self._mm_to_px_point(x_mm, y_mm))
         g.add(Color(*item['color']))
         width_px = max(0.2, item['w_mm'] * self._px_per_mm)
+        
+        # Get cap style (default to 'round' for backwards compatibility)
+        cap_style = item.get('cap', 'round').lower()
+        kivy_cap = 'round' if cap_style == 'round' else 'square'
+        
         if item.get('dash'):
             on_px = max(1.0, item['dash_mm'][0] * self._px_per_mm)
             off_px = max(1.0, item['dash_mm'][1] * self._px_per_mm)
-            self._draw_dashed_polyline(g, pts_px, width_px, on_px, off_px)
+            self._draw_dashed_polyline(g, pts_px, width_px, on_px, off_px, cap=kivy_cap)
         else:
-            g.add(Line(points=pts_px, width=width_px, close=item.get('close', False)))
+            g.add(Line(points=pts_px, width=width_px, close=item.get('close', False), cap=kivy_cap))
 
     def _draw_path_instr(self, g: InstructionGroup, item: Dict[str, Any]):
         pts_px = []
@@ -2196,12 +2134,15 @@ class Canvas(Widget):
         return (0.0, 0.0, 0.0, 1.0)
 
     def _draw_dashed_polyline(self, g: InstructionGroup, pts_px: List[float], width_px: float,
-                               on_px: float, off_px: float):
+                               on_px: float, off_px: float, cap: str = 'round'):
         '''Render a dashed polyline given points in px using on/off dash lengths.
         
         Applies viewport culling to skip creating dash segments outside the visible area,
         dramatically improving performance for long dashed lines (e.g., stave clef lines).
         Only applies Y-axis culling to predominantly vertical lines.
+        
+        Args:
+            cap: Line cap style - 'round' or 'square'
         '''
         if len(pts_px) < 4:
             return
@@ -2263,7 +2204,7 @@ class Canvas(Widget):
                             culled_count += 1
                     
                     if create_line:
-                        g.add(Line(points=[x1, y1, x2, y2], width=width_px))
+                        g.add(Line(points=[x1, y1, x2, y2], width=width_px, cap=cap))
                         dash_count += 1
                 
                 pos += run

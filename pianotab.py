@@ -253,14 +253,18 @@ class pianoTAB(App):
         '''Invoked by PropertyTreeEditor after edits.
         
         Marks file as dirty, which triggers engraving for print preview via FileManager.
-        Editor canvas uses its own drawing system (piano roll).
+        Also triggers editor piano roll redraw to reflect property changes.
         '''
         try:
             # Mark file as dirty (which will trigger engraving via FileManager.mark_dirty)
             if self.file_manager is not None:
                 self.file_manager.mark_dirty()
+            
+            # Redraw editor piano roll to reflect changes
+            if self.editor is not None:
+                self.editor.redraw_pianoroll()
         except Exception as e:
-            Logger.warning(f'pianoTAB: Failed to mark dirty on property change: {e}')
+            Logger.warning(f'pianoTAB: Failed to handle property change: {e}')
 
     def _on_key_down(self, window, key, scancode, codepoint, modifiers):
         '''Handle global key presses for zooming.

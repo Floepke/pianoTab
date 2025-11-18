@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Optional, Callable
 import os
 
-from kivy.uix.popup import Popup
+from kivy.uix.modalview import ModalView
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.button import Button
@@ -313,9 +313,21 @@ class LoadDialog(BoxLayout):
                 filepath = os.path.join(self.file_chooser.path, filepath)
             self._load_callback(filepath)
     
+    def _reclaim_keyboard(self):
+        '''Reclaim keyboard focus for the editor canvas after dialogs close.'''
+        from utils.canvas import Canvas
+        if Canvas._global_keyboard_canvas:
+            Canvas._global_keyboard_canvas._reclaim_keyboard()
+    
     def _prompt_input(self, title, label_text, default_text, callback):
         '''Show input dialog.'''
-        # Left, Top, Right, Bottom padding - increase TOP
+        # Title bar
+        title_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), padding=[dp(10), dp(5)])
+        title_label = Label(text=title, color=LIGHT, font_name=FONT_NAME, halign='left', valign='middle')
+        title_label.bind(size=lambda *args: setattr(title_label, 'text_size', (title_label.width, None)))
+        title_bar.add_widget(title_label)
+        
+        # Content
         content = BoxLayout(orientation='vertical', spacing=dp(8), padding=[dp(8), dp(20), dp(8), dp(8)])
         
         content.add_widget(Label(text=label_text, size_hint_y=None, height=dp(30), color=LIGHT))
@@ -338,7 +350,13 @@ class LoadDialog(BoxLayout):
         btn_row.add_widget(ok_btn)
         content.add_widget(btn_row)
         
-        popup = Popup(title=title, content=content, size_hint=(None, None), size=(dp(400), dp(200)), title_font=FONT_NAME)
+        # Main container with title
+        main_box = BoxLayout(orientation='vertical', spacing=0)
+        main_box.add_widget(title_bar)
+        main_box.add_widget(content)
+        
+        popup = ModalView(size_hint=(None, None), size=(dp(400), dp(200)), auto_dismiss=False)
+        popup.add_widget(main_box)
         cancel_btn.bind(on_release=popup.dismiss)
         ok_btn.bind(on_release=lambda *args: (callback(text_input.text), popup.dismiss()))
         
@@ -354,11 +372,18 @@ class LoadDialog(BoxLayout):
             return False
         
         popup.bind(on_open=lambda *args: Window.bind(on_keyboard=on_keyboard))
-        popup.bind(on_dismiss=lambda *args: Window.unbind(on_keyboard=on_keyboard))
+        popup.bind(on_dismiss=lambda *args: (Window.unbind(on_keyboard=on_keyboard), self._reclaim_keyboard()))
         popup.open()
     
     def _confirm(self, message, callback):
         '''Show confirmation dialog.'''
+        # Title bar
+        title_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), padding=[dp(10), dp(5)])
+        title_label = Label(text='Confirm', color=LIGHT, font_name=FONT_NAME, halign='left', valign='middle')
+        title_label.bind(size=lambda *args: setattr(title_label, 'text_size', (title_label.width, None)))
+        title_bar.add_widget(title_label)
+        
+        # Content
         content = BoxLayout(orientation='vertical', spacing=dp(8), padding=[dp(8), dp(20), dp(8), dp(8)])
         
         content.add_widget(Label(text=message, size_hint_y=None, height=dp(50), color=LIGHT))
@@ -370,7 +395,13 @@ class LoadDialog(BoxLayout):
         btn_row.add_widget(yes_btn)
         content.add_widget(btn_row)
         
-        popup = Popup(title='Confirm', content=content, size_hint=(None, None), size=(dp(350), dp(170)), title_font=FONT_NAME)
+        # Main container with title
+        main_box = BoxLayout(orientation='vertical', spacing=0)
+        main_box.add_widget(title_bar)
+        main_box.add_widget(content)
+        
+        popup = ModalView(size_hint=(None, None), size=(dp(350), dp(170)), auto_dismiss=False)
+        popup.add_widget(main_box)
         no_btn.bind(on_release=popup.dismiss)
         yes_btn.bind(on_release=lambda *args: (callback(), popup.dismiss()))
         
@@ -386,11 +417,18 @@ class LoadDialog(BoxLayout):
             return False
         
         popup.bind(on_open=lambda *args: Window.bind(on_keyboard=on_keyboard))
-        popup.bind(on_dismiss=lambda *args: Window.unbind(on_keyboard=on_keyboard))
+        popup.bind(on_dismiss=lambda *args: (Window.unbind(on_keyboard=on_keyboard), self._reclaim_keyboard()))
         popup.open()
     
     def _show_error(self, message):
         '''Show error message.'''
+        # Title bar
+        title_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), padding=[dp(10), dp(5)])
+        title_label = Label(text='Error', color=LIGHT, font_name=FONT_NAME, halign='left', valign='middle')
+        title_label.bind(size=lambda *args: setattr(title_label, 'text_size', (title_label.width, None)))
+        title_bar.add_widget(title_label)
+        
+        # Content
         content = BoxLayout(orientation='vertical', spacing=dp(8), padding=[dp(8), dp(20), dp(8), dp(8)])
         
         content.add_widget(Label(text=message, size_hint_y=None, height=dp(50), color=LIGHT))
@@ -398,7 +436,13 @@ class LoadDialog(BoxLayout):
         ok_btn = Button(text='OK', size_hint_y=None, height=dp(40), background_normal='', background_color=DARK, color=LIGHT)
         content.add_widget(ok_btn)
         
-        popup = Popup(title='Error', content=content, size_hint=(None, None), size=(dp(350), dp(170)), title_font=FONT_NAME)
+        # Main container with title
+        main_box = BoxLayout(orientation='vertical', spacing=0)
+        main_box.add_widget(title_bar)
+        main_box.add_widget(content)
+        
+        popup = ModalView(size_hint=(None, None), size=(dp(350), dp(170)), auto_dismiss=False)
+        popup.add_widget(main_box)
         ok_btn.bind(on_release=popup.dismiss)
         
         # Keyboard handling
@@ -409,7 +453,7 @@ class LoadDialog(BoxLayout):
             return False
         
         popup.bind(on_open=lambda *args: Window.bind(on_keyboard=on_keyboard))
-        popup.bind(on_dismiss=lambda *args: Window.unbind(on_keyboard=on_keyboard))
+        popup.bind(on_dismiss=lambda *args: (Window.unbind(on_keyboard=on_keyboard), self._reclaim_keyboard()))
         popup.open()
 
 
@@ -690,8 +734,21 @@ class SaveDialog(BoxLayout):
             filepath = os.path.join(self.file_chooser.path, self.text_input.text)
             self._save_callback(filepath)
     
+    def _reclaim_keyboard(self):
+        '''Reclaim keyboard focus for the editor canvas after dialogs close.'''
+        from utils.canvas import Canvas
+        if Canvas._global_keyboard_canvas:
+            Canvas._global_keyboard_canvas._reclaim_keyboard()
+    
     def _prompt_input(self, title, label_text, default_text, callback):
         '''Show input dialog.'''
+        # Title bar
+        title_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), padding=[dp(10), dp(5)])
+        title_label = Label(text=title, color=LIGHT, font_name=FONT_NAME, halign='left', valign='middle')
+        title_label.bind(size=lambda *args: setattr(title_label, 'text_size', (title_label.width, None)))
+        title_bar.add_widget(title_label)
+        
+        # Content
         content = BoxLayout(orientation='vertical', spacing=dp(8), padding=[dp(8), dp(20), dp(8), dp(8)])
         
         content.add_widget(Label(text=label_text, size_hint_y=None, height=dp(30), color=LIGHT))
@@ -714,7 +771,13 @@ class SaveDialog(BoxLayout):
         btn_row.add_widget(ok_btn)
         content.add_widget(btn_row)
         
-        popup = Popup(title=title, content=content, size_hint=(None, None), size=(dp(400), dp(200)), title_font=FONT_NAME)
+        # Main container with title
+        main_box = BoxLayout(orientation='vertical', spacing=0)
+        main_box.add_widget(title_bar)
+        main_box.add_widget(content)
+        
+        popup = ModalView(size_hint=(None, None), size=(dp(400), dp(200)), auto_dismiss=False)
+        popup.add_widget(main_box)
         cancel_btn.bind(on_release=popup.dismiss)
         ok_btn.bind(on_release=lambda *args: (callback(text_input.text), popup.dismiss()))
         
@@ -735,6 +798,13 @@ class SaveDialog(BoxLayout):
     
     def _confirm(self, message, callback):
         '''Show confirmation dialog.'''
+        # Title bar
+        title_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), padding=[dp(10), dp(5)])
+        title_label = Label(text='Confirm', color=LIGHT, font_name=FONT_NAME, halign='left', valign='middle')
+        title_label.bind(size=lambda *args: setattr(title_label, 'text_size', (title_label.width, None)))
+        title_bar.add_widget(title_label)
+        
+        # Content
         content = BoxLayout(orientation='vertical', spacing=dp(8), padding=[dp(8), dp(20), dp(8), dp(8)])
         
         content.add_widget(Label(text=message, size_hint_y=None, height=dp(50), color=LIGHT))
@@ -746,7 +816,13 @@ class SaveDialog(BoxLayout):
         btn_row.add_widget(yes_btn)
         content.add_widget(btn_row)
         
-        popup = Popup(title='Confirm', content=content, size_hint=(None, None), size=(dp(350), dp(170)), title_font=FONT_NAME)
+        # Main container with title
+        main_box = BoxLayout(orientation='vertical', spacing=0)
+        main_box.add_widget(title_bar)
+        main_box.add_widget(content)
+        
+        popup = ModalView(size_hint=(None, None), size=(dp(350), dp(170)), auto_dismiss=False)
+        popup.add_widget(main_box)
         no_btn.bind(on_release=popup.dismiss)
         yes_btn.bind(on_release=lambda *args: (callback(), popup.dismiss()))
         
@@ -762,11 +838,18 @@ class SaveDialog(BoxLayout):
             return False
         
         popup.bind(on_open=lambda *args: Window.bind(on_keyboard=on_keyboard))
-        popup.bind(on_dismiss=lambda *args: Window.unbind(on_keyboard=on_keyboard))
+        popup.bind(on_dismiss=lambda *args: (Window.unbind(on_keyboard=on_keyboard), self._reclaim_keyboard()))
         popup.open()
     
     def _show_error(self, message):
         '''Show error message.'''
+        # Title bar
+        title_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), padding=[dp(10), dp(5)])
+        title_label = Label(text='Error', color=LIGHT, font_name=FONT_NAME, halign='left', valign='middle')
+        title_label.bind(size=lambda *args: setattr(title_label, 'text_size', (title_label.width, None)))
+        title_bar.add_widget(title_label)
+        
+        # Content
         content = BoxLayout(orientation='vertical', spacing=dp(8), padding=[dp(8), dp(20), dp(8), dp(8)])
         
         content.add_widget(Label(text=message, size_hint_y=None, height=dp(50), color=LIGHT))
@@ -774,7 +857,13 @@ class SaveDialog(BoxLayout):
         ok_btn = Button(text='OK', size_hint_y=None, height=dp(40), background_normal='', background_color=DARK, color=LIGHT)
         content.add_widget(ok_btn)
         
-        popup = Popup(title='Error', content=content, size_hint=(None, None), size=(dp(350), dp(170)), title_font=FONT_NAME)
+        # Main container with title
+        main_box = BoxLayout(orientation='vertical', spacing=0)
+        main_box.add_widget(title_bar)
+        main_box.add_widget(content)
+        
+        popup = ModalView(size_hint=(None, None), size=(dp(350), dp(170)), auto_dismiss=False)
+        popup.add_widget(main_box)
         ok_btn.bind(on_release=popup.dismiss)
         
         # Keyboard handling
@@ -785,7 +874,7 @@ class SaveDialog(BoxLayout):
             return False
         
         popup.bind(on_open=lambda *args: Window.bind(on_keyboard=on_keyboard))
-        popup.bind(on_dismiss=lambda *args: Window.unbind(on_keyboard=on_keyboard))
+        popup.bind(on_dismiss=lambda *args: (Window.unbind(on_keyboard=on_keyboard), self._reclaim_keyboard()))
         popup.open()
 
 
@@ -805,7 +894,21 @@ class FileManager:
             self._last_dir = saved_path if saved_path and os.path.isdir(saved_path) else os.path.expanduser('~')
         except Exception:
             self._last_dir = os.path.expanduser('~')
-        self._popup: Optional[Popup] = None
+        self._popup: Optional[ModalView] = None
+    
+    def _reclaim_keyboard(self):
+        '''Reclaim keyboard focus for the editor canvas after dialogs close.'''
+        from utils.canvas import Canvas
+        if Canvas._global_keyboard_canvas:
+            Canvas._global_keyboard_canvas._reclaim_keyboard()
+    
+    def _update_window_title(self):
+        '''Update the window title to show current filepath.'''
+        if self.current_path:
+            title = f'pianoTAB - music notation editor - {self.current_path}'
+        else:
+            title = 'pianoTAB - music notation editor - Untitled'
+        Window.set_title(title)
 
     def new_file(self):
         '''Create a new empty score.'''
@@ -814,6 +917,7 @@ class FileManager:
             self.editor.new_score()
             self.current_path = None
             self.dirty = False
+            self._update_window_title()
         self._guard_unsaved_then(_do_new)
 
     def open_file(self):
@@ -826,6 +930,7 @@ class FileManager:
                 self.current_path = filepath
                 self._last_dir = os.path.dirname(filepath)
                 self.dirty = False
+                self._update_window_title()
                 self._dismiss_popup()
                 # Update settings: last opened + recent files + dialog path
                 try:
@@ -850,14 +955,25 @@ class FileManager:
             # Size capped for very large screens while remaining responsive
             target_w = min(int(Window.width * 0.9), LOAD_SAVE_MAX_WIDTH)
             target_h = min(int(Window.height * 0.9), LOAD_SAVE_MAX_HEIGHT)
-            self._popup = Popup(
-                title='Load File',
-                content=content,
+            
+            # Title bar
+            title_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), padding=[dp(10), dp(5)])
+            title_label = Label(text='Load File', color=LIGHT, font_name=FONT_NAME, halign='left', valign='middle')
+            title_label.bind(size=lambda *args: setattr(title_label, 'text_size', (title_label.width, None)))
+            title_bar.add_widget(title_label)
+            
+            # Main container with title
+            main_box = BoxLayout(orientation='vertical', spacing=0)
+            main_box.add_widget(title_bar)
+            main_box.add_widget(content)
+            
+            self._popup = ModalView(
                 size_hint=(None, None),
                 size=(target_w, target_h),
-                auto_dismiss=False,
-                title_font=FONT_NAME
+                auto_dismiss=False
             )
+            self._popup.add_widget(main_box)
+            self._popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
             self._popup.open()
         
         self._guard_unsaved_then(_show_load_dialog)
@@ -886,6 +1002,7 @@ class FileManager:
             self.current_path = filepath
             self._last_dir = os.path.dirname(filepath)
             self.dirty = False
+            self._update_window_title()
             
             # Update settings: last opened + recent files + dialog path
             try:
@@ -938,14 +1055,25 @@ class FileManager:
         # Size capped for very large screens while remaining responsive
         target_w = min(int(Window.width * 0.9), LOAD_SAVE_MAX_WIDTH)
         target_h = min(int(Window.height * 0.9), LOAD_SAVE_MAX_HEIGHT)
-        self._popup = Popup(
-            title='Save File As',
-            content=content,
+        
+        # Title bar
+        title_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), padding=[dp(10), dp(5)])
+        title_label = Label(text='Save File As', color=LIGHT, font_name=FONT_NAME, halign='left', valign='middle')
+        title_label.bind(size=lambda *args: setattr(title_label, 'text_size', (title_label.width, None)))
+        title_bar.add_widget(title_label)
+        
+        # Main container with title
+        main_box = BoxLayout(orientation='vertical', spacing=0)
+        main_box.add_widget(title_bar)
+        main_box.add_widget(content)
+        
+        self._popup = ModalView(
             size_hint=(None, None),
             size=(target_w, target_h),
-            auto_dismiss=False,
-            title_font=FONT_NAME
+            auto_dismiss=False
         )
+        self._popup.add_widget(main_box)
+        self._popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
         self._popup.open()
 
     def exit_app(self):
@@ -986,6 +1114,7 @@ class FileManager:
             self.current_path = path
             self._last_dir = os.path.dirname(path) or self._last_dir
             self.dirty = False
+            self._update_window_title()
             # Update settings: last opened + recent files + dialog path
             try:
                 settings = getattr(self.app, 'settings', None)
@@ -1082,13 +1211,25 @@ class FileManager:
                 # Size capped for very large screens while remaining responsive
                 target_w = min(int(Window.width * 0.9), LOAD_SAVE_MAX_WIDTH)
                 target_h = min(int(Window.height * 0.9), LOAD_SAVE_MAX_HEIGHT)
-                self._popup = Popup(
-                    title='Save File As',
-                    content=content,
+                
+                # Title bar
+                title_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), padding=[dp(10), dp(5)])
+                title_label = Label(text='Save File As', color=LIGHT, font_name=FONT_NAME, halign='left', valign='middle')
+                title_label.bind(size=lambda *args: setattr(title_label, 'text_size', (title_label.width, None)))
+                title_bar.add_widget(title_label)
+                
+                # Main container with title
+                main_box = BoxLayout(orientation='vertical', spacing=0)
+                main_box.add_widget(title_bar)
+                main_box.add_widget(content)
+                
+                self._popup = ModalView(
                     size_hint=(None, None),
                     size=(target_w, target_h),
                     auto_dismiss=False
                 )
+                self._popup.add_widget(main_box)
+                self._popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
                 self._popup.open()
         
         def on_no():
@@ -1129,6 +1270,7 @@ class FileManager:
         btn_no.bind(on_release=lambda *_: (popup.dismiss(), on_no()))
         btn_cancel.bind(on_release=lambda *_: (popup.dismiss(), on_cancel()))
         
+        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
         popup.open()
 
     def _confirm_yes_no(self, *, title: str, message: str, 
@@ -1153,6 +1295,7 @@ class FileManager:
         btn_yes.bind(on_release=lambda *_: (popup.dismiss(), on_yes()))
         btn_no.bind(on_release=lambda *_: (popup.dismiss(), on_no()))
         
+        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
         popup.open()
 
     def _error(self, message: str):
@@ -1169,6 +1312,7 @@ class FileManager:
         btn_ok = Button(text='OK', size_hint=(None, None), width=120, height=34)
         popup = _dialog_shell('Error', lbl, btns=[btn_ok])
         btn_ok.bind(on_release=lambda *_: popup.dismiss())
+        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
         popup.open()
 
     def _info(self, message: str):
@@ -1185,29 +1329,41 @@ class FileManager:
         btn_ok = Button(text='OK', size_hint=(None, None), width=120, height=34)
         popup = _dialog_shell('Info', lbl, btns=[btn_ok])
         btn_ok.bind(on_release=lambda *_: popup.dismiss())
+        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
         popup.open()
 
 
-def _dialog_shell(title: str, inner, *, btns: list[Button]) -> Popup:
-    '''Create a simple styled popup dialog.'''
-    root = BoxLayout(orientation='vertical', spacing=16, padding=[16, 24, 16, 16])  # Generous padding
-    popup = Popup(
-        title=title,
-        content=root,
-        size_hint=(None, None),
-        size=(500, 260),  # Larger dialog with more vertical space
-        auto_dismiss=False,
-        separator_height=4,  # Clear separation between title and content
-        title_font=FONT_NAME
-    )
-    root.add_widget(inner)
+def _dialog_shell(title: str, inner, *, btns: list[Button]) -> ModalView:
+    '''Create a simple styled modal dialog.'''
+    # Title bar
+    title_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), padding=[dp(10), dp(5)])
+    title_label = Label(text=title, color=LIGHT, font_name=FONT_NAME, halign='left', valign='middle')
+    title_label.bind(size=lambda *args: setattr(title_label, 'text_size', (title_label.width, None)))
+    title_bar.add_widget(title_label)
+    
+    # Content container
+    content_box = BoxLayout(orientation='vertical', spacing=16, padding=[16, 24, 16, 16])  # Generous padding
+    content_box.add_widget(inner)
     btn_row = BoxLayout(orientation='horizontal', size_hint_y=None, height=44, spacing=12)
     for b in btns:
         b.background_normal = ''
         b.background_color = DARK
         b.color = LIGHT
         btn_row.add_widget(b)
-    root.add_widget(btn_row)
+    content_box.add_widget(btn_row)
+    
+    # Main container with title
+    root = BoxLayout(orientation='vertical', spacing=0)
+    root.add_widget(title_bar)
+    root.add_widget(content_box)
+    
+    popup = ModalView(
+        size_hint=(None, None),
+        size=(500, 260),  # Larger dialog with more vertical space
+        auto_dismiss=False
+    )
+    popup.add_widget(root)
+    
     from kivy.graphics import Color, Rectangle
     with popup.canvas.before:
         Color(*DARK_LIGHTER)

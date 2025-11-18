@@ -63,7 +63,7 @@ class GraceNoteTool(BaseTool):
         """Called when right mouse button is clicked."""
         # TODO: Remove grace note at the clicked position
         print(f"GraceNoteTool: Remove grace note at ({x}, {y})")
-        return True
+        return False  # Return False until implemented - allows selection clearing
     
     def on_double_click(self, x: float, y: float) -> bool:
         """Called when mouse is double-clicked."""
