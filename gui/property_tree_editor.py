@@ -103,8 +103,8 @@ def _camel_to_snake(name: str) -> str:
 class NumericTextInput(TextInput):
     '''
     TextInput that only accepts digits and optionally a single dot.
-    allow_float=False -> digits only (ints)
-    allow_float=True  -> digits + optional '.' (floats)
+    allow_float=False -> digits only (ints), allows leading minus sign
+    allow_float=True  -> digits + optional '.' (floats), allows leading minus sign
     '''
     def __init__(self, allow_float: bool, **kwargs):
         super().__init__(**kwargs)
@@ -118,6 +118,16 @@ class NumericTextInput(TextInput):
             # prevent multiple dots
             if '.' in substring and '.' in self.text:
                 substring = substring.replace('.', '')
+        
+        # Allow minus sign only at the beginning
+        if '-' in substring:
+            # Only allow minus at position 0 (beginning) and only one minus
+            if self.cursor[0] == 0 and '-' not in self.text:
+                allowed += '-'
+            else:
+                # Remove minus if not at beginning or already present
+                substring = substring.replace('-', '')
+        
         filtered = ''.join(ch for ch in substring if ch in allowed)
         return super().insert_text(filtered, from_undo=from_undo)
 

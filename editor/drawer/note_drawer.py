@@ -150,6 +150,33 @@ class NoteDrawerMixin:
                 outline=False,
                 tags=['leftdot', base_tag]
             )
+
+        # draw accidental - experimental feature
+        if note.accidental != 0 and note.pitch in BLACK_KEYS:
+            if note.blackNoteDirection == '^':
+                yy = y - notehead_length
+            else:
+                yy = y + notehead_length
+            if note.accidental < 0:
+                self.canvas.add_line(
+                    x1_mm=x,
+                    y1_mm=yy,
+                    x2_mm=x + (semitone_width/2),
+                    y2_mm=yy + (notehead_length/2),
+                    width_mm=self.score.properties.globalNote.stemWidthMm,
+                    color=color,
+                    tags=['accidental', base_tag]
+                )
+            elif note.accidental > 0:
+                self.canvas.add_line(
+                    x1_mm=x,
+                    y1_mm=yy,
+                    x2_mm=x - (semitone_width/2),
+                    y2_mm=yy + (notehead_length/2),
+                    width_mm=self.score.properties.globalNote.stemWidthMm,
+                    color=color,
+                    tags=['accidental', base_tag]
+                )
         
         # draw the stem
         if note.blackNoteDirection == '^' and note.pitch in BLACK_KEYS:

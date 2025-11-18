@@ -31,6 +31,7 @@ class SCORE:
         time: float = 0.0,
         duration: float = 256.0,
         pitch: int = 40,
+        accidental: int = 0,
         velocity: int = 80,
         articulation: List[Articulation] = [],
         hand: Literal['<', '>'] = ">",

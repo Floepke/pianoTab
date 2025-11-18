@@ -51,12 +51,26 @@ class Note:
     pitch: int = field(
         default=40,
         metadata={
-            'tree_icon': 'accidental',
+            'tree_icon': 'note',
             'tree_tooltip': 'pianoTAB pitch (key 1-88, C4=40, A4=49)',
             'tree_edit_type': 'int',
             'tree_edit_options': {
                 'min': 1,
                 'max': 88,
+                'step': 1,
+            }
+        }
+    )
+
+    accidental: int = field(
+        default=0,
+        metadata={
+            'tree_icon': 'accidental',
+            'tree_tooltip': 'accidental is an experimental future, in the notation accidental can draw # or b on the note',
+            'tree_edit_type': 'int',
+            'tree_edit_options': {
+                'min': -1,
+                'max': 1,
                 'step': 1,
             }
         }

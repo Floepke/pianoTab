@@ -13,6 +13,7 @@ class NoteTool(BaseTool):
     def __init__(self, editor):
         super().__init__(editor)
         self.hand_cursor = '<'  # Default to left hand
+        self.accidental_cursor = 0  # Accidental for cursor: 0 (none), -1 (flat), 1 (sharp)
         self.edit_note = None  # Note being created/edited during drag
         self.edit_stave_idx = None  # Stave index of note being edited
     
@@ -27,8 +28,9 @@ class NoteTool(BaseTool):
     def on_activate(self):
         """Called when this tool becomes active."""
         super().on_activate()
-        # Reset to default hand
+        # Reset to default hand and accidental
         self.hand_cursor = '<'
+        self.accidental_cursor = 0
     
     def on_deactivate(self):
         """Called when switching away from this tool."""
@@ -39,6 +41,31 @@ class NoteTool(BaseTool):
     
     def on_key_press(self, key: str, x: float, y: float) -> bool:
         """Handle key press events."""
+        # Map 'a' key for accidental toggling: 0 -> -1 -> 1 -> 0
+        if key == 'a':
+            # Three-step cycle: 0 (none) -> -1 (flat) -> 1 (sharp) -> 0 (none)
+            if self.accidental_cursor == 0:
+                self.accidental_cursor = -1
+            elif self.accidental_cursor == -1:
+                self.accidental_cursor = 1
+            else:  # self.accidental_cursor == 1
+                self.accidental_cursor = 0
+            
+            # Redraw cursor at current mouse position with new accidental
+            pitch, time = self.get_pitch_and_time(x, y)
+            duration = self.editor.grid_selector.get_grid_step()
+            
+            # Clamp time to valid range
+            score_length = self.editor.get_score_length_in_ticks()
+            if time + duration > score_length:
+                time = score_length - duration
+            if time < 0:
+                time = 0
+            
+            cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_cursor)
+            self._draw_note_cursor(cursor, type='cursor')
+            return True  # We handled this key
+        
         # Map , and . keys for hand switching (they have arrow symbols on keyboard)
         if key == ',' or key == 'comma':
             self.hand_cursor = '<'  # Left hand
@@ -53,7 +80,7 @@ class NoteTool(BaseTool):
             if time < 0:
                 time = 0
             
-            cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor)
+            cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_cursor)
             self._draw_note_cursor(cursor, type='cursor')
             return True  # We handled this key
         elif key == '.' or key == 'period':
@@ -69,7 +96,7 @@ class NoteTool(BaseTool):
             if time < 0:
                 time = 0
             
-            cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor)
+            cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_cursor)
             self._draw_note_cursor(cursor, type='cursor')
             return True  # We handled this key
         
@@ -96,7 +123,7 @@ class NoteTool(BaseTool):
         if time < 0:
             time = 0
         
-        cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor)
+        cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_cursor)
         
         # redraw cursor
         self._draw_note_cursor(cursor, type='cursor')
@@ -134,13 +161,14 @@ class NoteTool(BaseTool):
             self.edit_note = element
             self.edit_stave_idx = stave_idx
             
-            # Assign current cursor hand to the note being edited
+            # Assign current cursor hand and accidental to the note being edited
             self.edit_note.hand = self.hand_cursor
+            self.edit_note.accidental = self.accidental_cursor
             
             # Redraw in 'select/edit' mode for visual feedback
             self.editor._draw_single_note(stave_idx, self.edit_note, draw_mode='select/edit')
             
-            print(f"NoteTool: Editing note {element.id} from stave {stave_idx}, assigned hand '{self.hand_cursor}'")
+            print(f"NoteTool: Editing note {element.id} from stave {stave_idx}, assigned hand '{self.hand_cursor}', accidental {self.accidental_cursor}")
             return True
         
         # CREATE MODE: No note clicked, create new one
@@ -162,7 +190,8 @@ class NoteTool(BaseTool):
             pitch=pitch,
             hand=self.hand_cursor,
             duration=duration,
-            velocity=100
+            velocity=100,
+            accidental=self.accidental_cursor
         )
         self.edit_stave_idx = 0
         

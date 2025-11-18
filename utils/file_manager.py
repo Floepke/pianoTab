@@ -907,6 +907,11 @@ class FileManager:
             title = f'pianoTAB - music notation editor - {self.current_path}'
         else:
             title = 'pianoTAB - music notation editor - Untitled'
+        
+        # Add asterisk if file has unsaved changes
+        if self.dirty:
+            title += ' *'
+        
         Window.set_title(title)
 
     def new_file(self):
@@ -1082,6 +1087,7 @@ class FileManager:
     def mark_dirty(self):
         '''Mark the current file as having unsaved changes and trigger print preview update.'''
         self.dirty = True
+        self._update_window_title()  # Update title to show asterisk
         
         # Trigger engraver to update print preview
         try:
