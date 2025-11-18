@@ -20,7 +20,6 @@ import shutil
 from gui.colors import DARK, DARK_LIGHTER, LIGHT
 from kivy.core.window import Window
 from file.SCORE import SCORE
-from typing import Any
 from font import FONT_NAME  # Import font name for Popup titles
 
 

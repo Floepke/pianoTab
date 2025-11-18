@@ -12,6 +12,8 @@ from kivy.clock import Clock
 from gui.colors import ACCENT_COLOR_HEX
 from utils import clipboard  # Musical element clipboard
 from utils.keyboard import matches_shortcut  # Cross-platform key matching
+from utils.CONSTANTS import OPERATOR_TRESHOLD
+from utils.operator import OperatorThreshold
 
 if TYPE_CHECKING:
     from editor.editor import Editor
@@ -26,6 +28,9 @@ class SelectionManager:
     
     def __init__(self, editor: Editor):
         self.editor = editor
+        
+        # Threshold-based comparison operator for time values
+        self._time_op = OperatorThreshold(threshold=OPERATOR_TRESHOLD)
         
         # Selection state
         self.selected_elements: List[Dict[str, Any]] = []
@@ -569,7 +574,45 @@ class SelectionManager:
     # === Selection Movement ===
     
     def _move_selection_time(self, time_offset: float) -> bool:
-        """Move selected notes in time."""
+        """Move selected notes in time.
+        
+        Prevents moving notes before time 0 or beyond the score length.
+        """
+        if not self.selected_elements:
+            return False
+        
+        # Find the earliest note start time and latest note end time in selection
+        min_time = float('inf')
+        max_time_end = float('-inf')
+        
+        for item in self.selected_elements:
+            if item['type'] == 'note':
+                note = item['element']
+                min_time = min(min_time, note.time)
+                max_time_end = max(max_time_end, note.time + note.duration)
+        
+        # If no notes found, nothing to do
+        if min_time == float('inf'):
+            return False
+        
+        # Calculate new boundaries after the move
+        new_min_time = min_time + time_offset
+        new_max_time_end = max_time_end + time_offset
+        
+        # Check if moving backward would go below zero (not equal to zero - that's valid)
+        if time_offset < 0 and self._time_op.less(new_min_time, 0):
+            print(f"SelectionManager: Cannot move selection - would go before time 0")
+            return False
+        
+        # Check if moving forward would exceed score length
+        if time_offset > 0:
+            # Get total score length from all baseGrids
+            score_length = self.editor.get_score_length_in_ticks()
+            if self._time_op.greater(new_max_time_end, score_length):
+                print(f"SelectionManager: Cannot move selection - would exceed score length ({score_length} ticks)")
+                return False
+        
+        # All checks passed, perform the move
         for item in self.selected_elements:
             if item['type'] == 'note':
                 item['element'].time += time_offset
@@ -583,7 +626,25 @@ class SelectionManager:
         return True
     
     def _transpose_selection(self, semitone_offset: int) -> bool:
-        """Transpose selected notes by semitones."""
+        """Transpose selected notes by semitones.
+        
+        Prevents transposing notes outside the valid pitch range (1-88).
+        """
+        if not self.selected_elements:
+            return False
+        
+        # First check if any note would go out of range
+        for item in self.selected_elements:
+            if item['type'] == 'note':
+                new_pitch = item['element'].pitch + semitone_offset
+                if new_pitch < 1:
+                    print(f"SelectionManager: Cannot transpose - would go below pitch 1")
+                    return False
+                elif new_pitch > 88:
+                    print(f"SelectionManager: Cannot transpose - would go above pitch 88")
+                    return False
+        
+        # All checks passed, perform the transposition
         for item in self.selected_elements:
             if item['type'] == 'note':
                 item['element'].pitch += semitone_offset

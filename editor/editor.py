@@ -728,11 +728,9 @@ class Editor(
             True if event was handled
         """
         # Auto-scroll when mouse is near top or bottom edge (40px margin)
-        # Only when left mouse button is pressed
-        if self._mouse_button_down == 'left':
-            scrolled = self.auto_scroll_if_near_edge(y)
-            if scrolled:
-                print(f"DEBUG: Auto-scrolled at y={y:.1f}mm")
+        # Trigger for both left (tool drag) and right (selection rectangle) mouse buttons
+        if self._mouse_button_down in ('left', 'right'):
+            self.auto_scroll_if_near_edge(y)
         
         # Always track mouse position for selection manager
         self.selection_manager.on_mouse_move(x, y)

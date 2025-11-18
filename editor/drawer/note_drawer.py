@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Literal, Optional
 
 from file import note
 from gui.colors import ACCENT_COLOR_HEX
-from utils.CONSTANTS import BLACK_KEYS
+from utils.CONSTANTS import BLACK_KEYS, OPERATOR_TRESHOLD
 from utils.operator import OperatorThreshold
 
 if TYPE_CHECKING:
@@ -27,7 +27,7 @@ class NoteDrawerMixin:
     '''
     
     # Threshold-based comparison operator for time values
-    _time_op = OperatorThreshold(threshold=7.0)
+    _time_op = OperatorThreshold(threshold=OPERATOR_TRESHOLD)
     
     # Type hints for Editor attributes used by this mixin
     if TYPE_CHECKING:
@@ -211,15 +211,10 @@ class NoteDrawerMixin:
         if not self.score:
             return
         
-        # Get the stave's note list
         if stave_idx >= len(self.score.stave):
             return
         
-        stave = self.score.stave[stave_idx]
-        if not hasattr(stave.event, 'note'):
-            return
-        
-        note_list = stave.event.note
+        note_list = self.score.stave[stave_idx].event.note
         
         # Find notes with the same time and same hand
         for other_note in note_list:
@@ -363,7 +358,7 @@ class NoteDrawerMixin:
                 break
             
             # Only consider notes from the same hand
-            if other_note.hand != note.hand:
+            if other_note.hand != note.hand or other_note.id == note.id:
                 continue
             
             # Check if other note starts within our duration range (using threshold)
@@ -385,7 +380,7 @@ class NoteDrawerMixin:
                 break
             
             # Only consider notes from the same hand
-            if other_note.hand != note.hand:
+            if other_note.hand != note.hand or other_note.id == note.id:
                 continue
             
             # Check if other note starts within our duration range (using threshold)

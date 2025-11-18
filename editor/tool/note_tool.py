@@ -103,9 +103,6 @@ class NoteTool(BaseTool):
         element, elem_type, stave_idx = self.get_element_at_position(x, y, element_types=['note'])
         
         if element and elem_type == 'note':
-            # delete any existing cursor drawing
-            self.editor.canvas.delete_by_tag('cursor')
-
             # EDIT MODE: Start editing existing note
             self.edit_note = element
             self.edit_stave_idx = stave_idx
@@ -134,9 +131,6 @@ class NoteTool(BaseTool):
         
         # Draw in 'select/edit' mode
         self.editor._draw_single_note(0, self.edit_note, draw_mode='select/edit')
-
-        # delete any existing cursor drawing
-        self.editor.canvas.delete_by_tag('cursor')
         
         # Mark as modified (which will trigger engraving via FileManager)
         if hasattr(self.editor, 'on_modified') and self.editor.on_modified:
@@ -304,7 +298,6 @@ class NoteTool(BaseTool):
     
     def _draw_note_cursor(self, cursor: Note, type: Optional[Literal['note', 'cursor', 'selected/edit']] = 'cursor'):
         """Draw a note cursor at the given position."""
-        self.editor.canvas.delete_by_tag('cursor')
         self.editor._draw_single_note(0, cursor, draw_mode=type)
 
     
