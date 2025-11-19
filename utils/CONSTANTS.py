@@ -99,12 +99,13 @@ DRAWING_LAYERS = [
     'connectstem',     
     
     # note elements
-    'notehead',        
-    'stopsign',        
-    'leftdot',         
+    'noteheadwhite',
+    'noteheadblack',      
+    'stopsign',
+    'leftdot',
     'stem',
     'connectstem',
-    'accidental',     
+    'accidental',
 
     # gracenote          
     'gracenote',
@@ -116,10 +117,10 @@ DRAWING_LAYERS = [
     # other notation elements
     'measurenumber',
 
-    'slur',            
-    'text',            
-    'tempo',           
-    'linebreak',       
+    'slur',
+    'text',
+    'tempo',
+    'linebreak',
     'countline',
     
     # UI elements (top layers)

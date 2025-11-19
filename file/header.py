@@ -65,7 +65,7 @@ class Header:
         default_factory=lambda: time.strftime('%d-%m-%Y_%H:%M:%S'),
         metadata={
             'tree_icon': 'property',
-            'tree_tooltip': 'File creation timestamp',
+            'tree_tooltip': 'Time-stamp on which time the file was created.',
             'tree_edit_type': 'readonly',
         }
     )
@@ -73,7 +73,7 @@ class Header:
         default_factory=lambda: time.strftime('%d-%m-%Y_%H:%M:%S'),
         metadata={
             'tree_icon': 'property',
-            'tree_tooltip': 'Modification timestamp, this value get\'s updated every time we save the file.',
+            'tree_tooltip': 'Modification timestamp, this time-stamp gets updated every time we save the file.',
             'tree_edit_type': 'readonly',
         }
     )

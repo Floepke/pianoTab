@@ -169,6 +169,12 @@ class NoteDrawerMixin:
         elif note.blackNoteDirection == '^' and note.pitch in BLACK_KEYS:
             y -= notehead_length
         
+        # determine tag for notehead type
+        if note.pitch in BLACK_KEYS:
+            tag = 'noteheadblack'
+        else:
+            tag = 'noteheadwhite'
+
         # Draw the notehead
         self.canvas.add_oval(
             x1_mm=x - semitone_width / 2,
@@ -180,7 +186,7 @@ class NoteDrawerMixin:
             outline=True,
             outline_width_mm=self.score.properties.globalNote.stemWidthMm,
             outline_color=color,
-            tags=['notehead', base_tag]
+            tags=[tag, base_tag]
         )
     
     def _draw_left_dot(self, note: Note, base_tag: str, color: str) -> None:

@@ -40,7 +40,7 @@ from gui.menu_bar import MenuBar
 from gui.grid_selector import GridSelector
 from gui.tool_selector import ToolSelector
 from gui.split_view import SplitView
-from gui.callbacks import create_menu_config  # reuse existing menu configuration
+from gui.callbacks import create_menu_config, create_default_toolbar_config, create_contextual_toolbar_config  # toolbar configurations
 from utils.canvas import Canvas
 from gui.property_tree_editor import PropertyTreeEditor
 
@@ -289,6 +289,18 @@ class GUI(BoxLayout):
             self.center_split.sash.set_linked_split(self.mid_right_split)
         except Exception:
             pass
+        
+        # Initialize default toolbar for vertical sash (always visible buttons with tooltips)
+        try:
+            # Create minimal toolbar config with tooltips (callbacks will be set later)
+            default_toolbar = {
+                'previous': (None, 'Previous item'),
+                'next': (None, 'Next item'),
+                'MyTest': (None, 'Run render + PDF test'),
+            }
+            self.mid_right_split.sash.set_configs(default_toolbar=default_toolbar)
+        except Exception as e:
+            print(f"Error initializing default toolbar: {e}")
 
         # Attach to OUTER BoxLayout
         self.outer_layout.add_widget(self.side_panel)       # fixed width left panel

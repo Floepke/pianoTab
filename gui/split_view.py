@@ -7,23 +7,69 @@ from kivy.uix.widget import Widget
 from kivy.uix.button import Button, ButtonBehavior
 from kivy.uix.image import Image
 from kivy.uix.label import Label
-from kivy.graphics import Color, Rectangle
-from kivy.properties import NumericProperty, ObjectProperty, ListProperty
+from kivy.graphics import Color, Rectangle, RoundedRectangle
+from kivy.properties import NumericProperty, ObjectProperty, ListProperty, StringProperty
 from kivy.clock import Clock
 from kivy.core.window import Window
-from kivy.metrics import sp
-from gui.colors import DARK, LIGHT_DARKER, LIGHT
+from kivy.metrics import sp, dp
+from gui.colors import DARK, LIGHT_DARKER, DARK_LIGHTER, LIGHT
 from typing import Dict, Tuple, Callable, Optional, Any
 from icons.icon import load_icon
 
 
+class FloatingTooltip(Widget):
+    '''Modern tooltip widget that floats above the interface.'''
+    text = StringProperty('')
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.size_hint = (None, None)
+        self.opacity = 0
+        
+        # Styling with rounded rectangle background
+        with self.canvas.before:
+            self._bg_color = Color(*DARK_LIGHTER)
+            self._bg_rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(8)])
+        
+        # Label for tooltip text
+        self.label = Label(
+            text=self.text,
+            size_hint=(None, None),
+            color=LIGHT_DARKER,
+            font_size=sp(13),
+            padding=(dp(12), dp(8))
+        )
+        self.add_widget(self.label)
+        
+        # Bind properties
+        self.bind(text=self._update_text, pos=self._update_graphics, size=self._update_graphics)
+        self.label.bind(texture_size=self._update_size)
+    
+    def _update_text(self, *args):
+        self.label.text = self.text
+    
+    def _update_size(self, *args):
+        # Size based on label texture with padding
+        padding_x = dp(24)  # 12dp on each side
+        padding_y = dp(16)  # 8dp on each side
+        self.size = (self.label.texture_size[0] + padding_x, self.label.texture_size[1] + padding_y)
+        self.label.size = self.size
+    
+    def _update_graphics(self, *args):
+        self._bg_rect.pos = self.pos
+        self._bg_rect.size = self.size
+        self.label.pos = self.pos
+
+
 class IconButton(ButtonBehavior, Image):
     '''A button that displays an icon image with a colored background.'''
+    tooltip_text = StringProperty('')
 
-    def __init__(self, icon_name: str = '', **kwargs):
+    def __init__(self, icon_name: str = '', tooltip: str = '', **kwargs):
         super().__init__(**kwargs)
         self.size_hint = (None, None)
         self.size = (64, 64)
+        self.tooltip_text = tooltip
 
         # Draw background rectangle
         with self.canvas.before:
@@ -65,6 +111,12 @@ class ToolSash(Widget):
         self.dragging = False
         self.hovering = False
         self._drag_start_snap_ratio = None  # Store snap ratio at drag start to prevent flickering
+        self._current_tooltip_button = None
+
+        # Create tooltip widget and add to Window
+        self.tooltip = FloatingTooltip()
+        self.tooltip.opacity = 0
+        Window.add_widget(self.tooltip)
 
         # Configs
         # default_toolbar: Dict[str, (callable|None, tooltip)]
@@ -106,7 +158,7 @@ class ToolSash(Widget):
                 tip = val[1] if len(val) >= 2 else ''
             elif callable(val) or val is None:
                 cb = val
-            btn = self._make_button(key, cb)
+            btn = self._make_button(key, cb, tip)
             self.add_widget(btn)
             self.default_buttons.append(btn)
 
@@ -199,12 +251,13 @@ class ToolSash(Widget):
 
     # Helpers and public API for contextual toolbar
 
-    def _make_button(self, key: str, cb: Optional[Callable[[], None]]):
+    def _make_button(self, key: str, cb: Optional[Callable[[], None]], tooltip: str = ''):
         icon = load_icon(key)
         if icon is not None:
-            btn = IconButton(icon_name=key)
+            btn = IconButton(icon_name=key, tooltip=tooltip)
         else:
             btn = Button(text=key, size_hint=(None, None), size=(64, 64), color=(0, 0, 0, 1))
+            btn.tooltip_text = tooltip
         if cb is not None:
             # Bind to invoke callback
             btn.bind(on_release=lambda *_: self._invoke_action(cb))
@@ -224,11 +277,13 @@ class ToolSash(Widget):
             self.default_buttons = []
             for key, val in self.default_toolbar.items():
                 cb = None
+                tip = ''
                 if isinstance(val, tuple) and len(val) >= 1:
                     cb = val[0]
+                    tip = val[1] if len(val) >= 2 else ''
                 elif callable(val) or val is None:
                     cb = val
-                btn = self._make_button(key, cb)
+                btn = self._make_button(key, cb, tip)
                 self.add_widget(btn)
                 self.default_buttons.append(btn)
 
@@ -264,11 +319,13 @@ class ToolSash(Widget):
         cfg = self.contextual_toolbar.get(key, {})
         for btn_key, val in cfg.items():
             cb = None
+            tip = ''
             if isinstance(val, tuple) and len(val) >= 1:
                 cb = val[0]
+                tip = val[1] if len(val) >= 2 else ''
             elif callable(val) or val is None:
                 cb = val
-            btn = self._make_button(btn_key, cb)
+            btn = self._make_button(btn_key, cb, tip)
             self.add_widget(btn)
             self.contextual_buttons.append(btn)
 
@@ -285,10 +342,25 @@ class ToolSash(Widget):
         # Hover logic - check if over any button
         is_hovering = self.collide_point(*self.to_widget(*pos))
         over_button = False
+        hovered_button = None
         for btn in (self.default_buttons + self.contextual_buttons):
             if btn.collide_point(*btn.to_widget(*pos)):
                 over_button = True
+                hovered_button = btn
                 break
+
+        # Handle tooltip display for vertical sash (orientation == 'horizontal')
+        if self.split_view.orientation == 'horizontal' and hovered_button and hovered_button.tooltip_text:
+            # Show tooltip on left side of button
+            self.tooltip.text = hovered_button.tooltip_text
+            self.tooltip.center_y = hovered_button.center_y
+            self.tooltip.right = hovered_button.x - dp(10)
+            self.tooltip.opacity = 1
+            self._current_tooltip_button = hovered_button
+        else:
+            # Hide tooltip
+            self.tooltip.opacity = 0
+            self._current_tooltip_button = None
 
         # Always set cursor based on current position
         # This prevents edge cases where transitions are missed

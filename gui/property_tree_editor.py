@@ -906,7 +906,7 @@ class PropertyTreeEditor(BoxLayout):
         row.add_widget(right)
         self._finalize_row(row)
 
-    def _build_object_row(self, title: str, obj: Any, path: Tuple[Union[str, int], ...], level: int, is_root: bool = False):
+    def _build_object_row(self, title: str, obj: Any, path: Tuple[Union[str, int], ...], level: int, is_root: bool = False, tooltip: Optional[str] = None):
         tc = self._row_text_color()
         # Header row with toggle
         row = BoxLayout(orientation='horizontal', size_hint_y=None, height=self.STRIPE_HEIGHT, spacing=dp(6))
@@ -942,6 +942,11 @@ class PropertyTreeEditor(BoxLayout):
 
         row.add_widget(left)
         row.add_widget(right)
+        
+        # Register tooltip if provided
+        if tooltip:
+            self._tooltip_rows[row] = tooltip
+        
         self._finalize_row(row)
 
         if not opened and not is_root:
@@ -994,7 +999,7 @@ class PropertyTreeEditor(BoxLayout):
         
         # Handle dataclass objects
         if is_dataclass(value):
-            self._build_object_row(title=display_label, obj=value, path=path, level=level)
+            self._build_object_row(title=display_label, obj=value, path=path, level=level, tooltip=tree_tooltip)
             return
 
         # Handle lists
@@ -1557,6 +1562,11 @@ class PropertyTreeEditor(BoxLayout):
 
         row.add_widget(left)
         row.add_widget(right)
+        
+        # Register tooltip if provided
+        if tooltip:
+            self._tooltip_rows[row] = tooltip
+        
         self._finalize_row(row)
 
         if not opened:
@@ -1587,7 +1597,7 @@ class PropertyTreeEditor(BoxLayout):
         Returns dict with:
             - tree_icon: str (default 'property')
             - tree_label: str (default attr_name)
-            - tree_tooltip: str (default '')
+            - tree_tooltip: str (default: humanized field name)
             - tree_editable: bool (default True)
             - tree_edit_type: str (default None, will auto-detect)
             - tree_edit_options: dict (default {})
@@ -1604,10 +1614,16 @@ class PropertyTreeEditor(BoxLayout):
             except Exception:
                 pass
         
+        # Generate default tooltip from field name if no custom tooltip provided
+        custom_tooltip = metadata.get('tree_tooltip', '')
+        if not custom_tooltip:
+            # Use humanized field name as default tooltip
+            custom_tooltip = f'{self._humanize_label(str(attr_name))}'
+        
         return {
             'tree_icon': metadata.get('tree_icon', 'property'),
             'tree_label': metadata.get('tree_label', str(attr_name)),
-            'tree_tooltip': metadata.get('tree_tooltip', ''),
+            'tree_tooltip': custom_tooltip,
             'tree_editable': metadata.get('tree_editable', True),
             'tree_edit_type': metadata.get('tree_edit_type', None),
             'tree_edit_options': metadata.get('tree_edit_options', {}),

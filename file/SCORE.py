@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field, fields, is_dataclass
-from dataclasses_json import dataclass_json
+from dataclasses_json import config, dataclass_json
 from typing import List, Literal, Optional
 import json
 
@@ -26,36 +26,143 @@ from file.event_factory import setup_event_factories
 @dataclass_json
 @dataclass
 class Event:
-    note: List[Note] = field(default_factory=list)
-    graceNote: List[GraceNote] = field(default_factory=list)
-    countLine: List[CountLine] = field(default_factory=list)
-    startRepeat: List[StartRepeat] = field(default_factory=list)
-    endRepeat: List[EndRepeat] = field(default_factory=list)
-    section: List[Section] = field(default_factory=list)
-    beam: List[Beam] = field(default_factory=list)
-    text: List[Text] = field(default_factory=list)
-    slur: List[Slur] = field(default_factory=list)
-    tempo: List[Tempo] = field(default_factory=list)
+    note: List[Note] = field(
+        default_factory=list,
+        metadata={
+            'tree_icon': 'note',
+            'tree_tooltip': 'Musical notes: the primary melodic content. Each note has a time position, duration, pitch (MIDI number), velocity (volume), and hand assignment (left "<" or right ">"). Notes can have articulations, custom colors, and other properties that override global defaults.',
+        }
+    )
+    graceNote: List[GraceNote] = field(
+        default_factory=list,
+        metadata={
+            'tree_icon': 'gracenote',
+            'tree_tooltip': 'Grace notes: ornamental notes that are played quickly before the main note, typically notated smaller. Grace notes don\'t consume rhythmic time in the measure but provide melodic decoration.',
+        }
+    )
+    countLine: List[CountLine] = field(
+        default_factory=list,
+        metadata={
+            'tree_icon': 'countline',
+            'tree_tooltip': 'Count lines: vertical rhythm guides that help players count beats. These visual aids can be solid or dashed lines that span across the staff at specific time positions to mark important rhythmic divisions.',
+        }
+    )
+    startRepeat: List[StartRepeat] = field(
+        default_factory=list,
+        metadata={
+            'tree_icon': 'repeats',
+            'tree_tooltip': 'Start repeat markers: indicate the beginning of a repeated section. When playback or reading reaches the corresponding end repeat marker, it jumps back to this position. Used for creating musical loops and repeated phrases.',
+        }
+    )
+    endRepeat: List[EndRepeat] = field(
+        default_factory=list,
+        metadata={
+            'tree_icon': 'repeats',
+            'tree_tooltip': 'End repeat markers: indicate where a repeated section ends and playback should jump back to the corresponding start repeat. Can include a repeat count to specify how many times the section should loop.',
+        }
+    )
+    section: List[Section] = field(
+        default_factory=list,
+        metadata={
+            'tree_icon': 'section',
+            'tree_tooltip': 'Section markers: label different parts of the music (e.g., "Intro", "Verse", "Chorus"). These help organize the score into logical segments and make navigation easier during editing and performance.',
+        }
+    )
+    beam: List[Beam] = field(
+        default_factory=list,
+        metadata={
+            'tree_icon': 'beam',
+            'tree_tooltip': 'Beams: connect multiple notes together with a horizontal line, grouping them rhythmically. Beams replace individual note flags and make rhythmic patterns easier to read. Each beam references the note IDs it connects.',
+        }
+    )
+    text: List[Text] = field(
+        default_factory=list,
+        metadata={
+            'tree_icon': 'text',
+            'tree_tooltip': 'Text annotations: add lyrics, performance instructions ("legato", "crescendo"), fingering numbers, or any other textual information to the score. Text can be positioned at specific time points and vertical locations.',
+        }
+    )
+    slur: List[Slur] = field(
+        default_factory=list,
+        metadata={
+            'tree_icon': 'slur',
+            'tree_tooltip': 'Slurs: curved lines that connect notes to indicate they should be played smoothly (legato) without separation. Slurs are defined by start and end time positions and typically arc above or below the affected notes.',
+        }
+    )
+    tempo: List[Tempo] = field(
+        default_factory=list,
+        metadata={
+            'tree_icon': 'tempo',
+            'tree_tooltip': 'Tempo markings: indicate the speed of the music in beats per minute (BPM) or with traditional terms ("Allegro", "Andante"). Multiple tempo markings allow for tempo changes throughout the piece (ritardando, accelerando).',
+        }
+    )
 
 @dataclass_json
 @dataclass
 class Stave:
     name: str = 'Stave 1'
     scale: float = 1.0
-    event: Event = field(default_factory=Event)
+    event: Event = field(
+        default_factory=Event,
+        metadata={
+            'tree_icon': 'folder',
+            'tree_tooltip': 'Event container: holds all musical events for this stave including notes, grace notes, beams, slurs, text, tempo markings, and structural elements. Each event type is stored in its own list and positioned along the timeline.',
+        }
+    )
 
 @dataclass_json
 @dataclass
 class SCORE:
     '''The main SCORE class; contains all data for a piano tab score.'''
 
-    metaInfo: MetaInfo = field(default_factory=MetaInfo)
-    header: Header = field(default_factory=Header)
-    properties: Properties = field(default_factory=Properties)
-    baseGrid: List[BaseGrid] = field(default_factory=list)
-    lineBreak: List[LineBreak] = field(default_factory=list)
-    stave: List[Stave] = field(default_factory=lambda: [Stave()])
-    quarterNoteUnit: float = 256.0
+    metaInfo: MetaInfo = field(
+        default_factory=MetaInfo,
+        metadata={
+            'tree_tooltip': 'File metadata: information about the file format, version, application name, and other technical details used for file compatibility and validation.',
+        }
+    )
+    header: Header = field(
+        default_factory=Header,
+        metadata={
+            'tree_tooltip': 'Score header: contains title, subtitle, composer, arranger, copyright notice, and other publication information displayed at the top of the printed score.',
+        }
+    )
+    properties: Properties = field(
+        default_factory=Properties,
+        metadata={
+            'tree_tooltip': 'Global properties: default visual settings for all musical elements (notes, beams, slurs, text, etc.) and page layout. Individual elements can override these defaults with their own property values.',
+        }
+    )
+    baseGrid: List[BaseGrid] = field(
+        default_factory=list,
+        metadata={
+            'tree_tooltip': 'Time signature grid: defines the rhythmic grid structure with time signatures (4/4, 3/4, etc.), measure lengths, and subdivision points. This creates the underlying timeline that notes snap to.',
+        }
+    )
+    lineBreak: List[LineBreak] = field(
+        default_factory=list,
+        metadata={
+            'tree_tooltip': 'Line breaks: control where the score wraps to a new line in the printed output. Can be manual (user-placed) or locked (always at the start). Each line break includes staff range settings that control which MIDI key range is visible for each staff on that line.',
+        }
+    )
+    stave: List[Stave] = field(
+        default_factory=lambda: [Stave()],
+        metadata={
+            'tree_tooltip': 'Staves (staffs): the main container list for musical content. Each stave represents one staff line in the piano score (typically you have 1 for single piano stave but you can have 2 for organ (pedal stave and keyboard stave) or two piano players). Each stave contains an Event object that holds all notes and musical symbols for that staff.',
+        }
+    )
+    quarterNoteUnit: float = field(
+        default=256.0,
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'Quarter note time unit: fundamental temporal resolution (how many units = one quarter note). Default 256.0 means whole note = 1024, eighth = 128. All event times/durations reference this base unit. WARNING: Changing this after score creation rescales the entire timeline and changes meaning of all existing time values. In normal useage don\'t touch it :)',
+            'tree_edit_type': 'float',
+            'tree_edit_options': {
+                'min': 1.0,
+                'step': 1.0,
+            }
+        }
+    )
 
     def __post_init__(self):
         # Initialize ID generator starting from 1:
