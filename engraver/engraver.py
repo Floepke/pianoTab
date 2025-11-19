@@ -415,7 +415,7 @@ class Engraver:
                   f"{grid.numerator}/{grid.denominator}, {len(grid.gridTimes)} gridlines")
             
             # Calculate measure duration in ticks
-            quarter_note_ticks = getattr(score, 'quarterNoteUnit', 256.0)
+            quarter_note_ticks = score.fileSettings.quarterNoteUnit if (hasattr(score, 'fileSettings') and hasattr(score.fileSettings, 'quarterNoteUnit')) else 256.0
             measure_ticks = (grid.numerator / grid.denominator) * 4.0 * quarter_note_ticks
             
             # Generate barlines and gridlines for each measure

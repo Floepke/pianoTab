@@ -514,6 +514,45 @@ class PropertyTreeEditor(BoxLayout):
         self._rebuild()
         # Reset tracked properties when score changes
         self._snapshot_tracked_properties()
+    
+    def scroll_to_path(self, path: Tuple[Union[str, int], ...], highlight: bool = True):
+        '''Scroll to and optionally highlight a specific path in the tree.
+        
+        Args:
+            path: Tuple path to the element (e.g., ('stave', 0, 'event', 'note', 2))
+            highlight: Whether to highlight the row after scrolling
+        '''
+        # Ensure all parent nodes are open
+        for i in range(len(path)):
+            parent_path = path[:i+1]
+            if parent_path not in self._open_paths:
+                self._open_paths.add(parent_path)
+        
+        # Rebuild to show the path
+        self._rebuild()
+        
+        # Find the row widget for this path
+        target_row = None
+        for row in self.layout.children:
+            if hasattr(row, 'property_path') and row.property_path == path:
+                target_row = row
+                break
+        
+        if target_row:
+            # Calculate the scroll position to center the row
+            row_y = target_row.y
+            row_height = target_row.height
+            viewport_height = self._view_h
+            
+            # Center the row in the viewport
+            target_scroll = (self._content_height_px() - row_y - row_height/2 - viewport_height/2)
+            max_scroll = max(0, self._content_height_px() - viewport_height)
+            self._scroll_px = max(0.0, min(max_scroll, target_scroll))
+            self._apply_scroll_px()
+            
+            if highlight:
+                # TODO: Add visual highlight effect
+                pass
 
     # ---------- Change Detection Polling ----------
 
@@ -937,9 +976,29 @@ class PropertyTreeEditor(BoxLayout):
         lbl_btn.bind(on_press=lambda *_: self._toggle_node(path))
         left.add_widget(lbl_btn)
 
-        # Right filler to keep structure consistent (no editor on object header)
-        right = BoxLayout(orientation='horizontal', size_hint_x=1)
-
+        # Right column - add delete button for list items
+        right = BoxLayout(orientation='horizontal', size_hint_x=1, spacing=dp(6))
+        right.add_widget(Widget(size_hint_x=None, width=dp(self.indent_px)))
+        
+        # Check if this is a list item (parent is a list)
+        if len(path) >= 2 and isinstance(path[-1], int):
+            # This is a list item - add delete button with label
+            parent_path = path[:-1]
+            item_index = path[-1]
+            delete_btn = self._icon_button('sub', '−', lambda *_: self._delete_list_item(parent_path, item_index))
+            right.add_widget(delete_btn)
+            delete_label = Label(
+                text='delete',
+                color=tc,
+                size_hint_x=None,
+                width=dp(80),
+                halign='left',
+                valign='middle',
+                font_size=sp(12)
+            )
+            delete_label.bind(size=delete_label.setter('text_size'))
+            right.add_widget(delete_label)
+        
         row.add_widget(left)
         row.add_widget(right)
         
@@ -1557,9 +1616,25 @@ class PropertyTreeEditor(BoxLayout):
         title_btn.bind(on_press=lambda *_: self._toggle_node(header_path))
         left.add_widget(title_btn)
 
-        # Right column (no +/− controls in value column for Event.* lists)
+        # Right column - add 'add' button to create new items
         right = BoxLayout(orientation='horizontal', size_hint_x=1, spacing=dp(6))
-
+        right.add_widget(Widget(size_hint_x=None, width=dp(self.indent_px)))
+        
+        # Add button to create new list items with label
+        add_btn = self._icon_button('add', '+', lambda *_: self._add_list_item(path, lst))
+        right.add_widget(add_btn)
+        add_label = Label(
+            text='Add',
+            color=tc,
+            size_hint_x=None,
+            width=dp(80),
+            halign='left',
+            valign='middle',
+            font_size=sp(12)
+        )
+        add_label.bind(size=add_label.setter('text_size'))
+        right.add_widget(add_label)
+        
         row.add_widget(left)
         row.add_widget(right)
         
@@ -1820,6 +1895,45 @@ class PropertyTreeEditor(BoxLayout):
         btn.bind(on_press=on_press)
         return btn
 
+    # ---------- Note selection callback ----------
+
+    def on_note_selected(self, stave_idx: int, note):
+        '''Called when a note is selected in the editor.
+        
+        Opens the tree to that note and scrolls to it.
+        
+        Args:
+            stave_idx: Index of the stave containing the note
+            note: The Note object that was selected
+        '''
+        if not self._score or not note:
+            return
+        
+        try:
+            # Find the note index in the stave's note list
+            stave = self._score.stave[stave_idx]
+            note_index = stave.event.note.index(note)
+            
+            # Build path to the note: ('stave', stave_idx, 'event', 'note', note_index)
+            note_path = ('stave', stave_idx, 'event', 'note', note_index)
+            
+            # Open parent nodes
+            self._open_paths.add(('stave', stave_idx))
+            self._open_paths.add(('stave', stave_idx, 'event'))
+            self._open_paths.add(('stave', stave_idx, 'event', 'note'))
+            
+            # Close other notes (type-based auto-collapse)
+            self._collapse_same_type_siblings(note_path)
+            
+            # Open this note
+            self._open_paths.add(note_path)
+            
+            # Rebuild tree and scroll to note
+            self._rebuild_tree()
+            Clock.schedule_once(lambda dt: self.scroll_to_path(note_path, highlight=True), 0.1)
+        except (ValueError, IndexError, AttributeError) as e:
+            print(f'PropertyTreeEditor: Could not find note in tree: {e}')
+
     # ---------- Auto-size left column ----------
 
     def _compute_max_row_level(self, obj: Any, level: int = 0) -> int:
@@ -1907,6 +2021,260 @@ class PropertyTreeEditor(BoxLayout):
         except Exception:
             pass
 
+    def _add_list_item(self, path: Tuple[Union[str, int], ...], lst: list):
+        '''Add a new item to a list with default values from the class.
+        
+        Args:
+            path: Path to the list
+            lst: The list object to add to
+        '''
+        if not self._score or not path:
+            return
+        
+        try:
+            # Get the list type from the first item or infer from path
+            item_class = None
+            
+            # Try to get class from existing items
+            if lst and len(lst) > 0 and is_dataclass(lst[0]):
+                item_class = type(lst[0])
+            # Otherwise try to infer from the SCORE factory methods
+            elif len(path) >= 2:
+                # Check if this is an Event.* list (e.g., path ends with 'note', 'beam', etc.)
+                list_key = path[-1]
+                if isinstance(list_key, str):
+                    snake_key = _camel_to_snake(list_key)
+                    method_name = f'new_{snake_key}'
+                    
+                    # Check if SCORE has this factory method
+                    fn = getattr(self._score, method_name, None)
+                    if callable(fn):
+                        # Get stave index from path
+                        stave_idx = 0
+                        for i, p in enumerate(path):
+                            if p == 'stave' and i + 1 < len(path) and isinstance(path[i + 1], int):
+                                stave_idx = path[i + 1]
+                                break
+                        
+                        # Call factory method
+                        try:
+                            new_item = fn(stave_idx=stave_idx)
+                        except TypeError:
+                            new_item = fn()
+                        
+                        # Auto-collapse all other items in this list
+                        self._collapse_sibling_list_items(path)
+                        
+                        # Open the new item and scroll to it
+                        new_item_path = path + (len(lst) - 1,)
+                        self._open_paths.add(new_item_path)
+                        
+                        self._fire_change_and_rebuild()
+                        Clock.schedule_once(lambda dt: self.scroll_to_path(new_item_path), 0.1)
+                        return
+            
+            # Fallback: create instance if we found the class
+            if item_class is not None:
+                new_item = item_class()
+                lst.append(new_item)
+                
+                # Auto-collapse all other items
+                self._collapse_sibling_list_items(path)
+                
+                # Open and scroll to new item
+                new_item_path = path + (len(lst) - 1,)
+                self._open_paths.add(new_item_path)
+                
+                self._fire_change_and_rebuild()
+                Clock.schedule_once(lambda dt: self.scroll_to_path(new_item_path), 0.1)
+        except Exception as e:
+            print(f'Error adding list item: {e}')
+    
+    def _delete_list_item(self, parent_path: Tuple[Union[str, int], ...], item_index: int):
+        '''Delete a list item after confirmation.
+        
+        Args:
+            parent_path: Path to the parent list
+            item_index: Index of the item to delete
+        '''
+        if not self._score:
+            return
+        
+        # Show confirmation dialog
+        self._show_delete_confirmation(parent_path, item_index)
+    
+    def _show_info_dialog(self, title: str, message: str):
+        '''Show an informational dialog with OK button.
+        
+        Args:
+            title: Dialog title
+            message: Message to display
+        '''
+        content = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(10))
+        msg = Label(
+            text=message,
+            color=WHITE,
+            halign='center',
+            valign='middle'
+        )
+        msg.bind(size=msg.setter('text_size'))
+        content.add_widget(msg)
+        
+        ok_btn = Button(text='OK', size_hint=(None, None), size=(dp(80), dp(40)))
+        btn_anchor = AnchorLayout(size_hint_y=None, height=dp(40))
+        btn_anchor.add_widget(ok_btn)
+        content.add_widget(btn_anchor)
+        
+        popup = ModalView(size_hint=(None, None), size=(dp(320), dp(180)), auto_dismiss=False)
+        popup.add_widget(content)
+        
+        ok_btn.bind(on_press=lambda *_: popup.dismiss())
+        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
+        popup.open()
+    
+    def _show_delete_confirmation(self, parent_path: Tuple[Union[str, int], ...], item_index: int):
+        '''Show a yes/no confirmation dialog before deleting.
+        
+        Args:
+            parent_path: Path to the parent list
+            item_index: Index of the item to delete
+        '''
+        # Prevent deletion of the last stave
+        if parent_path == ('stave',):
+            parent_obj = self._read_at_path(self._score, parent_path)
+            if isinstance(parent_obj, list) and len(parent_obj) == 1:
+                self._show_info_dialog(
+                    'Cannot Delete Last Stave',
+                    'At least one stave must exist in the score.\n\nYou cannot delete the last remaining stave.'
+                )
+                return
+        
+        content = BoxLayout(orientation='vertical', spacing=dp(12), padding=dp(12))
+        
+        msg = Label(
+            text=f'Delete item [{item_index + 1}]?\n\nThis action cannot be undone.',
+            color=WHITE,
+            halign='center',
+            valign='middle'
+        )
+        msg.bind(size=msg.setter('text_size'))
+        content.add_widget(msg)
+        
+        btns = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), spacing=dp(8))
+        no_btn = Button(text='No', size_hint_x=1)
+        yes_btn = Button(text='Yes, Delete', size_hint_x=1)
+        btns.add_widget(no_btn)
+        btns.add_widget(yes_btn)
+        content.add_widget(btns)
+        
+        popup = ModalView(size_hint=(None, None), size=(dp(300), dp(180)), auto_dismiss=False)
+        popup.add_widget(content)
+        
+        def do_delete(*_):
+            try:
+                # Get the list and remove the item
+                parent_obj = self._read_at_path(self._score, parent_path)
+                if isinstance(parent_obj, list) and 0 <= item_index < len(parent_obj):
+                    parent_obj.pop(item_index)
+                    # Remove from open paths
+                    item_path = parent_path + (item_index,)
+                    self._open_paths.discard(item_path)
+                    self._fire_change_and_rebuild()
+            except Exception as e:
+                print(f'Error deleting list item: {e}')
+            popup.dismiss()
+        
+        no_btn.bind(on_press=lambda *_: popup.dismiss())
+        yes_btn.bind(on_press=do_delete)
+        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
+        popup.open()
+    
+    def _collapse_sibling_list_items(self, list_path: Tuple[Union[str, int], ...]):
+        '''Collapse all items in a list (auto-close siblings).
+        
+        Args:
+            list_path: Path to the list whose items should be collapsed
+        '''
+        # Remove all paths that start with list_path + (index,)
+        to_remove = set()
+        for open_path in self._open_paths:
+            if len(open_path) > len(list_path) and open_path[:len(list_path)] == list_path:
+                # Check if the next element is an int (list index)
+                if isinstance(open_path[len(list_path)], int):
+                    to_remove.add(open_path)
+        
+        for path in to_remove:
+            self._open_paths.discard(path)
+    
+    def _collapse_same_type_siblings(self, path: Tuple[Union[str, int], ...]):
+        '''Collapse all sibling elements of the same type.
+        
+        When opening an element, this ensures only one element of each type is open.
+        For example, opening note[3] will close note[0], note[1], note[2], etc.
+        
+        Args:
+            path: Path to the element being opened
+        '''
+        if len(path) < 2:
+            return
+        
+        # Get the type key (e.g., 'note', 'beam', 'baseGrid', etc.)
+        # For list items: path is like ('stave', 0, 'event', 'note', 2)
+        # For top-level lists: path is like ('baseGrid', 1)
+        type_key = None
+        parent_path = None
+        
+        # Check if this is a list item (path ends with int)
+        if isinstance(path[-1], int):
+            if len(path) >= 2:
+                type_key = path[-2]  # The key before the index
+                parent_path = path[:-1]  # Everything except the index
+        
+        if type_key is None or parent_path is None:
+            return
+        
+        # Close all siblings with the same type key
+        to_remove = set()
+        for open_path in self._open_paths:
+            # Check if this is a sibling (same parent, different index)
+            if (len(open_path) == len(path) and 
+                open_path[:-1] == parent_path and 
+                isinstance(open_path[-1], int) and 
+                open_path[-1] != path[-1]):
+                to_remove.add(open_path)
+        
+        for p in to_remove:
+            self._open_paths.discard(p)
+    
+    def _show_info_dialog(self, title: str, message: str):
+        '''Show an informational dialog with OK button.
+        
+        Args:
+            title: Dialog title
+            message: Message to display
+        '''
+        content = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(10))
+        msg = Label(
+            text=message,
+            color=WHITE,
+            halign='center',
+            valign='middle'
+        )
+        msg.bind(size=msg.setter('text_size'))
+        content.add_widget(msg)
+        
+        ok_btn = Button(text='OK', size_hint=(None, None), size=(dp(80), dp(40)))
+        btn_anchor = AnchorLayout(size_hint_y=None, height=dp(40))
+        btn_anchor.add_widget(ok_btn)
+        content.add_widget(btn_anchor)
+        
+        popup = ModalView(size_hint=(None, None), size=(dp(320), dp(180)), auto_dismiss=False)
+        popup.add_widget(content)
+        
+        ok_btn.bind(on_press=lambda *_: popup.dismiss())
+        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
+        popup.open()
+
     def _event_add(self, event_key: str, stave_idx: int):
         '''Add a new event of type event_key to given stave via SCORE factory.'''
         if not self._score:
@@ -1955,6 +2323,9 @@ class PropertyTreeEditor(BoxLayout):
             self._open_paths.remove(t)
         else:
             self._open_paths.add(t)
+            # Type-based auto-collapse: close all siblings of the same type
+            # This prevents the tree from becoming too large and unusable
+            self._collapse_same_type_siblings(path)
         self._rebuild()
         # Immediate background update on click to keep stripes aligned
         self._update_background()
@@ -1987,7 +2358,7 @@ class PropertyTreeEditor(BoxLayout):
         Use this for external changes (like zoom updates) where the SCORE has already been modified.
         
         Args:
-            path: Tuple path to the property (e.g., ('properties', 'editorZoomPixelsQuarter'))
+            path: Tuple path to the property (e.g., ('fileSettings', 'zoomPixelsQuarter'))
             new_value: The new value to display
         '''
         if not path:

@@ -124,29 +124,3 @@ class Properties:
             'tree_edit_type': 'readonly',
         }
     )
-    editorZoomPixelsQuarter: int = field(
-        default=250,
-        metadata={
-            'tree_icon': 'property',
-            'tree_tooltip': 'Editor zoom: pixels per quarter note (for vertical time axis)',
-            'tree_edit_type': 'int',
-            'tree_edit_options': {
-                'min': 10,
-                'max': 1000,
-                'step': 10,
-            }
-        }
-    )
-    drawScale: float = field(
-        default=0.75,
-        metadata={
-            'tree_icon': 'property',
-            'tree_tooltip': 'Global drawing scale multiplier (affects all rendered elements)',
-            'tree_edit_type': 'float',
-            'tree_edit_options': {
-                'min': 0.1,
-                'max': 5.0,
-                'step': 0.05,
-            }
-        }
-    )

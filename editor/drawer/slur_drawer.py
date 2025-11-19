@@ -27,10 +27,15 @@ class SlurDrawerMixin:
         if not self.score:
             return
         
-        # Draw each slur
-        for stave_idx, stave in enumerate(self.score.stave):
-            for slur in stave.event.slur:
-                self._draw_single_slur(stave_idx, slur)
+        # Get the currently rendered stave index
+        stave_idx = self.score.fileSettings.get_rendered_stave_index(
+            num_staves=len(self.score.stave)
+        ) if (self.score and hasattr(self.score, 'fileSettings')) else 0
+        
+        # Draw slurs from the currently rendered stave
+        stave = self.score.stave[stave_idx]
+        for slur in stave.event.slur:
+            self._draw_single_slur(slur)
 
     def _draw_single_slur(self, stave_idx: int, slur: Slur) -> None:
         '''Draw a single slur event.

@@ -28,10 +28,15 @@ class CountLineDrawerMixin:
         if not self.score:
             return
         
-        # Draw each count line
-        for stave_idx, stave in enumerate(self.score.stave):
-            for countline in stave.event.countLine:
-                self._draw_single_count_line(stave_idx, countline)
+        # Get the currently rendered stave index
+        stave_idx = self.score.fileSettings.get_rendered_stave_index(
+            num_staves=len(self.score.stave)
+        ) if (self.score and hasattr(self.score, 'fileSettings')) else 0
+        
+        # Draw count lines from the currently rendered stave
+        stave = self.score.stave[stave_idx]
+        for countline in stave.event.countLine:
+            self._draw_single_countline(countline)
 
     def _draw_single_count_line(self, stave_idx: int, countline: CountLine) -> None:
         '''Draw a single count line event.

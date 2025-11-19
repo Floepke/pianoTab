@@ -28,10 +28,15 @@ class GraceNoteDrawerMixin:
         if not self.score:
             return
         
-        # Draw each grace note
-        for stave_idx, stave in enumerate(self.score.stave):
-            for gracenote in stave.event.graceNote:
-                self._draw_single_grace_note(stave_idx, gracenote)
+        # Get the currently rendered stave index
+        stave_idx = self.score.fileSettings.get_rendered_stave_index(
+            num_staves=len(self.score.stave)
+        ) if (self.score and hasattr(self.score, 'fileSettings')) else 0
+        
+        # Draw grace notes from the currently rendered stave
+        stave = self.score.stave[stave_idx]
+        for gracenote in stave.event.graceNote:
+            self._draw_single_grace_note(stave_idx, gracenote)
 
     def _draw_single_grace_note(self, stave_idx: int, gracenote: GraceNote) -> None:
         '''Draw a single grace note event.

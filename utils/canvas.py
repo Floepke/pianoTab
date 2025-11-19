@@ -691,7 +691,7 @@ class Canvas(Widget):
         return snapped_scroll_px
 
     def update_scroll_step(self):
-        '''Update scroll step calculation when score data changes (e.g., quarterNoteLength).'''
+        '''Update scroll step calculation when score data changes (e.g., fileSettings.quarterNoteUnit).'''
         if hasattr(self, 'custom_scrollbar') and self.custom_scrollbar:
             self.custom_scrollbar.update_layout()
             grid_step = self._get_grid_step_ticks()

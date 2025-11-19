@@ -41,15 +41,20 @@ class NoteDrawerMixin:
         def get_barline_positions(self) -> list[float]: ...
     
     def _draw_notes(self) -> None:
-        '''Draw all note events from all staves.'''
+        '''Draw all note events from the currently rendered stave.'''
         # Access the score from the Editor instance
         if not self.score:
             return
         
-        # Draw each note
-        for stave_idx, stave in enumerate(self.score.stave):
-            for note in stave.event.note:
-                self._draw_single_note(stave_idx, note)
+        # Get the currently rendered stave index
+        stave_idx = self.score.fileSettings.get_rendered_stave_index(
+            num_staves=len(self.score.stave)
+        ) if (self.score and hasattr(self.score, 'fileSettings')) else 0
+        
+        # Draw notes from the currently rendered stave
+        stave = self.score.stave[stave_idx]
+        for note in stave.event.note:
+            self._draw_single_note(stave_idx, note)
 
     def _draw_single_note(self, stave_idx: int, note: Note, 
                           draw_mode: Optional[Literal['note', 'cursor', 'select/edit', 'selected']] = 'note') -> None:

@@ -21,7 +21,7 @@ class GridDrawerMixin:
         total_ticks = 0.0
         
         for grid in self.score.baseGrid:
-            ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
+            ql = self.score.fileSettings.quarterNoteUnit if (self.score and hasattr(self.score, 'fileSettings')) else PIANOTICK_QUARTER
             measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
             print(f'Editor: baseGrid: {grid.measureAmount} measures of {grid.numerator}/{grid.denominator}, measure_ticks={measure_ticks}')
             for _ in range(grid.measureAmount):
@@ -65,7 +65,7 @@ class GridDrawerMixin:
         # Calculate and draw gridlines (your get_editor_gridline_positions equivalent)
         total_ticks = 0.0
         for grid in self.score.baseGrid:
-            ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
+            ql = self.score.fileSettings.quarterNoteUnit if (self.score and hasattr(self.score, 'fileSettings')) else PIANOTICK_QUARTER
             measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
             subdivision_ticks = measure_ticks / grid.numerator
             

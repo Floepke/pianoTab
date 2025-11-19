@@ -21,6 +21,7 @@ from file.slur import Slur
 from file.tempo import Tempo
 from file.id import IDGenerator
 from file.event_factory import setup_event_factories
+from file.fileSettings import FileSettings
 
 
 @dataclass_json
@@ -151,16 +152,10 @@ class SCORE:
             'tree_tooltip': 'Staves (staffs): the main container list for musical content. Each stave represents one staff line in the piano score (typically you have 1 for single piano stave but you can have 2 for organ (pedal stave and keyboard stave) or two piano players). Each stave contains an Event object that holds all notes and musical symbols for that staff.',
         }
     )
-    quarterNoteUnit: float = field(
-        default=256.0,
+    fileSettings: FileSettings = field(
+        default_factory=FileSettings,
         metadata={
-            'tree_icon': 'property',
-            'tree_tooltip': 'Quarter note time unit: fundamental temporal resolution (how many units = one quarter note). Default 256.0 means whole note = 1024, eighth = 128. All event times/durations reference this base unit. WARNING: Changing this after score creation rescales the entire timeline and changes meaning of all existing time values. In normal useage don\'t touch it :)',
-            'tree_edit_type': 'float',
-            'tree_edit_options': {
-                'min': 1.0,
-                'step': 1.0,
-            }
+            'tree_tooltip': 'Editor file-dependent settings: settings that depend on the specific file being edited, such as quarter note unit, zoom level, and other UI state.',
         }
     )
 

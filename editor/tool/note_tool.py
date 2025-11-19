@@ -251,8 +251,13 @@ class NoteTool(BaseTool):
         if time < 0:
             time = 0
         
+        # Get the currently rendered stave index from fileSettings
+        stave_idx = self.editor.score.fileSettings.get_rendered_stave_index(
+            num_staves=len(self.editor.score.stave)
+        ) if (self.editor.score and hasattr(self.editor.score, 'fileSettings')) else 0
+        
         self.edit_note = self.editor.score.new_note(
-            stave_idx=0,  # TODO: determine correct stave
+            stave_idx=stave_idx,
             time=time,
             pitch=pitch,
             hand=self.hand_cursor,
@@ -260,10 +265,10 @@ class NoteTool(BaseTool):
             velocity=100,
             accidental=self.accidental_cursor
         )
-        self.edit_stave_idx = 0
+        self.edit_stave_idx = stave_idx
         
         # Draw in 'select/edit' mode
-        self.editor._draw_single_note(0, self.edit_note, draw_mode='select/edit')
+        self.editor._draw_single_note(stave_idx, self.edit_note, draw_mode='select/edit')
         
         # Mark as modified (which will trigger engraving via FileManager)
         if hasattr(self.editor, 'on_modified') and self.editor.on_modified:

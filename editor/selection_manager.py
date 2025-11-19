@@ -301,13 +301,32 @@ class SelectionManager:
         if self.selected_elements:
             try:
                 self._highlight_selection()
+                
+                # If in note mode and exactly one note selected, scroll property tree to it
+                if (hasattr(self.editor, 'tool_manager') and 
+                    self.editor.tool_manager.get_active_tool() == 'Note' and
+                    len(self.selected_elements) == 1 and
+                    self.selected_elements[0]['type'] == 'note'):
+                    
+                    # Get the note and stave index
+                    note = self.selected_elements[0]['element']
+                    stave_idx = self.selected_elements[0]['stave_idx']
+                    
+                    # Notify property tree to scroll to this note
+                    if hasattr(self.editor, 'gui') and self.editor.gui:
+                        property_tree = self.editor.gui.get_property_tree()
+                        if property_tree and hasattr(property_tree, 'on_note_selected'):
+                            property_tree.on_note_selected(stave_idx, note)
             except Exception as e:
                 print(f"SelectionManager: Error highlighting selection: {e}")
                 import traceback
                 traceback.print_exc()
     
     def _find_elements_in_rect(self, x1: float, y1: float, x2: float, y2: float) -> List[Dict[str, Any]]:
-        """Find all elements within selection rectangle by checking their positions."""
+        """Find all elements within selection rectangle by checking their positions.
+        
+        Only searches the currently rendered stave (from fileSettings.editorRenderedStave).
+        """
         selected = []
         
         # Normalize rectangle
@@ -318,22 +337,27 @@ class SelectionManager:
         
         print(f"  Selection rect: x=[{left:.1f}, {right:.1f}], y=[{top:.1f}, {bottom:.1f}]")
         
-        # Check each stave
-        for stave_idx, stave in enumerate(self.editor.score.stave):
-            # Check notes - use notehead position only
-            for note in stave.event.note:
-                # Get notehead position in mm coordinates
-                note_x = self.editor.pitch_to_x(note.pitch)
-                note_y = self.editor.time_to_y(note.time)
-                
-                # Check if notehead is within selection rectangle
-                if left <= note_x <= right and top <= note_y <= bottom:
-                    selected.append({
-                        'element': note,
-                        'type': 'note',
-                        'stave_idx': stave_idx,
-                    })
-                    print(f"  Found note at ({note_x:.1f}, {note_y:.1f})")
+        # Get the currently rendered stave index
+        stave_idx = self.editor.score.fileSettings.get_rendered_stave_index(
+            num_staves=len(self.editor.score.stave)
+        ) if (self.editor.score and hasattr(self.editor.score, 'fileSettings')) else 0
+        
+        # Only check the currently rendered stave
+        stave = self.editor.score.stave[stave_idx]
+        # Check notes - use notehead position only
+        for note in stave.event.note:
+            # Get notehead position in mm coordinates
+            note_x = self.editor.pitch_to_x(note.pitch)
+            note_y = self.editor.time_to_y(note.time)
+            
+            # Check if notehead is within selection rectangle
+            if left <= note_x <= right and top <= note_y <= bottom:
+                selected.append({
+                    'element': note,
+                    'type': 'note',
+                    'stave_idx': stave_idx,
+                })
+                print(f"  Found note at ({note_x:.1f}, {note_y:.1f})")
         
         print(f"  Found {len(selected)} elements")
         return selected

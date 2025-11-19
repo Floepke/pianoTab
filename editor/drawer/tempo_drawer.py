@@ -27,10 +27,15 @@ class TempoDrawerMixin:
         if not self.score:
             return
         
-        # Draw each tempo
-        for stave_idx, stave in enumerate(self.score.stave):
-            for tempo in stave.event.tempo:
-                self._draw_single_tempo(stave_idx, tempo)
+        # Get the currently rendered stave index
+        stave_idx = self.score.fileSettings.get_rendered_stave_index(
+            num_staves=len(self.score.stave)
+        ) if (self.score and hasattr(self.score, 'fileSettings')) else 0
+        
+        # Draw tempos from the currently rendered stave
+        stave = self.score.stave[stave_idx]
+        for tempo in stave.event.tempo:
+            self._draw_single_tempo(tempo)
 
     def _draw_single_tempo(self, stave_idx: int, tempo: Tempo) -> None:
         '''Draw a single tempo event.

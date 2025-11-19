@@ -28,10 +28,15 @@ class BeamDrawerMixin:
         if not self.score:
             return
         
-        # Draw each beam
-        for stave_idx, stave in enumerate(self.score.stave):
-            for beam in stave.event.beam:
-                self._draw_single_beam(stave_idx, beam)
+        # Get the currently rendered stave index
+        stave_idx = self.score.fileSettings.get_rendered_stave_index(
+            num_staves=len(self.score.stave)
+        ) if (self.score and hasattr(self.score, 'fileSettings')) else 0
+        
+        # Draw beams from the currently rendered stave
+        stave = self.score.stave[stave_idx]
+        for beam in stave.event.beam:
+            self._draw_single_beam(stave_idx, beam)
 
     def _draw_single_beam(self, stave_idx: int, beam: Beam) -> None:
         '''Draw a single beam event.

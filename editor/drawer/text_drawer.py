@@ -27,10 +27,15 @@ class TextDrawerMixin:
         if not self.score:
             return
         
-        # Draw each text
-        for stave_idx, stave in enumerate(self.score.stave):
-            for text in stave.event.text:
-                self._draw_single_text(stave_idx, text)
+        # Get the currently rendered stave index
+        stave_idx = self.score.fileSettings.get_rendered_stave_index(
+            num_staves=len(self.score.stave)
+        ) if (self.score and hasattr(self.score, 'fileSettings')) else 0
+        
+        # Draw text from the currently rendered stave
+        stave = self.score.stave[stave_idx]
+        for text in stave.event.text:
+            self._draw_single_text(text)
 
     def _draw_single_text(self, stave_idx: int, text: Text) -> None:
         '''Draw a single text event.

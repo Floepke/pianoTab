@@ -42,7 +42,7 @@ class StaveDrawerMixin:
             px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
             mm_per_quarter = (self.pixels_per_quarter) / max(1e-6, px_per_mm)
         # Stave height independent of scroll offset
-        ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
+        ql = self.score.fileSettings.quarterNoteUnit if (self.score and hasattr(self.score, 'fileSettings')) else PIANOTICK_QUARTER
         stave_height = (total_ticks / max(1e-6, ql)) * mm_per_quarter
         
         # Set stave boundaries (useful for cursor and other tools)

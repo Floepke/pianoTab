@@ -116,30 +116,28 @@ class Editor(
         # Clock.schedule_once(lambda dt: self.canvas.test_freeze_at_startup(3.0), 1.0)
 
     def _apply_settings_from_score(self):
-        '''Synchronize editor state from SCORE.properties.
+        '''Synchronize editor state from SCORE.fileSettings and SCORE.properties.
 
-        - Zoom (editorZoomPixelsQuarter)
-        - Stave visuals (globalStave)
-        - Grid/barline visuals (globalBasegrid)
+        - Zoom (fileSettings.zoomPixelsQuarter)
+        - Stave visuals (properties.globalStave)
+        - Grid/barline visuals (properties.globalBasegrid)
         Called in __init__ and whenever SCORE/properties change so drawing uses the
         SCORE's values from the start. Fallbacks use safe defaults when properties are missing.
         '''
-        if not self.score or not hasattr(self.score, 'properties'):
+        if not self.score:
             return
 
-        properties = self.score.properties
-
-        # Zoom (px per quarter) - ALWAYS read from SCORE
-        if hasattr(properties, 'editorZoomPixelsQuarter'):
+        # Zoom (px per quarter) - ALWAYS read from SCORE.fileSettings
+        if hasattr(self.score, 'fileSettings') and hasattr(self.score.fileSettings, 'zoomPixelsQuarter'):
             try:
-                self.pixels_per_quarter = float(properties.editorZoomPixelsQuarter)
+                self.pixels_per_quarter = float(self.score.fileSettings.zoomPixelsQuarter)
             except Exception:
                 # Keep current value on parse error
                 pass
 
         # Stave (line widths, colors, dash pattern)
-        if hasattr(properties, 'globalStave') and properties.globalStave is not None:
-            stave = properties.globalStave
+        if hasattr(self.score, 'properties') and hasattr(self.score.properties, 'globalStave') and self.score.properties.globalStave is not None:
+            stave = self.score.properties.globalStave
             self.stave_two_color = getattr(stave, 'twoLineColor', self.stave_two_color)
             self.stave_three_color = getattr(stave, 'threeLineColor', self.stave_three_color)
             self.stave_clef_color = getattr(stave, 'clefColor', self.stave_clef_color)
@@ -151,8 +149,8 @@ class Editor(
             self.clef_dash_pattern = getattr(stave, 'clefDashPattern', self.clef_dash_pattern)
 
         # Grid (bar/grid line widths, colors, dash)
-        if hasattr(properties, 'globalBasegrid') and properties.globalBasegrid is not None:
-            basegrid = properties.globalBasegrid
+        if hasattr(self.score, 'properties') and hasattr(self.score.properties, 'globalBasegrid') and self.score.properties.globalBasegrid is not None:
+            basegrid = self.score.properties.globalBasegrid
             self.barline_color = getattr(basegrid, 'barlineColor', self.barline_color)
             self.barline_width = getattr(basegrid, 'barlineWidth', self.barline_width)
             self.gridline_color = getattr(basegrid, 'gridlineColor', self.gridline_color)
@@ -498,8 +496,8 @@ class Editor(
     # Drawing order is now set automatically by tags when items are created.
     
     # Zoom and interaction methods (simplified for initial implementation)
-    def zoom_in(self, factor: float = 1.2):
-        '''Increase SCORE.properties.editorZoomPixelsQuarter by factor (px per quarter).'''
+    def zoom_in(self, factor: float = 1.25):
+        '''Increase SCORE.fileSettings.zoomPixelsQuarter by factor (px per quarter).'''
         try:
             current = float(self.pixels_per_quarter)
             new_ppq = max(1.0, current * float(factor))
@@ -510,8 +508,8 @@ class Editor(
         except Exception as e:
             print(f'DEBUG: zoom_in failed: {e}')
     
-    def zoom_out(self, factor: float = 1.2):
-        '''Decrease SCORE.properties.editorZoomPixelsQuarter by factor (px per quarter).'''
+    def zoom_out(self, factor: float = 1.25):
+        '''Decrease SCORE.fileSettings.zoomPixelsQuarter by factor (px per quarter).'''
         try:
             current = float(self.pixels_per_quarter)
             new_ppq = max(1.0, current / float(factor))
