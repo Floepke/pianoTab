@@ -78,6 +78,11 @@ class ToolManager:
         from kivy.core.window import Window
         Window.set_system_cursor(self._active_tool.cursor)
         
+        # Update contextual toolbar with tool's buttons
+        if hasattr(self.editor, 'gui') and self.editor.gui:
+            contextual_buttons = self._active_tool.get_contextual_buttons()
+            self.editor.gui.set_contextual_toolbar(contextual_buttons)
+        
         return True
     
     def get_active_tool(self) -> Optional[BaseTool]:

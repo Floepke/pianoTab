@@ -131,10 +131,9 @@ class ToolSash(Widget):
         btn_spacing = 10
 
         if self.split_view.orientation == 'horizontal':
-            # Vertical sash: default at top (stacked down), contextual at bottom (stacked up)
+            # Vertical sash: default at top (stacked down), contextual below defaults (also stacked down)
             top_padding = 0  # default buttons have menu bar above; no extra top padding
-            bottom_padding = btn_spacing  # contextual buttons keep distance from screen edge
-
+            
             # Top group: default buttons stacked downward from top
             current_y = self.top - top_padding
             for btn in self.default_buttons:
@@ -142,12 +141,11 @@ class ToolSash(Widget):
                 btn.top = current_y
                 current_y -= (btn.height + btn_spacing)
 
-            # Bottom group: contextual buttons stacked upward from bottom
-            current_bottom = self.y + bottom_padding
+            # Contextual group: continue stacking downward below default buttons
             for btn in self.contextual_buttons:
                 btn.center_x = self.center_x
-                btn.y = current_bottom
-                current_bottom += (btn.height + btn_spacing)
+                btn.top = current_y
+                current_y -= (btn.height + btn_spacing)
             
             # Tooltip label not used in vertical sash
             self.tooltip_label.opacity = 0
@@ -206,7 +204,7 @@ class ToolSash(Widget):
         if icon is not None:
             btn = IconButton(icon_name=key)
         else:
-            btn = Button(text=key, size_hint=(None, None), size=(64, 64))
+            btn = Button(text=key, size_hint=(None, None), size=(64, 64), color=(0, 0, 0, 1))
         if cb is not None:
             # Bind to invoke callback
             btn.bind(on_release=lambda *_: self._invoke_action(cb))

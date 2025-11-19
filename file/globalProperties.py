@@ -169,6 +169,14 @@ class GlobalNote:
             }
         }
     )
+    stopSignColor: str = field(
+        default='#000000',
+        metadata={
+            'tree_icon': 'colorproperty',
+            'tree_tooltip': 'Default color for note stop signs',
+            'tree_edit_type': 'color',
+        }
+    )
 
 @dataclass_json
 @dataclass

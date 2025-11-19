@@ -263,117 +263,6 @@ class NumericSpinBox(BoxLayout):
             self._commit_from_text()
 
 
-class ColorField(BoxLayout):
-    '''
-    Color picker field with:
-    - Swatch
-    - Hex label
-    - 'Pick…' button that opens a Popup with ColorPicker and Cancel/OK
-    Commits only on OK; Cancel reverts.
-    Visual: button transparent, label auto-contrasted by row color.
-    '''
-
-    def __init__(self, hex_value: str, on_commit: Callable[[str], None], label_color=BLACK, **kwargs):
-        super().__init__(orientation='horizontal', spacing=dp(8), size_hint_y=None, height=dp(28), **kwargs)
-        self._hex = hex_value if isinstance(hex_value, str) else '#000000'
-        self._on_commit = on_commit
-
-        # Swatch rectangle
-        self.swatch = Widget(size_hint=(None, None), size=(dp(22), dp(22)))
-        with self.swatch.canvas:
-            self._swatch_color = Color(*_hex_to_rgba(self._hex))
-            self._swatch_rect = Rectangle(pos=self.swatch.pos, size=self.swatch.size)
-        self.swatch.bind(
-            pos=lambda *_: setattr(self._swatch_rect, 'pos', self.swatch.pos),
-            size=lambda *_: setattr(self._swatch_rect, 'size', self.swatch.size),
-        )
-        self.add_widget(self.swatch)
-
-        # Hex label (auto color)
-        self.lbl = Label(text=self._hex, color=label_color, size_hint_x=1, halign='left', valign='middle')
-        self.lbl.bind(size=self.lbl.setter('text_size'))
-        self.add_widget(self.lbl)
-
-        # Pick button (transparent)
-        self.btn = Button(
-            text='Pick…',
-            size_hint=(None, 1),
-            width=dp(64),
-            background_normal='',
-            background_down='',
-            background_color=TRANSPARENT,
-            color=label_color,
-        )
-        self.btn.bind(on_press=lambda *_: self._open_picker())
-        self.add_widget(self.btn)
-
-    def _open_picker(self):
-        rgba = _hex_to_rgba(self._hex)
-        picker = ColorPicker(color=rgba, size_hint=(1, 1))
-        buttons = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), spacing=dp(8), padding=(dp(8), 0))
-
-        cancel = Button(
-            text='Cancel',
-            size_hint_x=None,
-            width=dp(100),
-            background_normal='',
-            background_down='',
-            background_color=TRANSPARENT,
-            color=BLACK,
-        )
-        ok = Button(
-            text='OK',
-            size_hint_x=None,
-            width=dp(100),
-            background_normal='',
-            background_down='',
-            background_color=TRANSPARENT,
-            color=BLACK,
-        )
-
-        content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(8))
-        content.add_widget(picker)
-        buttons.add_widget(Widget())
-        buttons.add_widget(cancel)
-        buttons.add_widget(ok)
-        content.add_widget(buttons)
-
-        # Title bar
-        title_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), padding=[dp(10), dp(5)])
-        title_label = Label(text='Select Color...', color=WHITE, halign='left', valign='middle')
-        title_label.bind(size=lambda *args: setattr(title_label, 'text_size', (title_label.width, None)))
-        title_bar.add_widget(title_label)
-        
-        # Main container with title
-        main_box = BoxLayout(orientation='vertical', spacing=0)
-        main_box.add_widget(title_bar)
-        main_box.add_widget(content)
-        
-        popup = ModalView(size_hint=(None, None), size=(Window.width - Window.width / 4, Window.height - Window.height / 4), auto_dismiss=False)
-        popup.add_widget(main_box)
-
-        def _on_cancel(*_):
-            popup.dismiss()
-
-        def _on_ok(*_):
-            col = picker.color  # RGBA floats
-            hx = _rgba_to_hex(col)
-            self._set_hex(hx)
-            self._on_commit(hx)
-            popup.dismiss()
-
-        cancel.bind(on_press=_on_cancel)
-        ok.bind(on_press=_on_ok)
-        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
-        popup.open()
-
-    def _set_hex(self, hx: str):
-        self._hex = hx
-        self.lbl.text = hx
-        rgba = _hex_to_rgba(hx)
-        self._swatch_color.rgba = rgba
-
-
 class PropertyTreeEditor(BoxLayout):
     '''
     Property tree editor for SCORE with foldable nodes and type-aware editors.
@@ -1328,27 +1217,15 @@ class PropertyTreeEditor(BoxLayout):
             try:
                 btn = self._icon_button(current_icon_name, current, lambda *_: open_popup())
             except Exception:
-                # Calculate font size to fit text in button (monospace: char_width ≈ 0.6 * font_size)
-                btn_width = dp(28)
-                if len(current) > 0:
-                    font_size = min(sp(14), btn_width / (len(current) * 0.6))
-                else:
-                    font_size = sp(14)
                 btn = Button(text=current, background_normal='', background_down='',
                              background_color=TRANSPARENT, color=self._row_text_color(),
-                             halign='left', font_size=font_size)
+                             halign='left', valign='middle')
                 btn.bind(size=btn.setter('text_size'))
                 btn.bind(on_press=open_popup)
         else:
-            # Calculate font size to fit text in button (monospace: char_width ≈ 0.6 * font_size)
-            btn_width = dp(28)
-            if len(current) > 0:
-                font_size = min(sp(14), btn_width / (len(current) * 0.6))
-            else:
-                font_size = sp(14)
             btn = Button(text=current, background_normal='', background_down='',
                          background_color=TRANSPARENT, color=self._row_text_color(),
-                         halign='left', font_size=font_size)
+                         halign='left', valign='middle')
             btn.bind(size=btn.setter('text_size'))
             btn.bind(on_press=open_popup)
         right.add_widget(btn)
@@ -1498,9 +1375,19 @@ class PropertyTreeEditor(BoxLayout):
                     except Exception:
                         added = False
             if not added:
-                # Scale text size with button size
-                text_size = BTN_SIZE * 0.3
-                lbl = Label(text=display_text, color=WHITE, font_size=sp(text_size))
+                # Calculate font size to fit text within button width
+                # Assume monospace: char_width ≈ 0.6 * font_size
+                # Add some padding margin (use 80% of button width for text)
+                usable_width = BTN_SIZE * 0.8
+                if len(display_text) > 0:
+                    calculated_size = usable_width / (len(display_text) * 0.6)
+                    # Cap the font size to reasonable bounds
+                    text_size = min(calculated_size, BTN_SIZE * 0.25)  # Max 25% of button size
+                    text_size = max(text_size, sp(10))  # Minimum readable size
+                else:
+                    text_size = sp(14)
+                lbl = Label(text=display_text, color=WHITE, font_size=text_size,
+                           halign='center', valign='middle')
                 lbl.bind(size=lbl.setter('text_size'))
                 tile.add_widget(lbl)
 
@@ -1905,12 +1792,6 @@ class PropertyTreeEditor(BoxLayout):
             container.add_widget(imgbtn)
             return container
         # Fallback to simple text button
-        # Calculate font size to fit text in button (monospace: char_width ≈ 0.6 * font_size)
-        btn_width = dp(28)
-        if len(fallback_text) > 0:
-            font_size = min(sp(14), btn_width / (len(fallback_text) * 0.6))
-        else:
-            font_size = sp(14)
         btn = Button(
             text=fallback_text,
             size_hint_x=None,
@@ -1919,10 +1800,7 @@ class PropertyTreeEditor(BoxLayout):
             background_down='',
             background_color=TRANSPARENT,
             color=self._row_text_color(),
-            halign='left',
-            font_size=font_size,
         )
-        btn.bind(size=btn.setter('text_size'))
         btn.bind(on_press=on_press)
         return btn
 
@@ -2309,6 +2187,42 @@ class PropertyTreeEditor(BoxLayout):
     def _open_color_dialog(self, path: Tuple[Union[str, int], ...], current_hex: str):
         prompt = f'Set {self._path_to_prompt(path)}:'
         picker = ColorPicker(color=_hex_to_rgba(current_hex), size_hint=(1, 1))
+        
+        # Grayscale palette row (10 shades from white to black)
+        grayscale_row = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), spacing=dp(4))
+        grayscale_labels = ['white', 'grey10', 'grey20', 'grey30', 'grey40', 'grey50', 'grey60', 'grey70', 'grey80', 'grey90', 'black']
+        for i in range(11):
+            # Calculate grayscale value from white (255) to black (0)
+            gray_value = int(255 - (i * 255 / 10))  # 10 steps to get 11 colors
+            gray_hex = f'#{gray_value:02x}{gray_value:02x}{gray_value:02x}'
+            
+            # Determine text color for readability (dark text on light bg, light text on dark bg)
+            text_color = BLACK if i < 5 else WHITE
+            
+            # Create button for this gray shade
+            gray_btn = Button(
+                text=grayscale_labels[i],
+                background_normal='',
+                background_color=_hex_to_rgba(gray_hex),
+                color=text_color,
+                size_hint_x=1,
+            )
+            
+            # Single click: set the color in picker
+            def set_gray(instance, hex_color=gray_hex):
+                picker.color = _hex_to_rgba(hex_color)
+            
+            gray_btn.bind(on_press=set_gray)
+            
+            # Double click: commit and close
+            def on_double_click(instance, touch, hex_color=gray_hex):
+                if instance.collide_point(*touch.pos) and touch.is_double_tap:
+                    self._commit_value(path, hex_color)
+                    popup.dismiss()
+            
+            gray_btn.bind(on_touch_down=on_double_click)
+            grayscale_row.add_widget(gray_btn)
+        
         btns = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), spacing=dp(8), padding=(dp(8), 0))
         cancel = Button(text='Cancel', size_hint_x=None, width=dp(100))
         ok = Button(text='OK', size_hint_x=None, width=dp(100))
@@ -2317,6 +2231,7 @@ class PropertyTreeEditor(BoxLayout):
         btns.add_widget(ok)
         content = BoxLayout(orientation='vertical', spacing=dp(8), padding=dp(8))
         content.add_widget(picker)
+        content.add_widget(grayscale_row)
         content.add_widget(btns)
         
         # Title bar

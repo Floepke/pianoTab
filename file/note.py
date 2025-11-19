@@ -174,6 +174,19 @@ class Note:
         }
     )
 
+    _stopSignColor: Optional[str] = field(
+        default=None,
+        metadata={
+            **config(field_name='stopSignColor'),
+            'tree_icon': 'colorproperty',
+            'tree_tooltip': 'Color of note stop sign (None = inherit from globalNote)',
+            'tree_edit_type': 'color',
+            'tree_edit_options': {
+                'allow_none': True,
+            }
+        }
+    )
+
     def __post_init__(self):
         '''Initialize score reference as a non-dataclass attribute.'''
         self.score: Optional['SCORE'] = None
@@ -265,3 +278,18 @@ class Note:
     def stemLengthMm(self, value: Optional[float]):
         '''Set stem length - use None to reset to inheritance.'''
         self._stemLengthMm = value
+    
+    # Property: stopSignColor
+    @property
+    def stopSignColor(self) -> str:
+        '''Get stop sign color - inherits from globalNote.stopSignColor if None.'''
+        if self._stopSignColor is not None:
+            return self._stopSignColor
+        if self.score is None or self.score.properties is None or self.score.properties.globalNote is None:
+            return '#000000'  # Fallback if no score reference
+        return self.score.properties.globalNote.stopSignColor
+    
+    @stopSignColor.setter
+    def stopSignColor(self, value: Optional[str]):
+        '''Set stop sign color - use None to reset to inheritance.'''
+        self._stopSignColor = value

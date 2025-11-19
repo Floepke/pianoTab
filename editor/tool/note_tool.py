@@ -39,11 +39,12 @@ class NoteTool(BaseTool):
             Dictionary mapping icon names to (callback, tooltip) tuples.
         """
         return {
-            'noteLeft': (self._set_left_hand, 'Left hand (,)'),
-            'noteRight': (self._set_right_hand, 'Right hand (.)'),
-            'accidentalFlat': (self._set_flat, 'Flat accidental'),
-            'accidentalNatural': (self._set_natural, 'Natural (no accidental)'),
-            'accidentalSharp': (self._set_sharp, 'Sharp accidental'),
+            'selection2left': (self._set_selection_left, 'Change selection to left hand (,)'),
+            'selection2right': (self._set_selection_right, 'Change selection to right hand (.)'),
+            'noteLeft': (self._set_left_hand, 'Change the cursor to left hand'),
+            'noteRight': (self._set_right_hand, 'Change the cursor to right hand'),
+            'transposeUp': (self._transpose_up, 'Transpose selection up'),
+            'transposeDown': (self._transpose_down, 'Transpose selection down'),
         }
     
     def _set_left_hand(self):
@@ -56,20 +57,47 @@ class NoteTool(BaseTool):
         self.hand_cursor = '>'
         self._draw_cursor()
     
-    def _set_flat(self):
-        """Set cursor to flat accidental."""
-        self.accidental_cursor = -1
-        self._draw_cursor()
+    def _set_selection_left(self):
+        """Set all selected notes to left hand."""
+        if not hasattr(self.editor, 'selection_manager'):
+            return
+        if not self.editor.selection_manager.has_selection():
+            return
+        
+        for note_id in self.editor.selection_manager.get_selected_note_ids():
+            note = self.editor.score.get_note_by_id(note_id)
+            if note:
+                note.hand = '<'
+        
+        self.editor.redraw_pianoroll()
+        self.editor.on_modified()
     
-    def _set_natural(self):
-        """Set cursor to natural (no accidental)."""
-        self.accidental_cursor = 0
-        self._draw_cursor()
+    def _set_selection_right(self):
+        """Set all selected notes to right hand."""
+        if not hasattr(self.editor, 'selection_manager'):
+            return
+        if not self.editor.selection_manager.has_selection():
+            return
+        
+        for note_id in self.editor.selection_manager.get_selected_note_ids():
+            note = self.editor.score.get_note_by_id(note_id)
+            if note:
+                note.hand = '>'
+        
+        self.editor.redraw_pianoroll()
+        self.editor.on_modified()
     
-    def _set_sharp(self):
-        """Set cursor to sharp accidental."""
-        self.accidental_cursor = 1
-        self._draw_cursor()
+    def _transpose_up(self):
+        """Transpose selection up one semitone."""
+        if not hasattr(self.editor, 'selection_manager'):
+            return
+        self.editor.selection_manager._transpose_selection(1)
+    
+    def _transpose_down(self):
+        """Transpose selection down one semitone."""
+        if not hasattr(self.editor, 'selection_manager'):
+            return
+        self.editor.selection_manager._transpose_selection(-1)
     
     def on_deactivate(self):
         """Called when switching away from this tool."""
