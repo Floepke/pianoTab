@@ -7,12 +7,55 @@ if TYPE_CHECKING:
 @dataclass_json
 @dataclass
 class StartRepeat:
-    id: int = 0
-    time: float = 0.0
+    id: int = field(
+        default=0,
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'Unique start repeat marker identifier',
+            'tree_edit_type': 'readonly',
+        }
+    )
+    time: float = field(
+        default=0.0,
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'Time position for start repeat marker',
+            'tree_edit_type': 'float',
+            'tree_edit_options': {
+                'min': 0.0,
+                'step': 1.0,
+            }
+        }
+    )
 
     # Storage fields for inherited properties (serialize to JSON with clean names)
-    _color: Optional[str] = field(default=None, metadata=config(field_name='color'))
-    _lineWidth: Optional[float] = field(default=None, metadata=config(field_name='lineWidth'))
+    _color: Optional[str] = field(
+        default=None,
+        metadata={
+            **config(field_name='color'),
+            'tree_icon': 'colorproperty',
+            'tree_tooltip': 'Start repeat color (None = inherit from globalStartRepeat)',
+            'tree_edit_type': 'color',
+            'tree_edit_options': {
+                'allow_none': True,
+            }
+        }
+    )
+    _lineWidth: Optional[float] = field(
+        default=None,
+        metadata={
+            **config(field_name='lineWidth'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'Start repeat line width in mm (None = inherit from globalStartRepeat)',
+            'tree_edit_type': 'float',
+            'tree_edit_options': {
+                'min': 0.0,
+                'max': 10.0,
+                'step': 0.1,
+                'allow_none': True,
+            }
+        }
+    )
     
     def __post_init__(self):
         '''Initialize score reference as a non-dataclass attribute.'''

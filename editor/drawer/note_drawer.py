@@ -8,8 +8,9 @@ from typing import TYPE_CHECKING, Literal, Optional
 
 from file import note
 from gui.colors import ACCENT_COLOR_HEX
-from utils.CONSTANTS import BLACK_KEYS, OPERATOR_TRESHOLD
+from utils.CONSTANTS import BLACK_KEYS, OPERATOR_TRESHOLD, BE_GAPS
 from utils.operator import OperatorThreshold
+import copy
 
 if TYPE_CHECKING:
     from file.SCORE import SCORE
@@ -63,35 +64,60 @@ class NoteDrawerMixin:
                 - 'select/edit': draw as select/edit note (accent color)
                 - 'selected': draw as selected note (accent color)
         '''
-        # attempt to delete existing drawing of this note + set base_tag
+        # Guard against startup race condition
+        if not self.score:
+            return
+        
+        # Setup: tags and color
+        base_tag, color = self._setup_note_drawing(note, draw_mode)
+        
+        # Draw all note elements (order doesn't matter - each calculates its own position)
+        self._draw_midinote(note, draw_mode, base_tag, color)
+        self._draw_notestop(stave_idx, note, base_tag, color)
+        self._draw_notehead(note, base_tag, color)
+        self._draw_left_dot(note, base_tag, color)
+        self._draw_accidental(note, base_tag, color)
+        self._draw_stem(note, base_tag, color)
+        self._draw_stem_whitespace(note, base_tag)
+        self._draw_chord_connections(stave_idx, note, base_tag=base_tag, color=color)
+        self._draw_note_continuation_dot(stave_idx, note, draw_mode=draw_mode)
+    
+    def _setup_note_drawing(self, note: Note, draw_mode: str) -> tuple[str, str]:
+        '''Setup drawing by deleting old elements and determining tag and color.
+        
+        Returns:
+            tuple: (base_tag, color)
+        '''
+        # Delete existing drawing and set base_tag
         if draw_mode in ('note', 'selected'):
             self.canvas.delete_by_tag(str(note.id))
             base_tag = str(note.id)
         elif draw_mode == 'cursor':
             self.canvas.delete_by_tag('cursor')
             base_tag = 'cursor'
-        else: # 'select/edit'
+        else:  # 'select/edit'
             self.canvas.delete_by_tag('select/edit')
             base_tag = 'select/edit'
-
-        # determine color:
+        
+        # Determine color
         if draw_mode in ('cursor', 'select/edit', 'selected'):
             color = ACCENT_COLOR_HEX
         else:
             color = note.color
-
-        # Guard against startup race condition
-        if not self.score:
-            return
         
-        # position
-        x = self.pitch_to_x(note.pitch)
-        y = self.time_to_y(note.time)
-        y_note_stop = self.time_to_y(note.time + note.duration)
-
-        # draw the midinote
-        semitone_width = self.semitone_width * 2
+        return base_tag, color
+    
+    def _draw_midinote(self, note: Note, draw_mode: str, base_tag: str, color: str) -> None:
+        '''Draw the midinote rectangle (background note representation).'''
         if draw_mode in ('note', 'select/edit', 'selected'):
+            # Calculate positions
+            x = self.pitch_to_x(note.pitch)
+            y = self.time_to_y(note.time)
+            y_note_stop = self.time_to_y(note.time + note.duration)
+            
+            # Calculate dimensions
+            semitone_width = self.semitone_width * 2
+            
             self.canvas.add_rectangle(
                 x1_mm=x - semitone_width / 2,
                 y1_mm=y + semitone_width / 2 if note.blackNoteDirection == 'v' else y,
@@ -102,9 +128,17 @@ class NoteDrawerMixin:
                 outline=False,
                 tags=['midinote', base_tag]
             )
-
-        # draw notestop - only if followed by a rest in the same hand
+    
+    def _draw_notestop(self, stave_idx: int, note: Note, base_tag: str, color: str) -> None:
+        '''Draw the note stop sign (triangle) if followed by a rest.'''
         if self._is_followed_by_rest(stave_idx, note):
+            # Calculate positions
+            x = self.pitch_to_x(note.pitch)
+            y_note_stop = self.time_to_y(note.time + note.duration)
+            
+            # Calculate dimensions
+            semitone_width = self.semitone_width * 2
+            
             self.canvas.add_polygon(
                 points_mm=[
                     x - semitone_width / 2, y_note_stop,
@@ -116,13 +150,26 @@ class NoteDrawerMixin:
                 outline=False,
                 tags=['stopsign', base_tag]
             )
-
-        # draw the notehead + leftdot
+    
+    def _draw_notehead(self, note: Note, base_tag: str, color: str) -> None:
+        '''Draw the notehead (oval).'''
+        # Calculate positions
+        x = self.pitch_to_x(note.pitch)
+        y = self.time_to_y(note.time)
+        
+        # Calculate dimensions
+        semitone_width = self.semitone_width * 2
         notehead_length = semitone_width
         if note.pitch in BLACK_KEYS:
             semitone_width *= 0.75  # slightly smaller notehead for black keys
-        if note.blackNoteDirection == '^' and note.pitch in BLACK_KEYS:
-            y -= notehead_length # black note is above the stem
+        
+        # Adjust y position for black notes above stem
+        if base_tag == 'cursor' and note.pitch in BLACK_KEYS and self.score.properties.globalNote.blackNoteDirection == '^':
+            y -= notehead_length
+        elif note.blackNoteDirection == '^' and note.pitch in BLACK_KEYS:
+            y -= notehead_length
+        
+        # Draw the notehead
         self.canvas.add_oval(
             x1_mm=x - semitone_width / 2,
             y1_mm=y,
@@ -135,11 +182,31 @@ class NoteDrawerMixin:
             outline_color=color,
             tags=['notehead', base_tag]
         )
+    
+    def _draw_left_dot(self, note: Note, base_tag: str, color: str) -> None:
+        '''Draw the left hand indicator dot inside the notehead.'''
         if note.hand == '<':
-            # left dot - centered in the notehead
-            dot_diameter = semitone_width * self.score.properties.globalNote.leftDotSizeScale  # using SCORE property
-            center_y = y + notehead_length / 2  # Center of the notehead vertically
+            # Calculate positions
+            x = self.pitch_to_x(note.pitch)
+            y = self.time_to_y(note.time)
             
+            # Calculate dimensions
+            semitone_width = self.semitone_width * 2
+            notehead_length = semitone_width
+            if note.pitch in BLACK_KEYS:
+                semitone_width *= 0.75
+            
+            # Adjust y position for black notes above stem
+            if base_tag == 'cursor' and note.pitch in BLACK_KEYS and self.score.properties.globalNote.blackNoteDirection == '^':
+                y -= notehead_length
+            elif note.blackNoteDirection == '^' and note.pitch in BLACK_KEYS:
+                y -= notehead_length
+            
+            # Calculate dot dimensions
+            dot_diameter = semitone_width * self.score.properties.globalNote.leftDotSizeScale
+            center_y = y + notehead_length / 2
+            
+            # Draw the dot
             self.canvas.add_oval(
                 x1_mm=x - dot_diameter / 2,
                 y1_mm=center_y - dot_diameter / 2,
@@ -150,40 +217,67 @@ class NoteDrawerMixin:
                 outline=False,
                 tags=['leftdot', base_tag]
             )
-
-        # draw accidental - experimental feature
-        if note.accidental != 0 and note.pitch in BLACK_KEYS:
-            if note.blackNoteDirection == '^':
-                yy = y - notehead_length
-            else:
-                yy = y + notehead_length
-            if note.accidental < 0:
-                self.canvas.add_line(
-                    x1_mm=x,
-                    y1_mm=yy,
-                    x2_mm=x + (semitone_width/2),
-                    y2_mm=yy + (notehead_length/2),
-                    width_mm=self.score.properties.globalNote.stemWidthMm,
-                    color=color,
-                    tags=['accidental', base_tag]
-                )
-            elif note.accidental > 0:
-                self.canvas.add_line(
-                    x1_mm=x,
-                    y1_mm=yy,
-                    x2_mm=x - (semitone_width/2),
-                    y2_mm=yy + (notehead_length/2),
-                    width_mm=self.score.properties.globalNote.stemWidthMm,
-                    color=color,
-                    tags=['accidental', base_tag]
-                )
+    
+    def _draw_accidental(self, note: Note, base_tag: str, color: str) -> None:
+        '''Draw the accidental line (sharp/flat indicator).'''
+        is_bcef = (note.pitch in BE_GAPS or note.pitch - 1 in BE_GAPS)
         
-        # draw the stem
-        if note.blackNoteDirection == '^' and note.pitch in BLACK_KEYS:
-            y += notehead_length # we need to change y back for stem drawing
-        if note.hand == '<': xx = x - note.stemLengthMm
-        else: xx = x + note.stemLengthMm
-        # left hand - stem to the left side
+        if (note.pitch in BLACK_KEYS or is_bcef) and note.accidental != 0:
+            # Calculate positions
+            x = self.pitch_to_x(note.pitch)
+            y = self.time_to_y(note.time)
+            
+            # Calculate dimensions
+            semitone_width = self.semitone_width * 2
+            notehead_length = semitone_width
+            if note.pitch in BLACK_KEYS:
+                semitone_width *= 0.75
+            
+            # Adjust y for black notes above stem
+            if note.blackNoteDirection == '^' and note.pitch in BLACK_KEYS:
+                y -= notehead_length
+            
+            # Determine the 'from_pitch' position
+            from_pitch = note.pitch + note.accidental
+            from_pitch_x = self.pitch_to_x(from_pitch)
+            
+            # Draw the accidental based on black note direction
+            if note.blackNoteDirection == '^' and note.pitch in BLACK_KEYS:
+                # Black note is above the stem
+                self.canvas.add_line(
+                    x1_mm=x,
+                    y1_mm=y,
+                    x2_mm=from_pitch_x,
+                    y2_mm=y - notehead_length,
+                    width_mm=self.score.properties.globalNote.stemWidthMm,
+                    color=color,
+                    tags=['accidental', base_tag]
+                )
+            else:
+                # Black note is below the stem
+                acc_y = y + semitone_width
+                self.canvas.add_line(
+                    x1_mm=x,
+                    y1_mm=acc_y,
+                    x2_mm=from_pitch_x,
+                    y2_mm=acc_y + notehead_length,
+                    width_mm=self.score.properties.globalNote.stemWidthMm,
+                    color=color,
+                    tags=['accidental', base_tag]
+                )
+    
+    def _draw_stem(self, note: Note, base_tag: str, color: str) -> None:
+        '''Draw the horizontal stem line.'''
+        # Calculate positions (stem is at note time, not adjusted for black notes)
+        x = self.pitch_to_x(note.pitch)
+        y = self.time_to_y(note.time)
+        
+        # Calculate stem endpoint
+        if note.hand == '<':
+            xx = x - note.stemLengthMm
+        else:
+            xx = x + note.stemLengthMm
+        
         self.canvas.add_line(
             x1_mm=x,
             y1_mm=y,
@@ -193,10 +287,17 @@ class NoteDrawerMixin:
             color=color,
             tags=['stem', base_tag]
         )
-
-        # draw stemwhitespace: it highlights the stem if the stem is written on a barline.
+    
+    def _draw_stem_whitespace(self, note: Note, base_tag: str) -> None:
+        '''Draw stem whitespace to highlight stem on barlines.'''
         if any(self._time_op.equal(note.time, barline_time) for barline_time in self.get_barline_positions()):
+            # Calculate positions
+            x = self.pitch_to_x(note.pitch)
+            y = self.time_to_y(note.time)
+            
+            # Calculate stem endpoint
             if note.hand == '<':
+                xx = x - note.stemLengthMm
                 self.canvas.add_line(
                     x1_mm=x + 2,
                     y1_mm=y,
@@ -208,6 +309,7 @@ class NoteDrawerMixin:
                     cap='flat'
                 )
             else:
+                xx = x + note.stemLengthMm
                 self.canvas.add_line(
                     x1_mm=x - 2,
                     y1_mm=y,
@@ -218,12 +320,6 @@ class NoteDrawerMixin:
                     tags=['stemwhitespace', base_tag],
                     cap='flat'
                 )
-
-        # connect the notes that are in a chord (same time)
-        self._draw_chord_connections(stave_idx, note, base_tag=base_tag, color=color)
-        
-        # draw continuation dots
-        self._draw_note_continuation_dot(stave_idx, note, draw_mode=draw_mode)
 
     def _draw_chord_connections(self, stave_idx: int, note: Note, base_tag: str, color: str) -> None:
         '''Draw connection lines between notes that form a chord (same time).

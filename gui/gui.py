@@ -12,8 +12,8 @@ Layout:
     - MainMenu() at the top
     - OuterSplit (horizontal, 3 logical areas via nesting)
         [Left: SidePanel (fixed width, outer sash width = 0, not resizable)]
-        [Right: MidRightSplit (horizontal, sash 40px)]
-                     [Left: CenterSplit (vertical, sash 40px)]
+        [Right: MidRightSplit (horizontal, sash 80px with contextual toolbar)]
+                     [Left: CenterSplit (vertical, sash 80px for tooltips)]
                                 [Top   : Editor()]
                                 [Bottom: TreeViewEditor()]
                      [Right: PrintView()]
@@ -248,10 +248,10 @@ class GUI(BoxLayout):
         self.side_panel.size_hint_x = None
         self.side_panel.width = SIDE_PANEL_WIDTH_PX
 
-        # CENTER-VERTICAL: Editor (top) + Tree (bottom) via a vertical split (40px sash)
+        # CENTER-VERTICAL: Editor (top) + Tree (bottom) via a vertical split (80px sash for tooltips)
         self.center_split = SplitView(
             orientation='vertical',
-            sash_width=40,
+            sash_width=80,
             split_ratio=0.75,
             sash_color=DARK,
             min_left_size=80,
@@ -269,10 +269,10 @@ class GUI(BoxLayout):
         # RIGHT: PrintView
         self.print_view = PrintView()
 
-        # MID-RIGHT horizontal split: [center_split | sash(40) | print_view]
+        # MID-RIGHT horizontal split: [center_split | sash(80) | print_view]
         self.mid_right_split = SplitView(
             orientation='horizontal',
-            sash_width=40,
+            sash_width=80,
             split_ratio=0.6,
             sash_color=DARK,
             min_left_size=40,
@@ -507,6 +507,25 @@ class GUI(BoxLayout):
     def _on_grid_step_changed(self, grid_step: float):
         # No action needed - Canvas reads grid step directly from editor.grid_selector
         pass
+    
+    # ----- Contextual Toolbar Management -----
+    def set_contextual_toolbar(self, buttons_config: dict):
+        """Update the vertical sash's contextual toolbar with tool-specific buttons.
+        
+        Args:
+            buttons_config: Dictionary mapping icon names to (callback, tooltip) tuples.
+                           Example: {'noteLeft': (callback_fn, 'Move to left hand')}
+        """
+        try:
+            if self.mid_right_split and hasattr(self.mid_right_split, 'sash'):
+                # Convert buttons_config into the format expected by ToolSash
+                # ToolSash expects contextual_toolbar = {'context_key': {icon: (cb, tip)}}
+                # We'll use 'active' as the context key
+                contextual_config = {'active': buttons_config}
+                self.mid_right_split.sash.set_configs(contextual_toolbar=contextual_config)
+                self.mid_right_split.sash.set_context_key('active')
+        except Exception as e:
+            print(f"Error updating contextual toolbar: {e}")
 
 
 __all__ = [

@@ -100,10 +100,10 @@ DRAWING_LAYERS = [
     
     # note elements
     'notehead',        
+    'stopsign',        
     'leftdot',         
     'stem',
     'connectstem',
-    'stopsign',        
     'accidental',     
 
     # gracenote          

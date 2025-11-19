@@ -353,6 +353,10 @@ class SCORE:
     # Convenience methods for JSON operations
     def save(self, filename: str) -> None:
         '''Save SCORE instance to JSON file.'''
+        import time
+        # Update modification timestamp before saving
+        self.header.modificationStamp = time.strftime('%d-%m-%Y_%H:%M:%S')
+        
         with open(filename, 'w', encoding='utf-8') as f:
             # Write human-readable JSON with indentation
             # Ensure all alias-'?' fields are serialized as JSON booleans true/false

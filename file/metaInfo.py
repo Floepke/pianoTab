@@ -5,10 +5,51 @@ import time
 @dataclass_json
 @dataclass
 class MetaInfo:
-    appName: str = 'pianoTAB'
-    extension: str = '.piano'
-    description: str = 'pianoTAB score file'
-    version: str = '1.0'
-    created: str = field(default_factory=lambda: time.strftime('%d-%m-%Y_%H:%M:%S'))
-    author: str = 'pianoTAB Team'
-    license: str = 'MIT'
+    appName: str = field(
+        default='pianoTAB',
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'Application name',
+            'tree_edit_type': 'readonly',
+        }
+    )
+    extension: str = field(
+        default='.piano',
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'File extension',
+            'tree_edit_type': 'readonly',
+        }
+    )
+    description: str = field(
+        default='pianoTAB score file',
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'File format description',
+            'tree_edit_type': 'readonly',
+        }
+    )
+    version: str = field(
+        default='1.0',
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'File format version',
+            'tree_edit_type': 'readonly',
+        }
+    )
+    author: str = field(
+        default='pianoTAB Team',
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'File format author',
+            'tree_edit_type': 'readonly',
+        }
+    )
+    license: str = field(
+        default='MIT',
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'File format license',
+            'tree_edit_type': 'readonly',
+        }
+    )

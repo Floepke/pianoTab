@@ -8,12 +8,50 @@ if TYPE_CHECKING:
 @dataclass
 class Articulation:
     # Core fields
-    type: str = 'staccato'
-    xOffset: float = 0.0
-    yOffset: float = 0.0
+    type: str = field(
+        default='staccato',
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'Articulation type (e.g., staccato, accent, tenuto)',
+            'tree_edit_type': 'text',
+        }
+    )
+    xOffset: float = field(
+        default=0.0,
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'Horizontal offset from default position',
+            'tree_edit_type': 'float',
+            'tree_edit_options': {
+                'step': 0.5,
+            }
+        }
+    )
+    yOffset: float = field(
+        default=0.0,
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'Vertical offset from default position',
+            'tree_edit_type': 'float',
+            'tree_edit_options': {
+                'step': 0.5,
+            }
+        }
+    )
 
     # Storage field for inherited property (serializes to JSON with clean name)
-    _color: Optional[str] = field(default=None, metadata=config(field_name='color'))
+    _color: Optional[str] = field(
+        default=None,
+        metadata={
+            **config(field_name='color'),
+            'tree_icon': 'colorproperty',
+            'tree_tooltip': 'Articulation color (None = inherit from globalArticulation)',
+            'tree_edit_type': 'color',
+            'tree_edit_options': {
+                'allow_none': True,
+            }
+        }
+    )
     
     def __post_init__(self):
         '''Initialize score reference as a non-dataclass attribute.'''

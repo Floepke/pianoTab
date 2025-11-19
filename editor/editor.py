@@ -849,6 +849,13 @@ class Editor(
             if active_tool:
                 Window.set_system_cursor(active_tool.cursor)
         
+        # Update contextual toolbar with tool's buttons
+        if result:
+            active_tool = self.tool_manager.get_active_tool()
+            if active_tool and self.gui:
+                buttons = active_tool.get_contextual_buttons()
+                self.gui.set_contextual_toolbar(buttons)
+        
         return result
     
     def _update_cursor_on_hover(self, window, pos):

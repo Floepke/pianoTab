@@ -442,6 +442,15 @@ class BaseTool(ABC):
         """Called when this tool becomes active."""
         pass
     
+    def get_contextual_buttons(self) -> dict:
+        """Return contextual toolbar button configuration for this tool.
+        
+        Returns:
+            Dictionary mapping icon names to (callback, tooltip) tuples.
+            Example: {'noteLeft': (self._move_left, 'Move note to left hand')}
+        """
+        return {}
+    
     def on_deactivate(self):
         """Called when switching away from this tool."""
         # Clean up any temporary visual feedback

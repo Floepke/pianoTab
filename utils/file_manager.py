@@ -1143,12 +1143,12 @@ class FileManager:
 
     def _complete_save(self, filepath: str):
         '''Complete the save operation after overwrite confirmation.'''
-        self._dismiss_popup()
+        # Don't dismiss popup here - already dismissed in _confirm_overwrite
         self._save_to_path(filepath)
     
     def _complete_save_then_action(self, filepath: str, action: Callable[[], None]):
         '''Complete save then execute action (for unsaved changes flow).'''
-        self._dismiss_popup()
+        # Don't dismiss popup here - already dismissed in _confirm_overwrite
         self._save_to_path(filepath)
         if not self.dirty:
             action()
@@ -1156,10 +1156,21 @@ class FileManager:
     def _confirm_overwrite(self, filepath: str, on_confirm: Callable[[], None]):
         '''Ask user to confirm overwriting an existing file.'''
         filename = os.path.basename(filepath)
+        # Store reference to save dialog before opening confirmation
+        save_dialog_popup = self._popup
+        
+        def on_yes_wrapper():
+            # First dismiss the save dialog
+            if save_dialog_popup:
+                save_dialog_popup.dismiss()
+            self._popup = None
+            # Then execute the confirm callback
+            on_confirm()
+        
         self._confirm_yes_no(
             title='File Exists',
             message=f'"{filename}" already exists.\nDo you want to replace it?',
-            on_yes=on_confirm,
+            on_yes=on_yes_wrapper,
             on_no=lambda: None  # Do nothing, keep save dialog open
         )
 
@@ -1271,25 +1282,6 @@ class FileManager:
         
         popup = _dialog_shell(title, lbl, btns=[btn_cancel, btn_no, btn_yes])
         
-        def do_yes(*args):
-            print("DEBUG: Yes button clicked")
-            popup.dismiss()
-            on_yes()
-        
-        def do_no(*args):
-            print("DEBUG: No button clicked")
-            popup.dismiss()
-            on_no()
-        
-        def do_cancel(*args):
-            print("DEBUG: Cancel button clicked")
-            popup.dismiss()
-            on_cancel()
-        
-        btn_yes.bind(on_release=do_yes)
-        btn_no.bind(on_release=do_no)
-        btn_cancel.bind(on_release=do_cancel)
-
         # Store reference to Canvas to release/reclaim keyboard
         from utils.canvas import Canvas
         canvas_widget = Canvas._global_keyboard_canvas
@@ -1298,14 +1290,38 @@ class FileManager:
         def on_key_down(instance, key, scancode, codepoint, modifier):
             if key == 27:  # Escape = Cancel
                 print("DEBUG: Dialog keyboard handler - Escape pressed")
+                Window.unbind(on_key_down=on_key_down)
                 popup.dismiss()
                 on_cancel()
                 return True  # Consume the key event - prevents propagation
             elif key == 13:  # Return/Enter = Yes
+                Window.unbind(on_key_down=on_key_down)
                 popup.dismiss()
                 on_yes()
                 return True  # Consume the key event
             return False  # Let other keys pass through
+        
+        def do_yes(*args):
+            print("DEBUG: Yes button clicked")
+            Window.unbind(on_key_down=on_key_down)
+            popup.dismiss()
+            on_yes()
+        
+        def do_no(*args):
+            print("DEBUG: No button clicked")
+            Window.unbind(on_key_down=on_key_down)
+            popup.dismiss()
+            on_no()
+        
+        def do_cancel(*args):
+            print("DEBUG: Cancel button clicked")
+            Window.unbind(on_key_down=on_key_down)
+            popup.dismiss()
+            on_cancel()
+        
+        btn_yes.bind(on_release=do_yes)
+        btn_no.bind(on_release=do_no)
+        btn_cancel.bind(on_release=do_cancel)
         
         def on_popup_open(*args):
             # Release Canvas keyboard so dialog can capture keys
@@ -1316,7 +1332,11 @@ class FileManager:
             Window.bind(on_key_down=on_key_down)
         
         def on_popup_dismiss(*args):
-            # Unbind dialog keyboard handler
+            # Unbind dialog keyboard handler (safety check - should already be unbound)
+            try:
+                Window.unbind(on_key_down=on_key_down)
+            except Exception:
+                pass
             Window.unbind(on_key_down=on_key_down)
             # Reclaim keyboard focus for Canvas
             self._reclaim_keyboard()
@@ -1344,23 +1364,35 @@ class FileManager:
         
         popup = _dialog_shell(title, lbl, btns=[btn_no, btn_yes])
         
-        btn_yes.bind(on_release=lambda *_: (popup.dismiss(), on_yes()))
-        btn_no.bind(on_release=lambda *_: (popup.dismiss(), on_no()))
-        
         # Keyboard handling - Escape = No, Enter = Yes
         def on_key_down(instance, key, scancode, codepoint, modifier):
             if key == 27:  # Escape = No
+                Window.unbind(on_key_down=on_key_down)
                 popup.dismiss()
                 on_no()
                 return True  # Consume the key event
             elif key == 13:  # Return/Enter = Yes
+                Window.unbind(on_key_down=on_key_down)
                 popup.dismiss()
                 on_yes()
                 return True
             return False
         
+        def do_yes(*_):
+            Window.unbind(on_key_down=on_key_down)
+            popup.dismiss()
+            on_yes()
+        
+        def do_no(*_):
+            Window.unbind(on_key_down=on_key_down)
+            popup.dismiss()
+            on_no()
+        
+        btn_yes.bind(on_release=do_yes)
+        btn_no.bind(on_release=do_no)
+        
         popup.bind(on_open=lambda *args: Window.bind(on_key_down=on_key_down))
-        popup.bind(on_dismiss=lambda *args: (Window.unbind(on_key_down=on_key_down), self._reclaim_keyboard()))
+        popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
         popup.open()
 
     def _error(self, message: str):

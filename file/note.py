@@ -66,7 +66,7 @@ class Note:
         default=0,
         metadata={
             'tree_icon': 'accidental',
-            'tree_tooltip': 'accidental is an experimental future, in the notation accidental can draw # or b on the note',
+            'tree_tooltip': 'Accidental is drawing a diagonal line coming from the white note that points that this is a \'b\' or \'#\' note.',
             'tree_edit_type': 'int',
             'tree_edit_options': {
                 'min': -1,
@@ -153,7 +153,7 @@ class Note:
             'tree_edit_options': {
                 'choices': ['^', 'v', None],
                 'choice_labels': ['Up', 'Down', 'Inherit'],
-                'choice_icons': ['blacknoteup', 'blacknotedown', 'previous'],
+                'choice_icons': ['blacknoteup', 'blacknotedown', 'none'],
             }
         }
     )
@@ -257,7 +257,7 @@ class Note:
         '''Get stem length - inherits from globalNote.stemLength if None.'''
         if self._stemLengthMm is not None:
             return self._stemLengthMm
-        if self.score is None:
+        if self.score is None or self.score.properties is None or self.score.properties.globalNote is None:
             return 10.0  # Fallback if no score reference
         return self.score.properties.globalNote.stemLengthMm
     

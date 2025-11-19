@@ -7,14 +7,78 @@ if TYPE_CHECKING:
 @dataclass_json
 @dataclass
 class CountLine:
-    id: int = 0
-    time: float = 0.0
-    pitch1: int = 40
-    pitch2: int = 44
+    id: int = field(
+        default=0,
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'Unique count line identifier',
+            'tree_edit_type': 'readonly',
+        }
+    )
+    time: float = field(
+        default=0.0,
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'Time position for count line',
+            'tree_edit_type': 'float',
+            'tree_edit_options': {
+                'min': 0.0,
+                'step': 1.0,
+            }
+        }
+    )
+    pitch1: int = field(
+        default=40,
+        metadata={
+            'tree_icon': 'note',
+            'tree_tooltip': 'Start pitch (key 1-88, C4=40)',
+            'tree_edit_type': 'int',
+            'tree_edit_options': {
+                'min': 1,
+                'max': 88,
+                'step': 1,
+            }
+        }
+    )
+    pitch2: int = field(
+        default=44,
+        metadata={
+            'tree_icon': 'note',
+            'tree_tooltip': 'End pitch (key 1-88, C4=40)',
+            'tree_edit_type': 'int',
+            'tree_edit_options': {
+                'min': 1,
+                'max': 88,
+                'step': 1,
+            }
+        }
+    )
 
     # Storage fields for inherited properties (serialize to JSON with clean names)
-    _color: Optional[str] = field(default=None, metadata=config(field_name='color'))
-    _dashPattern: Optional[List[float]] = field(default=None, metadata=config(field_name='dashPattern'))
+    _color: Optional[str] = field(
+        default=None,
+        metadata={
+            **config(field_name='color'),
+            'tree_icon': 'colorproperty',
+            'tree_tooltip': 'Count line color (None = inherit from globalCountLine)',
+            'tree_edit_type': 'color',
+            'tree_edit_options': {
+                'allow_none': True,
+            }
+        }
+    )
+    _dashPattern: Optional[List[float]] = field(
+        default=None,
+        metadata={
+            **config(field_name='dashPattern'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'Dash pattern (None = inherit from globalCountLine)',
+            'tree_edit_type': 'list',
+            'tree_edit_options': {
+                'allow_none': True,
+            }
+        }
+    )
     
     def __post_init__(self):
         '''Initialize score reference as a non-dataclass attribute.'''

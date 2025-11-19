@@ -83,16 +83,15 @@ class ToolSash(Widget):
             self.bg_color = Color(*DARK)
             self.bg_rect = Rectangle(pos=self.pos, size=self.size)
 
-        # Tooltip label for horizontal sashes (shown centered in sash)
+        # Tooltip label for horizontal sashes (shown left-aligned in sash)
         self.tooltip_label = Label(
             text='',
-            size_hint=(1, None),  # Full width of sash
-            height=40,
+            size_hint=(1, 1),  # Full width and height of sash
             color=LIGHT,  # LIGHT color
             font_size=sp(14),
-            halign='left',
-            valign='middle',
-            padding=(0, 0)
+            halign='left',  # Left align horizontally
+            valign='middle',  # Center vertically
+            padding=(10, 0)  # Small horizontal padding
         )
         self.tooltip_label.bind(size=self.tooltip_label.setter('text_size'))
         self.add_widget(self.tooltip_label)
@@ -185,10 +184,10 @@ class ToolSash(Widget):
                 btn.right = current_right
                 current_right -= (btn.width + spacing)
             
-            # Position tooltip label - takes full width, positioned at sash position
+            # Position tooltip label - takes full size of sash, perfectly centered
             self.tooltip_label.opacity = 1
             self.tooltip_label.pos = self.pos
-            self.tooltip_label.width = self.width
+            self.tooltip_label.size = self.size
 
     # Centralized action invocation helpers
     def _invoke_action(self, cb, *_args):

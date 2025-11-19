@@ -349,7 +349,7 @@ class ColorField(BoxLayout):
         main_box.add_widget(title_bar)
         main_box.add_widget(content)
         
-        popup = ModalView(size_hint=(None, None), size=(dp(500), dp(400)), auto_dismiss=False)
+        popup = ModalView(size_hint=(None, None), size=(Window.width - Window.width / 4, Window.height - Window.height / 4), auto_dismiss=False)
         popup.add_widget(main_box)
 
         def _on_cancel(*_):
@@ -1328,12 +1328,28 @@ class PropertyTreeEditor(BoxLayout):
             try:
                 btn = self._icon_button(current_icon_name, current, lambda *_: open_popup())
             except Exception:
+                # Calculate font size to fit text in button (monospace: char_width ≈ 0.6 * font_size)
+                btn_width = dp(28)
+                if len(current) > 0:
+                    font_size = min(sp(14), btn_width / (len(current) * 0.6))
+                else:
+                    font_size = sp(14)
                 btn = Button(text=current, background_normal='', background_down='',
-                             background_color=TRANSPARENT, color=self._row_text_color())
+                             background_color=TRANSPARENT, color=self._row_text_color(),
+                             halign='left', font_size=font_size)
+                btn.bind(size=btn.setter('text_size'))
                 btn.bind(on_press=open_popup)
         else:
+            # Calculate font size to fit text in button (monospace: char_width ≈ 0.6 * font_size)
+            btn_width = dp(28)
+            if len(current) > 0:
+                font_size = min(sp(14), btn_width / (len(current) * 0.6))
+            else:
+                font_size = sp(14)
             btn = Button(text=current, background_normal='', background_down='',
-                         background_color=TRANSPARENT, color=self._row_text_color())
+                         background_color=TRANSPARENT, color=self._row_text_color(),
+                         halign='left', font_size=font_size)
+            btn.bind(size=btn.setter('text_size'))
             btn.bind(on_press=open_popup)
         right.add_widget(btn)
         # Also allow clicking anywhere in the row to open the popup
@@ -1405,10 +1421,27 @@ class PropertyTreeEditor(BoxLayout):
         prompt = f'Set {self._path_to_prompt(path)}:'
         content = BoxLayout(orientation='vertical', spacing=dp(12), padding=dp(12))
 
-        # Bigger, high-contrast buttons row
-        BTN_SIZE = dp(64)     # ~2x previous button footprint
-        ICON_SIZE = dp(40)    # ~2x previous icon size
-        btn_row = BoxLayout(orientation='horizontal', spacing=dp(12), size_hint_y=None, height=BTN_SIZE + dp(8))
+        # Calculate dialog size
+        dialog_width = Window.width - Window.width / 4
+        dialog_height = Window.height - Window.height / 4
+        
+        # Calculate button size to fill the available space
+        # Use most of the dialog for buttons
+        num_choices = len(choices)
+        title_height = dp(40)  # Title bar height
+        available_width = dialog_width - dp(24)  # Subtract padding
+        available_height = dialog_height - title_height - dp(24)  # Subtract title and padding
+        
+        # Calculate button size to fit choices (with spacing between them)
+        spacing = dp(12)
+        max_btn_width = (available_width - (num_choices + 1) * spacing) / num_choices
+        max_btn_height = available_height - dp(16)  # Leave some margin
+        
+        # Use the smaller dimension to keep buttons square, make them BIG
+        BTN_SIZE = min(max_btn_width, max_btn_height)
+        ICON_SIZE = BTN_SIZE * 0.7  # Icon is 70% of button size for better visibility
+        
+        btn_row = BoxLayout(orientation='horizontal', spacing=spacing, size_hint_y=None, height=BTN_SIZE)
         # Add flexible left spacer so choices can be centered
         btn_row.add_widget(Widget())
 
@@ -1448,7 +1481,9 @@ class PropertyTreeEditor(BoxLayout):
             if icon_name:
                 # Check if it's an emoji (single character or emoji sequence)
                 if len(icon_name) <= 4 and not icon_name.isalnum():  # Likely emoji
-                    lbl = Label(text=icon_name, color=WHITE, font_size=sp(24))
+                    # Scale emoji font size with button size
+                    emoji_size = BTN_SIZE * 0.6
+                    lbl = Label(text=icon_name, color=WHITE, font_size=sp(emoji_size))
                     lbl.bind(size=lbl.setter('text_size'))
                     tile.add_widget(lbl)
                     added = True
@@ -1463,7 +1498,9 @@ class PropertyTreeEditor(BoxLayout):
                     except Exception:
                         added = False
             if not added:
-                lbl = Label(text=display_text, color=WHITE)
+                # Scale text size with button size
+                text_size = BTN_SIZE * 0.3
+                lbl = Label(text=display_text, color=WHITE, font_size=sp(text_size))
                 lbl.bind(size=lbl.setter('text_size'))
                 tile.add_widget(lbl)
 
@@ -1489,7 +1526,7 @@ class PropertyTreeEditor(BoxLayout):
         main_box.add_widget(title_bar)
         main_box.add_widget(content)
         
-        popup = ModalView(size_hint=(None, None), size=(dp(420), dp(200)), auto_dismiss=False)
+        popup = ModalView(size_hint=(None, None), size=(dialog_width, dialog_height), auto_dismiss=False)
         popup.add_widget(main_box)
         popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
         popup.open()
@@ -1534,7 +1571,7 @@ class PropertyTreeEditor(BoxLayout):
         main_box.add_widget(title_bar)
         main_box.add_widget(content)
         
-        popup = ModalView(size_hint=(None, None), size=(dp(560), dp(180)), auto_dismiss=False)
+        popup = ModalView(size_hint=(None, None), size=(Window.width - Window.width / 4, Window.height - Window.height / 4), auto_dismiss=False)
         popup.add_widget(main_box)
 
         def parse_int_list(s: str) -> List[int]:
@@ -1574,13 +1611,12 @@ class PropertyTreeEditor(BoxLayout):
         ok.bind(on_press=do_ok)
         ti.bind(on_text_validate=do_ok)
         popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
-        popup.open()
-        # Focus input immediately and on next frame to ensure focus sticks
-        try:
+        
+        def on_open(*_):
             ti.focus = True
-            Clock.schedule_once(lambda dt: setattr(ti, 'focus', True), 0)
-        except Exception:
-            pass
+        
+        popup.bind(on_open=on_open)
+        popup.open()
 
 
     def _build_list_object_row(self, key: str, lst: List[Any], path: Tuple[Union[str, int], ...], level: int, 
@@ -1869,6 +1905,12 @@ class PropertyTreeEditor(BoxLayout):
             container.add_widget(imgbtn)
             return container
         # Fallback to simple text button
+        # Calculate font size to fit text in button (monospace: char_width ≈ 0.6 * font_size)
+        btn_width = dp(28)
+        if len(fallback_text) > 0:
+            font_size = min(sp(14), btn_width / (len(fallback_text) * 0.6))
+        else:
+            font_size = sp(14)
         btn = Button(
             text=fallback_text,
             size_hint_x=None,
@@ -1877,7 +1919,10 @@ class PropertyTreeEditor(BoxLayout):
             background_down='',
             background_color=TRANSPARENT,
             color=self._row_text_color(),
+            halign='left',
+            font_size=font_size,
         )
+        btn.bind(size=btn.setter('text_size'))
         btn.bind(on_press=on_press)
         return btn
 
@@ -2181,7 +2226,7 @@ class PropertyTreeEditor(BoxLayout):
         main_box.add_widget(title_bar)
         main_box.add_widget(content)
         
-        popup = ModalView(size_hint=(None, None), size=(dp(520), dp(160)), auto_dismiss=False)
+        popup = ModalView(size_hint=(None, None), size=(Window.width - Window.width / 3, Window.height - Window.height / 3), auto_dismiss=False)
         popup.add_widget(main_box)
 
         def do_ok(*_):
@@ -2192,13 +2237,13 @@ class PropertyTreeEditor(BoxLayout):
         ok.bind(on_press=do_ok)
         ti.bind(on_text_validate=do_ok)
         popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
-        popup.open()
-        # Focus input immediately and on next frame to ensure focus sticks
-        try:
+        
+        def on_open(*_):
             ti.focus = True
-            Clock.schedule_once(lambda dt: setattr(ti, 'focus', True), 0)
-        except Exception:
-            pass
+            ti.select_all()
+        
+        popup.bind(on_open=on_open)
+        popup.open()
 
     def _open_number_dialog(self, path: Tuple[Union[str, int], ...], current: str, allow_float: bool):
         prompt = f'Set {self._path_to_prompt(path)}:'
@@ -2233,7 +2278,7 @@ class PropertyTreeEditor(BoxLayout):
         main_box.add_widget(title_bar)
         main_box.add_widget(content)
         
-        popup = ModalView(size_hint=(None, None), size=(dp(520), dp(160)), auto_dismiss=False)
+        popup = ModalView(size_hint=(None, None), size=(Window.width - Window.width / 4, Window.height - Window.height / 4), auto_dismiss=False)
         popup.add_widget(main_box)
 
         def do_ok(*_):
@@ -2253,13 +2298,13 @@ class PropertyTreeEditor(BoxLayout):
         ok.bind(on_press=do_ok)
         ti.bind(on_text_validate=do_ok)
         popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
-        popup.open()
-        # Focus input immediately and on next frame to ensure focus sticks
-        try:
+        
+        def on_open(*_):
             ti.focus = True
-            Clock.schedule_once(lambda dt: setattr(ti, 'focus', True), 0)
-        except Exception:
-            pass
+            ti.select_all()
+        
+        popup.bind(on_open=on_open)
+        popup.open()
 
     def _open_color_dialog(self, path: Tuple[Union[str, int], ...], current_hex: str):
         prompt = f'Set {self._path_to_prompt(path)}:'
@@ -2285,7 +2330,7 @@ class PropertyTreeEditor(BoxLayout):
         main_box.add_widget(title_bar)
         main_box.add_widget(content)
         
-        popup = ModalView(size_hint=(None, None), size=(dp(500), dp(420)), auto_dismiss=False)
+        popup = ModalView(size_hint=(None, None), size=(Window.width - Window.width / 4, Window.height - Window.height / 4), auto_dismiss=False)
         popup.add_widget(main_box)
 
         def do_ok(*_):

@@ -16,22 +16,164 @@ class Slur:
         So we use a grid in the x axis of semitones from C4
         the y axis is time in pianoticks (quarter note = 256.0)
     '''
-    id: int = 0
-    time: float = 0.0  # Real field that appears in JSON
+    id: int = field(
+        default=0,
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'Unique slur identifier',
+            'tree_edit_type': 'readonly',
+        }
+    )
+    time: float = field(
+        default=0.0,
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'Start time (y1) in time units',
+            'tree_edit_type': 'float',
+            'tree_edit_options': {
+                'min': 0.0,
+                'step': 1.0,
+            }
+        }
+    )
     
     # control points:
-    x1_semitonesFromC4: int = field(default=0, metadata=config(field_name='x1'))
-    x2_semitonesFromC4: int = field(default=0, metadata=config(field_name='x2'))
-    y2_time: float = field(default=0.0, metadata=config(field_name='y2'))
-    x3_semitonesFromC4: int = field(default=0, metadata=config(field_name='x3'))
-    y3_time: float = field(default=0.0, metadata=config(field_name='y3'))
-    x4_semitonesFromC4: int = field(default=0, metadata=config(field_name='x4'))
-    y4_time: float = field(default=0.0, metadata=config(field_name='y4'))
+    x1_semitonesFromC4: int = field(
+        default=0,
+        metadata={
+            **config(field_name='x1'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'X1 control point: semitones from C4',
+            'tree_edit_type': 'int',
+            'tree_edit_options': {
+                'min': -88,
+                'max': 88,
+                'step': 1,
+            }
+        }
+    )
+    x2_semitonesFromC4: int = field(
+        default=0,
+        metadata={
+            **config(field_name='x2'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'X2 control point: semitones from C4',
+            'tree_edit_type': 'int',
+            'tree_edit_options': {
+                'min': -88,
+                'max': 88,
+                'step': 1,
+            }
+        }
+    )
+    y2_time: float = field(
+        default=0.0,
+        metadata={
+            **config(field_name='y2'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'Y2 control point: time in time units',
+            'tree_edit_type': 'float',
+            'tree_edit_options': {
+                'step': 1.0,
+            }
+        }
+    )
+    x3_semitonesFromC4: int = field(
+        default=0,
+        metadata={
+            **config(field_name='x3'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'X3 control point: semitones from C4',
+            'tree_edit_type': 'int',
+            'tree_edit_options': {
+                'min': -88,
+                'max': 88,
+                'step': 1,
+            }
+        }
+    )
+    y3_time: float = field(
+        default=0.0,
+        metadata={
+            **config(field_name='y3'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'Y3 control point: time in time units',
+            'tree_edit_type': 'float',
+            'tree_edit_options': {
+                'step': 1.0,
+            }
+        }
+    )
+    x4_semitonesFromC4: int = field(
+        default=0,
+        metadata={
+            **config(field_name='x4'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'X4 control point: semitones from C4',
+            'tree_edit_type': 'int',
+            'tree_edit_options': {
+                'min': -88,
+                'max': 88,
+                'step': 1,
+            }
+        }
+    )
+    y4_time: float = field(
+        default=0.0,
+        metadata={
+            **config(field_name='y4'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'Y4 control point: time in time units',
+            'tree_edit_type': 'float',
+            'tree_edit_options': {
+                'step': 1.0,
+            }
+        }
+    )
 
     # Storage fields for inherited properties (serialize to JSON with clean names)
-    _color: Optional[str] = field(default=None, metadata=config(field_name='color'))
-    _startEndWidth: Optional[float] = field(default=None, metadata=config(field_name='startEndWidth'))
-    _middleWidth: Optional[float] = field(default=None, metadata=config(field_name='middleWidth'))
+    _color: Optional[str] = field(
+        default=None,
+        metadata={
+            **config(field_name='color'),
+            'tree_icon': 'colorproperty',
+            'tree_tooltip': 'Slur color (None = inherit from globalSlur)',
+            'tree_edit_type': 'color',
+            'tree_edit_options': {
+                'allow_none': True,
+            }
+        }
+    )
+    _startEndWidth: Optional[float] = field(
+        default=None,
+        metadata={
+            **config(field_name='startEndWidth'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'Start/end width in mm (None = inherit from globalSlur)',
+            'tree_edit_type': 'float',
+            'tree_edit_options': {
+                'min': 0.0,
+                'max': 10.0,
+                'step': 0.1,
+                'allow_none': True,
+            }
+        }
+    )
+    _middleWidth: Optional[float] = field(
+        default=None,
+        metadata={
+            **config(field_name='middleWidth'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'Middle width in mm (None = inherit from globalSlur)',
+            'tree_edit_type': 'float',
+            'tree_edit_options': {
+                'min': 0.0,
+                'max': 10.0,
+                'step': 0.1,
+                'allow_none': True,
+            }
+        }
+    )
 
     def __post_init__(self):
         '''Initialize score reference as a non-dataclass attribute.'''

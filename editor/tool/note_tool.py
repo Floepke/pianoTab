@@ -32,6 +32,45 @@ class NoteTool(BaseTool):
         self.hand_cursor = '<'
         self.accidental_cursor = 0
     
+    def get_contextual_buttons(self) -> dict:
+        """Return contextual toolbar buttons for note tool.
+        
+        Returns:
+            Dictionary mapping icon names to (callback, tooltip) tuples.
+        """
+        return {
+            'noteLeft': (self._set_left_hand, 'Left hand (,)'),
+            'noteRight': (self._set_right_hand, 'Right hand (.)'),
+            'accidentalFlat': (self._set_flat, 'Flat accidental'),
+            'accidentalNatural': (self._set_natural, 'Natural (no accidental)'),
+            'accidentalSharp': (self._set_sharp, 'Sharp accidental'),
+        }
+    
+    def _set_left_hand(self):
+        """Set cursor to left hand."""
+        self.hand_cursor = '<'
+        self._draw_cursor()
+    
+    def _set_right_hand(self):
+        """Set cursor to right hand."""
+        self.hand_cursor = '>'
+        self._draw_cursor()
+    
+    def _set_flat(self):
+        """Set cursor to flat accidental."""
+        self.accidental_cursor = -1
+        self._draw_cursor()
+    
+    def _set_natural(self):
+        """Set cursor to natural (no accidental)."""
+        self.accidental_cursor = 0
+        self._draw_cursor()
+    
+    def _set_sharp(self):
+        """Set cursor to sharp accidental."""
+        self.accidental_cursor = 1
+        self._draw_cursor()
+    
     def on_deactivate(self):
         """Called when switching away from this tool."""
         super().on_deactivate()
@@ -63,7 +102,7 @@ class NoteTool(BaseTool):
                 time = 0
             
             cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_cursor)
-            self._draw_note_cursor(cursor, type='cursor')
+            self._draw_cursor(cursor, type='cursor')
             return True  # We handled this key
         
         # Map , and . keys for hand switching (they have arrow symbols on keyboard)
@@ -81,7 +120,7 @@ class NoteTool(BaseTool):
                 time = 0
             
             cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_cursor)
-            self._draw_note_cursor(cursor, type='cursor')
+            self._draw_cursor(cursor, type='cursor')
             return True  # We handled this key
         elif key == '.' or key == 'period':
             self.hand_cursor = '>'  # Right hand
@@ -97,7 +136,7 @@ class NoteTool(BaseTool):
                 time = 0
             
             cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_cursor)
-            self._draw_note_cursor(cursor, type='cursor')
+            self._draw_cursor(cursor, type='cursor')
             return True  # We handled this key
         
         return False  # We didn't handle this key
@@ -126,7 +165,7 @@ class NoteTool(BaseTool):
         cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_cursor)
         
         # redraw cursor
-        self._draw_note_cursor(cursor, type='cursor')
+        self._draw_cursor(cursor, type='cursor')
         
         return True
     
@@ -380,8 +419,7 @@ class NoteTool(BaseTool):
         print(f"NoteTool: Drag ended at ({x}, {y})")
         return True
     
-    def _draw_note_cursor(self, cursor: Note, type: Optional[Literal['note', 'cursor', 'selected/edit']] = 'cursor'):
+    def _draw_cursor(self, cursor: Note, type: Optional[Literal['note', 'cursor', 'selected/edit']] = 'cursor'):
         """Draw a note cursor at the given position."""
         self.editor._draw_single_note(0, cursor, draw_mode=type)
-
     

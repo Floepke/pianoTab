@@ -7,15 +7,88 @@ if TYPE_CHECKING:
 @dataclass_json
 @dataclass
 class Text:
-    id: int = 0
-    time: float = 0.0 # time y position
-    side: Literal['<', '>'] = '>'  # left or right of staff
-    distFromSide: float = 10.0  # distance from side in mm
-    text: str = 'Text'
+    id: int = field(
+        default=0,
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'Unique text annotation identifier',
+            'tree_edit_type': 'readonly',
+        }
+    )
+    time: float = field(
+        default=0.0,
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'Vertical time position for text annotation',
+            'tree_edit_type': 'float',
+            'tree_edit_options': {
+                'min': 0.0,
+                'step': 1.0,
+            }
+        }
+    )
+    side: Literal['<', '>'] = field(
+        default='>',
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'Side of staff: < = left, > = right',
+            'tree_edit_type': 'choice',
+            'tree_edit_options': {
+                'choices': ['<', '>'],
+                'choice_labels': ['Left', 'Right'],
+            }
+        }
+    )
+    distFromSide: float = field(
+        default=10.0,
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'Distance from staff side in millimeters',
+            'tree_edit_type': 'float',
+            'tree_edit_options': {
+                'min': 0.0,
+                'max': 100.0,
+                'step': 1.0,
+            }
+        }
+    )
+    text: str = field(
+        default='Text',
+        metadata={
+            'tree_icon': 'property',
+            'tree_tooltip': 'Text content to display',
+            'tree_edit_type': 'text',
+        }
+    )
     
     # Storage fields for inherited properties (serialize to JSON with clean names)
-    _fontSize: Optional[int] = field(default=None, metadata=config(field_name='fontSize'))
-    _color: Optional[str] = field(default=None, metadata=config(field_name='color'))
+    _fontSize: Optional[int] = field(
+        default=None,
+        metadata={
+            **config(field_name='fontSize'),
+            'tree_icon': 'property',
+            'tree_tooltip': 'Font size in points (None = inherit from globalText)',
+            'tree_edit_type': 'int',
+            'tree_edit_options': {
+                'min': 1,
+                'max': 144,
+                'step': 1,
+                'allow_none': True,
+            }
+        }
+    )
+    _color: Optional[str] = field(
+        default=None,
+        metadata={
+            **config(field_name='color'),
+            'tree_icon': 'colorproperty',
+            'tree_tooltip': 'Text color (None = inherit from globalText)',
+            'tree_edit_type': 'color',
+            'tree_edit_options': {
+                'allow_none': True,
+            }
+        }
+    )
     
     def __post_init__(self):
         '''Initialize score reference as a non-dataclass attribute.'''
