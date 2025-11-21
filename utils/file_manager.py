@@ -922,11 +922,6 @@ class FileManager:
             self.current_path = None
             self.dirty = False
             self._update_window_title()
-            
-            # Clear undo history and save initial snapshot
-            if hasattr(self.gui, 'undo_manager'):
-                self.gui.undo_manager.clear_history()
-                self.gui.undo_manager.save_snapshot(self.editor.score)
         self._guard_unsaved_then(_do_new)
 
     def open_file(self):
@@ -941,12 +936,6 @@ class FileManager:
                 self.dirty = False
                 self._update_window_title()
                 self._dismiss_popup()
-                
-                # Clear undo history and save initial snapshot
-                if hasattr(self.gui, 'undo_manager'):
-                    self.gui.undo_manager.clear_history()
-                    self.gui.undo_manager.save_snapshot(self.editor.score)
-                
                 # Update settings: last opened + recent files + dialog path
                 try:
                     settings = getattr(self.app, 'settings', None)
@@ -1018,11 +1007,6 @@ class FileManager:
             self._last_dir = os.path.dirname(filepath)
             self.dirty = False
             self._update_window_title()
-            
-            # Clear undo history and save initial snapshot
-            if hasattr(self.gui, 'undo_manager'):
-                self.gui.undo_manager.clear_history()
-                self.gui.undo_manager.save_snapshot(self.editor.score)
             
             # Update settings: last opened + recent files + dialog path
             try:
