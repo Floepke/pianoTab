@@ -259,7 +259,7 @@ class NoteDrawerMixin:
                     x1_mm=x,
                     y1_mm=y,
                     x2_mm=from_pitch_x,
-                    y2_mm=y - notehead_length,
+                    y2_mm=y - notehead_length/2,
                     width_mm=self.score.properties.globalNote.stemWidthMm,
                     color=color,
                     tags=['accidental', base_tag]
@@ -271,7 +271,7 @@ class NoteDrawerMixin:
                     x1_mm=x,
                     y1_mm=acc_y,
                     x2_mm=from_pitch_x,
-                    y2_mm=acc_y + notehead_length,
+                    y2_mm=acc_y + notehead_length/2,
                     width_mm=self.score.properties.globalNote.stemWidthMm,
                     color=color,
                     tags=['accidental', base_tag]

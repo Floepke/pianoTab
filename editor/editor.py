@@ -52,7 +52,7 @@ class Editor(
         self.gui = gui
         
         # Initialize dimensions from canvas
-        # Zoom: single source of truth is SCORE.properties.editorZoomPixelsQuarter (px per quarter)
+        # Zoom: single source of truth is SCORE.fileSettings.zoomPixelsQuarter (px per quarter)
         # Will be set from SCORE in _apply_settings_from_score() below
         self.pixels_per_quarter = 250.0  # Temporary safe default
         
@@ -431,7 +431,7 @@ class Editor(
         '''Redraw the complete piano roll with all elements.
         
         This is the main rendering method. It:
-        1. Syncs zoom from SCORE.properties.editorZoomPixelsQuarter
+        1. Syncs zoom from SCORE.fileSettings.zoomPixelsQuarter
         2. Recalculates layout (margins, spacing, etc.)
         3. Clears and redraws all canvas elements
         '''
@@ -443,9 +443,9 @@ class Editor(
         
         # Always sync zoom from SCORE first
         try:
-            props = getattr(self.score, 'properties', None)
-            if props is not None and hasattr(props, 'editorZoomPixelsQuarter'):
-                self.pixels_per_quarter = float(props.editorZoomPixelsQuarter)
+            props = getattr(self.score, 'fileSettings', None)
+            if props is not None and hasattr(props, 'zoomPixelsQuarter'):
+                self.pixels_per_quarter = float(props.zoomPixelsQuarter)
         except Exception:
             pass
         
@@ -497,44 +497,93 @@ class Editor(
     
     # Zoom and interaction methods (simplified for initial implementation)
     def zoom_in(self, factor: float = 1.25):
-        '''Increase SCORE.fileSettings.zoomPixelsQuarter by factor (px per quarter).'''
+        '''Increase SCORE.fileSettings.zoomPixelsQuarter by factor (px per quarter).
+        
+        Preserves the musical time at the viewport center so content appears to expand
+        from the middle of the screen rather than jumping around.
+        '''
         try:
-            current = float(self.pixels_per_quarter)
-            new_ppq = max(1.0, current * float(factor))
+            # Save old zoom level
+            old_ppq = float(self.pixels_per_quarter)
+            
+            # Calculate which musical time is currently at viewport center using OLD zoom
+            center_time = self._get_viewport_center_time(old_ppq)
+            print(f'ZOOM_IN: old_ppq={old_ppq:.2f}, center_time={center_time:.2f} ticks, old_scroll={self.canvas._scroll_px:.2f}px')
+            
+            # Apply new zoom
+            new_ppq = max(1.0, old_ppq * float(factor))
             self.pixels_per_quarter = new_ppq
             self._update_score_zoom()
             self._calculate_layout()
             self.redraw_pianoroll()
+            
+            print(f'ZOOM_IN: new_ppq={new_ppq:.2f}, before restore scroll={self.canvas._scroll_px:.2f}px')
+            
+            # Scroll to keep the same musical time at viewport center using NEW zoom
+            self._scroll_to_center_time(center_time)
+            
+            print(f'ZOOM_IN: after restore scroll={self.canvas._scroll_px:.2f}px')
         except Exception as e:
             print(f'DEBUG: zoom_in failed: {e}')
     
     def zoom_out(self, factor: float = 1.25):
-        '''Decrease SCORE.fileSettings.zoomPixelsQuarter by factor (px per quarter).'''
+        '''Decrease SCORE.fileSettings.zoomPixelsQuarter by factor (px per quarter).
+        
+        Preserves the musical time at the viewport center so content appears to contract
+        from the middle of the screen rather than jumping around.
+        '''
         try:
-            current = float(self.pixels_per_quarter)
-            new_ppq = max(1.0, current / float(factor))
+            # Save old zoom level
+            old_ppq = float(self.pixels_per_quarter)
+            
+            # Calculate which musical time is currently at viewport center using OLD zoom
+            center_time = self._get_viewport_center_time(old_ppq)
+            print(f'ZOOM_OUT: old_ppq={old_ppq:.2f}, center_time={center_time:.2f} ticks, old_scroll={self.canvas._scroll_px:.2f}px')
+            
+            # Apply new zoom
+            new_ppq = max(1.0, old_ppq / float(factor))
             self.pixels_per_quarter = new_ppq
             self._update_score_zoom()
             self._calculate_layout()
             self.redraw_pianoroll()
+            
+            print(f'ZOOM_OUT: new_ppq={new_ppq:.2f}, before restore scroll={self.canvas._scroll_px:.2f}px')
+            
+            # Scroll to keep the same musical time at viewport center using NEW zoom
+            self._scroll_to_center_time(center_time)
+            
+            print(f'ZOOM_OUT: after restore scroll={self.canvas._scroll_px:.2f}px')
         except Exception as e:
             print(f'DEBUG: zoom_out failed: {e}')
     
     def set_zoom_pixels_per_quarter(self, pixels: float):
-        '''Set the zoom level directly (px per quarter) and update SCORE + layout.'''
+        '''Set the zoom level directly (px per quarter) and update SCORE + layout.
+        
+        Preserves the musical time at the viewport center.
+        '''
         try:
+            # Save old zoom level
+            old_ppq = float(self.pixels_per_quarter)
+            
+            # Calculate which musical time is currently at viewport center using OLD zoom
+            center_time = self._get_viewport_center_time(old_ppq)
+            
+            # Apply new zoom
             self.pixels_per_quarter = max(1.0, float(pixels))
             self._update_score_zoom()
             self._calculate_layout()
             self.redraw_pianoroll()
+            
+            # Scroll to keep the same musical time at viewport center using NEW zoom
+            self._scroll_to_center_time(center_time)
         except Exception as e:
             print(f'DEBUG: set_zoom_pixels_per_quarter failed: {e}')
 
     def zoom_refresh(self):
-        '''Re-apply current zoom without changing SCORE's editorZoomPixelsQuarter.
+        '''Re-apply current zoom without changing SCORE's zoomPixelsQuarter.
 
         This performs the same processing pipeline as zoom_in/zoom_out but keeps
-        the SCORE.properties.editorZoomPixelsQuarter value unchanged. Useful when
+        the SCORE.fileSettings.zoomPixelsQuarter value unchanged. Useful when
         the canvas scale (px-per-mm) changes or after (re)attaching the editor.
         Ensures Canvas view/scale have finished updating before re-rendering so
         widget size changes are reflected correctly.
@@ -561,11 +610,10 @@ class Editor(
                             return
 
                     # Keep internal state in sync with SCORE without persisting any change
-                    # Keep internal state in sync with SCORE without persisting any change
                     try:
-                        props = getattr(self.score, 'properties', None)
-                        if props is not None and hasattr(props, 'editorZoomPixelsQuarter'):
-                            self.pixels_per_quarter = float(props.editorZoomPixelsQuarter)
+                        file_settings = getattr(self.score, 'fileSettings', None)
+                        if file_settings is not None and hasattr(file_settings, 'zoomPixelsQuarter'):
+                            self.pixels_per_quarter = float(file_settings.zoomPixelsQuarter)
                     except Exception:
                         pass
 
@@ -580,11 +628,95 @@ class Editor(
         except Exception as e:
             print(f'DEBUG: zoom_refresh failed: {e}')
     
+    def _get_viewport_center_time(self, pixels_per_quarter: float = None) -> float:
+        '''Calculate which musical time (in ticks) is currently at the viewport center.
+        
+        Args:
+            pixels_per_quarter: The zoom level to use for calculation. If None, uses current self.pixels_per_quarter.
+                               Pass the OLD zoom value when called before changing zoom.
+        
+        Returns the time in ticks that corresponds to the vertical center of the visible viewport.
+        This is used to preserve the user's viewing position during zoom operations.
+        '''
+        try:
+            # Get viewport dimensions
+            viewport_height_px = float(getattr(self.canvas, '_view_h', 0))
+            if viewport_height_px <= 0:
+                return 0.0
+            
+            # Get current scroll position (pixels from top of content)
+            scroll_px = float(getattr(self.canvas, '_scroll_px', 0.0))
+            
+            # Calculate the Y position (in pixels) of the viewport center
+            center_y_px = scroll_px + (viewport_height_px / 2.0)
+            
+            # Convert pixels to mm
+            px_per_mm = float(getattr(self.canvas, '_px_per_mm', 3.7795))
+            center_y_mm = center_y_px / px_per_mm
+            
+            # Convert mm to time in ticks using specified zoom level
+            if pixels_per_quarter is None:
+                pixels_per_quarter = self.pixels_per_quarter
+            
+            # Always calculate mm_per_quarter from the specified pixels_per_quarter
+            # Don't use cached _quarter_note_spacing_mm as it might be from a different zoom level
+            mm_per_quarter = float(pixels_per_quarter) / max(1e-6, px_per_mm)
+            
+            ql = getattr(self.score, 'quarterNoteLength', 256.0)
+            time_quarters = (center_y_mm - self.editor_margin) / mm_per_quarter + self.scroll_time_offset
+            center_time = time_quarters * ql
+            
+            return center_time
+        except Exception as e:
+            print(f'DEBUG: _get_viewport_center_time failed: {e}')
+            return 0.0
+    
+    def _scroll_to_center_time(self, target_time_ticks: float):
+        '''Scroll the viewport so that the given musical time appears at the center.
+        
+        Args:
+            target_time_ticks: The musical time (in ticks) to position at viewport center.
+        '''
+        try:
+            # Convert time to Y position in mm
+            target_y_mm = self.time_to_y(target_time_ticks)
+            
+            # Convert mm to pixels
+            px_per_mm = float(getattr(self.canvas, '_px_per_mm', 3.7795))
+            target_y_px = target_y_mm * px_per_mm
+            
+            # Get viewport height
+            viewport_height_px = float(getattr(self.canvas, '_view_h', 0))
+            if viewport_height_px <= 0:
+                return
+            
+            # Calculate scroll position to center this Y coordinate
+            # scroll_px is the top of the viewport, so we want:
+            # scroll_px + (viewport_height / 2) = target_y_px
+            desired_scroll_px = target_y_px - (viewport_height_px / 2.0)
+            
+            # Clamp to valid scroll range
+            content_height_px = self.canvas._content_height_px()
+            max_scroll_px = max(0.0, content_height_px - viewport_height_px)
+            clamped_scroll_px = max(0.0, min(max_scroll_px, desired_scroll_px))
+            
+            print(f'  _scroll_to_center: target_time={target_time_ticks:.2f}, target_y_mm={target_y_mm:.2f}, target_y_px={target_y_px:.2f}')
+            print(f'  _scroll_to_center: viewport_h={viewport_height_px:.2f}px, desired_scroll={desired_scroll_px:.2f}px, clamped={clamped_scroll_px:.2f}px')
+            
+            # Update canvas scroll position
+            self.canvas._scroll_px = clamped_scroll_px
+            
+            # Update scrollbar and canvas display
+            if hasattr(self.canvas, 'scrollbar') and self.canvas.scrollbar:
+                self.canvas.scrollbar.update_layout()
+        except Exception as e:
+            print(f'DEBUG: _scroll_to_center_time failed: {e}')
+    
     def _update_score_zoom(self):
-        '''Persist current pixels_per_quarter to SCORE.properties.editorZoomPixelsQuarter.'''
-        if (hasattr(self.score, 'properties') and 
-            hasattr(self.score.properties, 'editorZoomPixelsQuarter')):
-            self.score.properties.editorZoomPixelsQuarter = float(self.pixels_per_quarter)
+        '''Persist current pixels_per_quarter to SCORE.fileSettings.zoomPixelsQuarter.'''
+        if (hasattr(self.score, 'fileSettings') and 
+            hasattr(self.score.fileSettings, 'zoomPixelsQuarter')):
+            self.score.fileSettings.zoomPixelsQuarter = float(self.pixels_per_quarter)
     
     # === Interaction support ===
     def on_item_click(self, item_id: int, touch_pos_mm: Tuple[float, float]) -> bool:

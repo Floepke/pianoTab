@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
-@dataclass
 @dataclass_json
+@dataclass
 class FileSettings:
     '''
     Settings that have heavy specific impact on the specific file being edited.
@@ -58,13 +58,11 @@ class FileSettings:
         }
     )
     
-    @property
-    def editorRenderedStave(self) -> int:
+    def get_editor_rendered_stave(self) -> int:
         '''Get the current rendered stave index (1-based for user interface).'''
         return self._editorRenderedStave
     
-    @editorRenderedStave.setter
-    def editorRenderedStave(self, value: int):
+    def set_editor_rendered_stave(self, value: int):
         '''Set the current rendered stave index (1-based for user interface).'''
         self._editorRenderedStave = max(1, int(value))
     

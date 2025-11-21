@@ -350,16 +350,20 @@ class ToolSash(Widget):
                 break
 
         # Handle tooltip display for vertical sash (orientation == 'horizontal')
-        if self.split_view.orientation == 'horizontal' and hovered_button and hovered_button.tooltip_text:
-            # Show tooltip on left side of button
+        if self.split_view.orientation == 'horizontal' and hovered_button and hasattr(hovered_button, 'tooltip_text') and hovered_button.tooltip_text:
+            # Show tooltip to the left of the button
             self.tooltip.text = hovered_button.tooltip_text
-            self.tooltip.center_y = hovered_button.center_y
-            self.tooltip.right = hovered_button.x - dp(10)
+            # Convert button position to window coordinates
+            btn_window_x, btn_window_y = hovered_button.to_window(hovered_button.x, hovered_button.center_y)
+            # Position tooltip in window coordinates to the left of the button
+            self.tooltip.center_y = btn_window_y
+            self.tooltip.right = btn_window_x - dp(10)
             self.tooltip.opacity = 1
             self._current_tooltip_button = hovered_button
         else:
             # Hide tooltip
-            self.tooltip.opacity = 0
+            if self.tooltip.opacity > 0:
+                self.tooltip.opacity = 0
             self._current_tooltip_button = None
 
         # Always set cursor based on current position

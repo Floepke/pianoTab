@@ -2032,49 +2032,69 @@ class PropertyTreeEditor(BoxLayout):
             return
         
         try:
-            # Get the list type from the first item or infer from path
             item_class = None
             
-            # Try to get class from existing items
-            if lst and len(lst) > 0 and is_dataclass(lst[0]):
-                item_class = type(lst[0])
-            # Otherwise try to infer from the SCORE factory methods
-            elif len(path) >= 2:
-                # Check if this is an Event.* list (e.g., path ends with 'note', 'beam', etc.)
-                list_key = path[-1]
-                if isinstance(list_key, str):
-                    snake_key = _camel_to_snake(list_key)
-                    method_name = f'new_{snake_key}'
-                    
-                    # Check if SCORE has this factory method
-                    fn = getattr(self._score, method_name, None)
-                    if callable(fn):
-                        # Get stave index from path
-                        stave_idx = 0
-                        for i, p in enumerate(path):
-                            if p == 'stave' and i + 1 < len(path) and isinstance(path[i + 1], int):
-                                stave_idx = path[i + 1]
-                                break
-                        
-                        # Call factory method
-                        try:
-                            new_item = fn(stave_idx=stave_idx)
-                        except TypeError:
-                            new_item = fn()
-                        
-                        # Auto-collapse all other items in this list
-                        self._collapse_sibling_list_items(path)
-                        
-                        # Open the new item and scroll to it
-                        new_item_path = path + (len(lst) - 1,)
-                        self._open_paths.add(new_item_path)
-                        
-                        self._fire_change_and_rebuild()
-                        Clock.schedule_once(lambda dt: self.scroll_to_path(new_item_path), 0.1)
-                        return
+            # Step 1: Try to get the class from type annotations of the parent object
+            if len(path) >= 1:
+                # Get parent object and the attribute name for this list
+                if len(path) == 1:
+                    # List is directly on SCORE
+                    parent_obj = self._score
+                    attr_name = path[0]
+                else:
+                    # List is nested; get parent
+                    parent_path = path[:-1]
+                    parent_obj = self._read_at_path(self._score, parent_path)
+                    attr_name = path[-1]
+                
+                # Get type annotations from parent class
+                if is_dataclass(parent_obj):
+                    for fld in fields(parent_obj):
+                        if fld.name == attr_name:
+                            # Get the type annotation
+                            field_type = fld.type
+                            # Check if it's List[SomeClass]
+                            origin = get_origin(field_type)
+                            if origin is list or (hasattr(origin, '__name__') and origin.__name__ == 'list'):
+                                args = get_args(field_type)
+                                if args and len(args) > 0:
+                                    item_class = args[0]
+                                    break
             
-            # Fallback: create instance if we found the class
-            if item_class is not None:
+            # Step 2: If we found the class from annotations, try factory method first
+            if item_class is not None and isinstance(attr_name, str):
+                snake_key = _camel_to_snake(attr_name)
+                method_name = f'new_{snake_key}'
+                
+                # Check if SCORE has this factory method
+                fn = getattr(self._score, method_name, None)
+                if callable(fn):
+                    # Get stave index from path
+                    stave_idx = 0
+                    for i, p in enumerate(path):
+                        if p == 'stave' and i + 1 < len(path) and isinstance(path[i + 1], int):
+                            stave_idx = path[i + 1]
+                            break
+                    
+                    # Call factory method
+                    try:
+                        new_item = fn(stave_idx=stave_idx)
+                    except TypeError:
+                        new_item = fn()
+                    
+                    # Auto-collapse all other items in this list
+                    self._collapse_sibling_list_items(path)
+                    
+                    # Open the new item and scroll to it
+                    new_item_path = path + (len(lst) - 1,)
+                    self._open_paths.add(new_item_path)
+                    
+                    self._fire_change_and_rebuild()
+                    Clock.schedule_once(lambda dt: self.scroll_to_path(new_item_path), 0.1)
+                    return
+            
+            # Step 3: Create instance directly from class if we found it
+            if item_class is not None and is_dataclass(item_class):
                 new_item = item_class()
                 lst.append(new_item)
                 
@@ -2087,8 +2107,31 @@ class PropertyTreeEditor(BoxLayout):
                 
                 self._fire_change_and_rebuild()
                 Clock.schedule_once(lambda dt: self.scroll_to_path(new_item_path), 0.1)
+                return
+            
+            # Step 4: Fallback - try to get class from existing items
+            if lst and len(lst) > 0 and is_dataclass(lst[0]):
+                item_class = type(lst[0])
+                new_item = item_class()
+                lst.append(new_item)
+                
+                # Auto-collapse all other items
+                self._collapse_sibling_list_items(path)
+                
+                # Open and scroll to new item
+                new_item_path = path + (len(lst) - 1,)
+                self._open_paths.add(new_item_path)
+                
+                self._fire_change_and_rebuild()
+                Clock.schedule_once(lambda dt: self.scroll_to_path(new_item_path), 0.1)
+                return
+            
+            print(f'Warning: Could not determine item class for list at path {path}')
+            
         except Exception as e:
             print(f'Error adding list item: {e}')
+            import traceback
+            traceback.print_exc()
     
     def _delete_list_item(self, parent_path: Tuple[Union[str, int], ...], item_index: int):
         '''Delete a list item after confirmation.
@@ -2114,8 +2157,8 @@ class PropertyTreeEditor(BoxLayout):
         msg = Label(
             text=message,
             color=WHITE,
-            halign='center',
-            valign='middle'
+            halign='left',
+            valign='top'
         )
         msg.bind(size=msg.setter('text_size'))
         content.add_widget(msg)
@@ -2125,7 +2168,7 @@ class PropertyTreeEditor(BoxLayout):
         btn_anchor.add_widget(ok_btn)
         content.add_widget(btn_anchor)
         
-        popup = ModalView(size_hint=(None, None), size=(dp(320), dp(180)), auto_dismiss=False)
+        popup = ModalView(size_hint=(None, None), size=(dp(450), dp(250)), auto_dismiss=False)
         popup.add_widget(content)
         
         ok_btn.bind(on_press=lambda *_: popup.dismiss())
@@ -2146,6 +2189,26 @@ class PropertyTreeEditor(BoxLayout):
                 self._show_info_dialog(
                     'Cannot Delete Last Stave',
                     'At least one stave must exist in the score.\n\nYou cannot delete the last remaining stave.'
+                )
+                return
+        
+        # Prevent deletion of the last lineBreak
+        if parent_path == ('lineBreak',):
+            parent_obj = self._read_at_path(self._score, parent_path)
+            if isinstance(parent_obj, list) and len(parent_obj) == 1:
+                self._show_info_dialog(
+                    'Cannot Delete Last Line Break',
+                    'At least one line break must exist in the score.\n\nLine breaks define where new lines of music start in your document. You cannot delete the last remaining line break.'
+                )
+                return
+        
+        # Prevent deletion of the last baseGrid
+        if parent_path == ('baseGrid',):
+            parent_obj = self._read_at_path(self._score, parent_path)
+            if isinstance(parent_obj, list) and len(parent_obj) == 1:
+                self._show_info_dialog(
+                    'Cannot Delete Last Base Grid',
+                    'At least one base grid must exist in the score.\n\nBase grids define the time signature and measure structure of your music. You cannot delete the last remaining base grid.'
                 )
                 return
         
@@ -2257,8 +2320,8 @@ class PropertyTreeEditor(BoxLayout):
         msg = Label(
             text=message,
             color=WHITE,
-            halign='center',
-            valign='middle'
+            halign='left',
+            valign='top'
         )
         msg.bind(size=msg.setter('text_size'))
         content.add_widget(msg)
@@ -2268,7 +2331,7 @@ class PropertyTreeEditor(BoxLayout):
         btn_anchor.add_widget(ok_btn)
         content.add_widget(btn_anchor)
         
-        popup = ModalView(size_hint=(None, None), size=(dp(320), dp(180)), auto_dismiss=False)
+        popup = ModalView(size_hint=(None, None), size=(dp(450), dp(250)), auto_dismiss=False)
         popup.add_widget(content)
         
         ok_btn.bind(on_press=lambda *_: popup.dismiss())

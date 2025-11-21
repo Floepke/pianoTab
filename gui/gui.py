@@ -43,6 +43,7 @@ from gui.split_view import SplitView
 from gui.callbacks import create_menu_config, create_default_toolbar_config, create_contextual_toolbar_config  # toolbar configurations
 from utils.canvas import Canvas
 from gui.property_tree_editor import PropertyTreeEditor
+from utils.undo_manager import UndoManager
 
 # Fixed UI dimensions (pixels)
 SIDE_PANEL_WIDTH_PX = 350
@@ -226,6 +227,9 @@ class GUI(BoxLayout):
         # Menu/file integration (wired later by App/FileManager)
         self.file_manager = None
 
+        # Undo/Redo manager with 50 steps
+        self.undo_manager = UndoManager(max_history=50)
+
         # Prepare references
         self.side_panel: Optional[SidePanel] = None
         self.editor: Optional[Editor] = None
@@ -234,6 +238,9 @@ class GUI(BoxLayout):
 
         # Build nested split structure
         self._build_splits()
+        
+        # Setup keyboard shortcuts for undo/redo
+        Window.bind(on_key_down=self._on_key_down)
 
     # ----- Layout assembly -----
     def _build_splits(self):
@@ -294,9 +301,8 @@ class GUI(BoxLayout):
         try:
             # Create minimal toolbar config with tooltips (callbacks will be set later)
             default_toolbar = {
-                'previous': (None, 'Previous item'),
-                'next': (None, 'Next item'),
-                'MyTest': (None, 'Run render + PDF test'),
+                'previous': (None, 'Previous page'),
+                'next': (None, 'Next page'),
             }
             self.mid_right_split.sash.set_configs(default_toolbar=default_toolbar)
         except Exception as e:
@@ -538,6 +544,71 @@ class GUI(BoxLayout):
                 self.mid_right_split.sash.set_context_key('active')
         except Exception as e:
             print(f"Error updating contextual toolbar: {e}")
+
+    # ----- Undo/Redo System -----
+    def _on_key_down(self, window, key, scancode, codepoint, modifiers):
+        """Handle keyboard shortcuts for undo/redo."""
+        print(f"DEBUG: _on_key_down called - key={key}, modifiers={modifiers}")
+        # Ctrl+Z: Undo (key 122 is 'z')
+        if key == 122 and 'ctrl' in modifiers and 'shift' not in modifiers:
+            print("DEBUG: Ctrl+Z detected - calling undo()")
+            self.undo()
+            return True
+        # Ctrl+Shift+Z: Redo
+        elif key == 122 and 'ctrl' in modifiers and 'shift' in modifiers:
+            print("DEBUG: Ctrl+Shift+Z detected - calling redo()")
+            self.redo()
+            return True
+        return False
+
+    def undo(self):
+        """Undo the last change to the score."""
+        print(f"DEBUG: undo() called - can_undo={self.undo_manager.can_undo()}, history_info={self.undo_manager.get_history_info()}")
+        if self.undo_manager.can_undo():
+            print(f"Undoing... (history: {self.undo_manager.get_history_info()})")
+            score = self.undo_manager.undo(self.editor.score)
+            print(f"DEBUG: undo_manager.undo() returned score={score is not None}")
+            if score:
+                # Set ignore flag to prevent saving this restore as a new snapshot
+                self.undo_manager._ignore_next_save = True
+                print(f"DEBUG: Calling editor.load_score()")
+                self.editor.load_score(score)
+                print(f"DEBUG: Calling set_properties_score()")
+                self.set_properties_score(score)
+                print(f"DEBUG: Calling redraw_pianoroll()")
+                self.editor.redraw_pianoroll()
+                self.file_manager.dirty = True
+                print(f"Undo complete (new state: {self.undo_manager.get_history_info()})")
+        else:
+            print("DEBUG: Cannot undo - no history available")
+
+    def redo(self):
+        """Redo the previously undone change."""
+        if self.undo_manager.can_redo():
+            print(f"Redoing... (history: {self.undo_manager.get_history_info()})")
+            score = self.undo_manager.redo(self.editor.score)
+            if score:
+                # Set ignore flag to prevent saving this restore as a new snapshot
+                self.undo_manager._ignore_next_save = True
+                self.editor.load_score(score)
+                self.set_properties_score(score)
+                self.editor.redraw_pianoroll()
+                self.file_manager.dirty = True
+                print(f"Redo complete (new state: {self.undo_manager.get_history_info()})")
+
+    def save_undo_snapshot(self):
+        """Save a snapshot of the current score to undo history."""
+        print(f"DEBUG: save_undo_snapshot() called - _ignore_next_save={self.undo_manager._ignore_next_save}")
+        print(f"DEBUG: editor.score exists={hasattr(self.editor, 'score')}, is None={getattr(self.editor, 'score', None) is None}")
+        if not self.undo_manager._ignore_next_save:
+            if hasattr(self.editor, 'score') and self.editor.score is not None:
+                self.undo_manager.save_snapshot(self.editor.score)
+                print(f"Saved undo snapshot (history: {self.undo_manager.get_history_info()})")
+            else:
+                print("DEBUG: Skipping snapshot - editor.score not available")
+        else:
+            self.undo_manager._ignore_next_save = False
+            print("Skipped undo snapshot (restore in progress)")
 
 
 __all__ = [
