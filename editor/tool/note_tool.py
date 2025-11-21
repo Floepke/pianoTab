@@ -43,8 +43,8 @@ class NoteTool(BaseTool):
             'selection2right': (self._set_selection_right, 'Change selection to right hand (.)'),
             'noteLeft': (self._set_left_hand, 'Change the cursor to left hand'),
             'noteRight': (self._set_right_hand, 'Change the cursor to right hand'),
-            'transposeUp': (self._transpose_up, 'Transpose selection up'),
-            'transposeDown': (self._transpose_down, 'Transpose selection down'),
+            'transposeup': (self._transpose_up, 'Transpose selection up'),
+            'transposedown': (self._transpose_down, 'Transpose selection down'),
         }
     
     def _set_left_hand(self):
@@ -59,30 +59,24 @@ class NoteTool(BaseTool):
     
     def _set_selection_left(self):
         """Set all selected notes to left hand."""
-        if not hasattr(self.editor, 'selection_manager'):
-            return
-        if not self.editor.selection_manager.has_selection():
-            return
+        # if not hasattr(self.editor, 'selection_manager'):
+        #     return
+        # if not self.editor.selection_manager.has_selection():
+        #     return
         
-        for note_id in self.editor.selection_manager.get_selected_note_ids():
-            note = self.editor.score.get_note_by_id(note_id)
-            if note:
-                note.hand = '<'
+        self.editor.selection_manager._assign_selection_hand('<')
         
         self.editor.redraw_pianoroll()
         self.editor.on_modified()
     
     def _set_selection_right(self):
         """Set all selected notes to right hand."""
-        if not hasattr(self.editor, 'selection_manager'):
-            return
-        if not self.editor.selection_manager.has_selection():
-            return
+        # if not hasattr(self.editor, 'selection_manager'):
+        #     return
+        # if not self.editor.selection_manager.has_selection():
+        #     return
         
-        for note_id in self.editor.selection_manager.get_selected_note_ids():
-            note = self.editor.score.get_note_by_id(note_id)
-            if note:
-                note.hand = '>'
+        self.editor.selection_manager._assign_selection_hand('>')
         
         self.editor.redraw_pianoroll()
         self.editor.on_modified()
