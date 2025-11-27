@@ -39,17 +39,19 @@ class NoteTool(BaseTool):
             Dictionary mapping icon names to (callback, tooltip) tuples.
         """
         return {
+            'handswitch': (self._switch_hand, 'Switch the cursor hand left or right (\',\'/\'<\' or \'.\'/\'>\' keys)'),
             'selection2left': (self._set_selection_left, 'Change selection to left hand (,)'),
             'selection2right': (self._set_selection_right, 'Change selection to right hand (.)'),
-            'noteLeft': (self._set_left_hand, 'Change the cursor to left hand'),
-            'noteRight': (self._set_right_hand, 'Change the cursor to right hand'),
             'transposeup': (self._transpose_up, 'Transpose selection up'),
             'transposedown': (self._transpose_down, 'Transpose selection down'),
         }
     
-    def _set_left_hand(self):
+    def _switch_hand(self):
         """Set cursor to left hand."""
-        self.hand_cursor = '<'
+        if self.hand_cursor == '<':
+            self.hand_cursor = '>'
+        else:
+            self.hand_cursor = '<'
         self._draw_cursor()
     
     def _set_right_hand(self):

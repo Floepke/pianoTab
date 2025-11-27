@@ -27,13 +27,14 @@ class Beam:
             }
         }
     )
-    staff: float = field(
+    duration: float = field(
         default=0.0,
         metadata={
             'tree_icon': 'property',
-            'tree_tooltip': 'Staff position (vertical placement)',
+            'tree_tooltip': 'Duration in time units',
             'tree_edit_type': 'float',
             'tree_edit_options': {
+                'min': 0.0,
                 'step': 1.0,
             }
         }

@@ -45,9 +45,5 @@ class BeamDrawerMixin:
             stave_idx: Index of the stave containing the beam.
             beam: The beam event to draw.
         '''
-        # TODO: Implement beam drawing
-        # - Beams connect groups of notes
-        # - Calculate y position: self.time_to_y_mm(beam.time)
-        # - Draw beam line connecting notes
-        # - Tag with ['beams', f'beam_{stave_idx}_{beam.id}']
-        pass
+        
+        ...

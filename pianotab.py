@@ -154,6 +154,12 @@ class pianoTAB(App):
         # Connect editor to grid_selector for cursor snapping
         self.editor.grid_selector = self.gui.side_panel.grid_selector
         
+        # Connect score to grid_selector for quarterNoteUnit access
+        print(f'pianoTAB: Before assignment - grid_selector.score = {self.gui.side_panel.grid_selector.score}')
+        self.gui.side_panel.grid_selector.score = self.editor.score
+        print(f'pianoTAB: After assignment - grid_selector.score = {self.gui.side_panel.grid_selector.score}')
+        print(f'pianoTAB: Assigned score to grid_selector, quarterNoteUnit={self.editor.score.fileSettings.quarterNoteUnit if self.editor.score else "N/A"}')
+        
         # Connect tool_selector to editor's tool_manager
         self.gui.side_panel.tool_selector.callback = lambda tool_name: self.editor.tool_manager.set_active_tool(tool_name)
         
@@ -259,6 +265,10 @@ class pianoTAB(App):
             # Mark file as dirty (which will trigger engraving via FileManager.mark_dirty)
             if self.file_manager is not None:
                 self.file_manager.mark_dirty()
+            
+            # Refresh grid selector in case quarterNoteUnit changed
+            if hasattr(self.gui, 'side_panel') and hasattr(self.gui.side_panel, 'grid_selector'):
+                self.gui.side_panel.grid_selector.refresh_from_score()
             
             # Redraw editor piano roll to reflect changes
             if self.editor is not None:

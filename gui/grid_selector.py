@@ -31,7 +31,7 @@ class SpinBox(BoxLayout):
         
         # Decrease button
         self.dec_btn = Button(
-            text='−',  # Unicode minus
+            text='-',  # Unicode minus
             size_hint_x=None,
             width=36,
             font_size='20sp',
@@ -209,7 +209,7 @@ class GridSelector(BoxLayout):
     current_grid_step = NumericProperty(DEFAULT_GRID_STEP_TICKS)
     callback = ObjectProperty(None, allownone=True)
     
-    def __init__(self, callback=None, **kwargs):
+    def __init__(self, callback=None, score=None, **kwargs):
         # Set up as vertical BoxLayout with sizing
         kwargs['orientation'] = 'vertical'
         kwargs['padding'] = 8
@@ -217,14 +217,15 @@ class GridSelector(BoxLayout):
         kwargs['size_hint_y'] = None
         super().__init__(**kwargs)
         
-        self.widget_height = 48  # Button height - half of standard 96px
+        self.widget_height = 55  # Button height - half of standard 96px
         
         self.callback = callback
+        self.score = score  # Reference to SCORE for accessing quarterNoteUnit
         self.current_grid_name = DEFAULT_GRID_NAME
         self.subdivision = 1
         
-        # Use grid lengths from constants (single source of truth)
-        self.grid_lengths = GRID_LENGTHS
+        # Grid lengths will be calculated dynamically based on quarterNoteUnit
+        self.grid_lengths = self._calculate_grid_lengths()
         
         # Background
         with self.canvas.before:
@@ -250,9 +251,27 @@ class GridSelector(BoxLayout):
             self.callback(self.current_grid_step)
 
     def _get_grid_lengths(self):
-        '''calculates the right grid lengths based on the file models pianoTick value.'''
-        pianotick = ...
-        return self.grid_lengths
+        '''Calculates the right grid lengths based on the file model's quarterNoteUnit value.'''
+        return self._calculate_grid_lengths()
+    
+    def _calculate_grid_lengths(self):
+        '''Calculate grid lengths dynamically based on score's quarterNoteUnit.'''
+        # Get quarter note unit from score
+        quarter_note_unit = QUARTER_NOTE_TICKS  # Fallback default
+        if self.score:
+            quarter_note_unit = self.score.fileSettings.quarterNoteUnit
+        
+        # Calculate all grid lengths from quarter note
+        return [
+            ('1 - Whole', quarter_note_unit * 4),
+            ('2 - Half', quarter_note_unit * 2),
+            ('4 - Quarter', quarter_note_unit),
+            ('8 - Eighth', quarter_note_unit / 2),
+            ('16 - Sixteenth', quarter_note_unit / 4),
+            ('32 - 32nd', quarter_note_unit / 8),
+            ('64 - 64th', quarter_note_unit / 16),
+            ('128 - 128th', quarter_note_unit / 32),
+        ]
     
     def update_graphics(self, *args):
         '''Update all graphics when size/pos changes.'''
@@ -264,7 +283,7 @@ class GridSelector(BoxLayout):
         
         # Grid step display label
         self.grid_label = Label(
-            text='Unit: 256.0',
+            text='Grid Unit: 256.0',
             size_hint_y=None,
             height=self.widget_height,
             font_size='16sp',
@@ -489,16 +508,35 @@ class GridSelector(BoxLayout):
         if '.' not in grid_text:
             grid_text += '.0'
         
-        self.grid_label.text = f'Unit: {grid_text}'
+        self.grid_label.text = f'Grid Unit: {grid_text}'
     
     def get_grid_step(self):
         '''Calculate and return current grid step value in piano ticks.'''
-        # Find the tick value for current grid
-        grid_ticks = 256.0  # Default to quarter note
-        for grid_name, ticks in self.grid_lengths:
-            if grid_name == self.current_grid_name:
-                grid_ticks = ticks
-                break
+        # Get quarter note unit from score
+        quarter_note_unit = QUARTER_NOTE_TICKS  # Fallback default
+        if self.score:
+            quarter_note_unit = self.score.fileSettings.quarterNoteUnit
+            print(f'GridSelector.get_grid_step(): Reading quarterNoteUnit = {quarter_note_unit} from score')
+        else:
+            print(f'GridSelector.get_grid_step(): self.score is None, using fallback = {quarter_note_unit}')
+        
+        # Calculate grid ticks based on selected grid name
+        grid_ticks = quarter_note_unit  # Default to quarter note
+        
+        # Map grid names to their multipliers relative to quarter note
+        grid_multipliers = {
+            '1 - Whole': 4,
+            '2 - Half': 2,
+            '4 - Quarter': 1,
+            '8 - Eighth': 0.5,
+            '16 - Sixteenth': 0.25,
+            '32 - 32nd': 0.125,
+            '64 - 64th': 0.0625,
+            '128 - 128th': 0.03125,
+        }
+        
+        if self.current_grid_name in grid_multipliers:
+            grid_ticks = quarter_note_unit * grid_multipliers[self.current_grid_name]
         
         # Calculate grid step (piano ticks divided by subdivision)
         grid_step = grid_ticks / self.subdivision
@@ -511,6 +549,16 @@ class GridSelector(BoxLayout):
     def get_subdivision(self):
         '''Get the current subdivision value.'''
         return self.subdivision
+    
+    def refresh_from_score(self):
+        '''Refresh grid lengths and display when score properties change (e.g., quarterNoteUnit).'''
+        print('GridSelector.refresh_from_score() called')
+        # Recalculate grid lengths based on current quarterNoteUnit
+        self.grid_lengths = self._calculate_grid_lengths()
+        # Update the display and trigger callback
+        self.update_grid_step_label()
+        if self.callback:
+            self.callback(self.current_grid_step)
     
     def set_subdivision(self, value):
         '''Set the subdivision value programmatically.'''

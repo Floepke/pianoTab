@@ -3,11 +3,11 @@ Beam Tool - Add, edit, and remove beams.
 """
 
 from editor.tool.base_tool import BaseTool
-# from file.beam import Beam
+from file.beam import Beam
 
 
 class BeamTool(BaseTool):
-    """Tool for adding and editing beams."""
+    """Tool for adding and editing beam custom grouping."""
     
     @property
     def name(self) -> str:
@@ -34,6 +34,22 @@ class BeamTool(BaseTool):
         # Call parent's drag detection first
         if super().on_mouse_move(x, y):
             return True  # Parent is handling drag - stop here
+        
+        # Guard against startup race condition (mouse moves before file loaded)
+        if not self.score:
+            return False
+        
+        # draw the cursor
+        pitch, time = self.get_pitch_and_time(x, y)
+        duration = 0
+        
+        if pitch < 40: hand = '<'
+        else: hand = '>'
+        
+        cursor = Beam(time=time, duration=duration, hand=hand)
+        
+        # redraw cursor
+        self._draw_cursor(cursor, type='cursor')
         
         # TODO: Show hover preview (only when not dragging)
         return False
@@ -83,10 +99,22 @@ class BeamTool(BaseTool):
     
     def on_drag(self, x: float, y: float, start_x: float, start_y: float) -> bool:
         """Called continuously while dragging WITH button pressed."""
-        # TODO: Update drag preview
+        super().on_drag(x, y, start_x, start_y)
+
+        ...
+
         return False
     
     def on_drag_end(self, x: float, y: float) -> bool:
         """Called when drag finishes (button released after dragging)."""
         # TODO: Finalize drag operation
         return False
+    
+    def _draw_cursor(self, cursor: Beam, type: str = 'cursor') -> None:
+        """Draw the beam cursor on the canvas.
+
+        Args:
+            cursor: The Beam object representing the cursor.
+            type: Type of cursor ('cursor' or 'preview').
+        """
+        self.editor._draw_single_beam(0, cursor)

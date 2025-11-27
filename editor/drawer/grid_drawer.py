@@ -18,6 +18,7 @@ class GridDrawerMixin:
         
         # Initialize time cursor
         time_cursor = 0.0
+        measure_number = 1
         unit = self.score.fileSettings.quarterNoteUnit
         
         for grid in self.score.baseGrid:
@@ -25,14 +26,59 @@ class GridDrawerMixin:
             # Values from baseGrid
             num = grid.numerator
             den = grid.denominator
-            grid_times = grid.gridTimes
+            gt = grid.gridTimes
             amount = grid.measureAmount
-            visible = grid.timeSignatureIndicatorVisible
+            tsig_indicator_visible = grid.timeSignatureIndicatorVisible
             
             # How long is one measure?
             meas_length = (unit * 4) * (num / den)
+
+            barline_y = self.time_to_y(time_cursor)
+
+            # Draw time-signature-indicator:
+            # numerator
+            self.canvas.add_text(
+                x_mm=self.editor_margin - 10,  # Slightly right of stave left
+                y_mm=barline_y,  # Slightly above the barline
+                text=f"{num}",
+                font_size_pt=16,
+                anchor='bc',
+                color='#000000',
+                tags=['time_signature_indicator', f'time_signature_indicator_{int(time_cursor)}']
+            )
+            # dashed divide line
+            self.canvas.add_line(
+                x1_mm=self.editor_margin,
+                y1_mm=barline_y,
+                x2_mm=self.editor_margin - 12.5,
+                y2_mm=barline_y,
+                color='#000000',
+                width_mm=0.125,
+                dash=True,
+                dash_pattern_mm=(1.0, 1.0),
+                tags=['time_signature_indicator', f'time_signature_indicator_{int(time_cursor)}']
+            )
+            self.canvas.add_line(
+                x1_mm=self.editor_margin - 7.5,
+                y1_mm=barline_y,
+                x2_mm=self.editor_margin - 12.5,
+                y2_mm=barline_y,
+                color='#000000',
+                width_mm=0.25,
+                tags=['time_signature_indicator', f'time_signature_indicator_{int(time_cursor)}']
+            )
+            # denominator
+            self.canvas.add_text(
+                x_mm=self.editor_margin - 10,
+                y_mm=barline_y,
+                text=f"{den}",
+                font_size_pt=16,
+                anchor='tc',
+                color='#000000',
+                tags=['time_signature_indicator', f'time_signature_indicator_{int(time_cursor)}']
+            )
             
-            for meas_no in range(amount):
+            for meas_idx in range(amount):
                 
                 # Draw barline at start of measure
                 barline_y = self.time_to_y(time_cursor)
@@ -49,20 +95,20 @@ class GridDrawerMixin:
                         tags=['barline', f'barline_{int(time_cursor)}']
                     )
                     
-                    # Draw measure number if visible
-                    if visible:
-                        self.canvas.add_text(
-                            x_mm=self.editor_margin - 10,  # Position to the left of the barline
-                            y_mm=barline_y,  # Slightly below the barline
-                            text=str(meas_no + 1),
-                            font_size_pt=15,
-                            anchor='top_left',
-                            color=self.score.properties.globalMeasureNumbering.color,
-                            tags=['measurenumber', f'measurenumber_{int(time_cursor)}']
-                        )
+                    # Draw measure number 
+                    self.canvas.add_text(
+                        x_mm=1,  # Position to the left of the barline
+                        y_mm=barline_y,  # Slightly below the barline
+                        text=str(measure_number),
+                        font_size_pt=16,
+                        anchor='top_left',
+                        color=self.score.properties.globalMeasureNumbering.color,
+                        tags=['measurenumber', f'measurenumber_{int(time_cursor)}']
+                    )
+                    measure_number += 1
                 
                 # Draw grid lines at subdivision points defined in gridTimes
-                for i, grid_time in enumerate(grid_times):
+                for i, grid_time in enumerate(gt):
                     # Skip if grid_time is 0 (that's the barline position)
                     if grid_time == 0:
                         continue

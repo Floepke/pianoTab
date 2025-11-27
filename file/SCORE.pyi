@@ -55,7 +55,7 @@ class SCORE:
         self,
         stave_idx: int = 0,
         time: float = 0.0,
-        staff: float = 0.0,
+        duration: float = 0.0,
         hand: Literal['<', '>'] = "<",
         color: Optional[str] = None,
         width: Optional[float] = None,

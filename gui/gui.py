@@ -297,7 +297,7 @@ class GUI(BoxLayout):
                 'previous': (None, 'Previous page'),
                 'next': (None, 'Next page'),
             }
-            self.mid_right_split.sash.set_configs(default_toolbar=default_toolbar)
+            #self.mid_right_split.sash.set_configs(default_toolbar=default_toolbar)
         except Exception as e:
             print(f"Error initializing default toolbar: {e}")
 

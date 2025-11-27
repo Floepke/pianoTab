@@ -168,6 +168,12 @@ class Editor(
         self.gui.set_properties_score(self.score)
         self._apply_settings_from_score()
         
+        # Update grid_selector with the new score
+        if hasattr(self, 'grid_selector') and self.grid_selector:
+            self.grid_selector.score = self.score
+            self.grid_selector.refresh_from_score()
+            print(f'Editor: Updated grid_selector.score, quarterNoteUnit={self.score.fileSettings.quarterNoteUnit}')
+        
         # Clear any active selection from previous file
         if hasattr(self, 'selection_manager') and self.selection_manager:
             self.selection_manager.clear_selection()
