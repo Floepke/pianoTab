@@ -338,9 +338,9 @@ class BaseTool(ABC):
         """Convert canvas tag to normalized element type name."""
         tag_to_type = {
             'notehead': 'note',
+            'leftdot': 'note',
             'midinote': 'note',
             'stem': 'note',
-            'leftdot': 'note',
             'beam': 'beam',
             'slur': 'slur',
             'tempo': 'tempo',

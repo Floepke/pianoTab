@@ -49,7 +49,7 @@ class NoteDrawerMixin:
         # Get the currently rendered stave index
         stave_idx = self.score.fileSettings.get_rendered_stave_index(
             num_staves=len(self.score.stave)
-        ) if (self.score and hasattr(self.score, 'fileSettings')) else 0
+        )
         
         # Draw notes from the currently rendered stave
         stave = self.score.stave[stave_idx]

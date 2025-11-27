@@ -138,24 +138,24 @@ class Editor(
         # Stave (line widths, colors, dash pattern)
         if hasattr(self.score, 'properties') and hasattr(self.score.properties, 'globalStave') and self.score.properties.globalStave is not None:
             stave = self.score.properties.globalStave
-            self.stave_two_color = getattr(stave, 'twoLineColor', self.stave_two_color)
-            self.stave_three_color = getattr(stave, 'threeLineColor', self.stave_three_color)
-            self.stave_clef_color = getattr(stave, 'clefColor', self.stave_clef_color)
+            self.stave_two_color = stave.twoLineColor
+            self.stave_three_color = stave.threeLineColor
+            self.stave_clef_color = stave.clefColor
 
-            self.stave_two_width = getattr(stave, 'twoLineWidth', self.stave_two_width)
-            self.stave_three_width = getattr(stave, 'threeLineWidth', self.stave_three_width)
-            self.stave_clef_width = getattr(stave, 'clefWidth', self.stave_clef_width)
+            self.stave_two_width = stave.twoLineWidth
+            self.stave_three_width = stave.threeLineWidth
+            self.stave_clef_width = stave.clefWidth
 
-            self.clef_dash_pattern = getattr(stave, 'clefDashPattern', self.clef_dash_pattern)
+            self.clef_dash_pattern = stave.clefDashPattern
 
         # Grid (bar/grid line widths, colors, dash)
         if hasattr(self.score, 'properties') and hasattr(self.score.properties, 'globalBasegrid') and self.score.properties.globalBasegrid is not None:
             basegrid = self.score.properties.globalBasegrid
-            self.barline_color = getattr(basegrid, 'barlineColor', self.barline_color)
-            self.barline_width = getattr(basegrid, 'barlineWidth', self.barline_width)
-            self.gridline_color = getattr(basegrid, 'gridlineColor', self.gridline_color)
-            self.gridline_width = getattr(basegrid, 'gridlineWidth', self.gridline_width)
-            self.gridline_dash_pattern = getattr(basegrid, 'gridlineDashPattern', self.gridline_dash_pattern)
+            self.barline_color = basegrid.barlineColor
+            self.barline_width = basegrid.barlineWidthMm
+            self.gridline_color = basegrid.gridlineColor
+            self.gridline_width = basegrid.gridlineWidthMm
+            self.gridline_dash_pattern = basegrid.gridlineDashPattern
 
     # Defer zoom refresh until the canvas attaches us and scale is known.
     
@@ -271,24 +271,17 @@ class Editor(
     
     def time_to_y(self, time_ticks: float) -> float:
         '''Convert time in ticks to Y coordinate in millimeters (top-left origin).'''
-        mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
-        if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
-            # Fallback derive from score zoom and current canvas scale
-            px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
-            mm_per_quarter = (self.pixels_per_quarter) / max(1e-6, px_per_mm)
-        ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
-        time_quarters = time_ticks / max(1e-6, ql)
+        mm_per_quarter = self.canvas._quarter_note_spacing_mm
+        ql = self.score.fileSettings.quarterNoteUnit
+        time_quarters = time_ticks / ql
         result = self.editor_margin + (time_quarters * mm_per_quarter) - (self.scroll_time_offset * mm_per_quarter)
         return result
     
     def y_to_time(self, y_mm: float) -> float:
         '''Convert Y coordinate to time in ticks (inverse of time_to_y_mm).'''
-        mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
-        if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
-            px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
-            mm_per_quarter = (self.pixels_per_quarter) / max(1e-6, px_per_mm)
+        mm_per_quarter = self.canvas._quarter_note_spacing_mm
         time_quarters = (y_mm - self.editor_margin) / mm_per_quarter + self.scroll_time_offset
-        ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
+        ql = self.score.fileSettings.quarterNoteUnit
         return time_quarters * ql
     
     def auto_scroll_if_near_edge(self, y_mm: float) -> bool:
@@ -399,7 +392,7 @@ class Editor(
         '''Calculate total score length in ticks based on your algorithm.'''
         total_ticks = 0.0
         for grid in self.score.baseGrid:
-            ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
+            ql = self.score.fileSettings.quarterNoteUnit
             measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
             total_ticks += measure_ticks * grid.measureAmount
         return total_ticks
@@ -417,7 +410,7 @@ class Editor(
         total_ticks = 0.0
         
         for grid in self.score.baseGrid:
-            ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
+            ql = self.score.fileSettings.quarterNoteUnit
             measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
             
             for _ in range(grid.measureAmount):
@@ -443,9 +436,7 @@ class Editor(
         
         # Always sync zoom from SCORE first
         try:
-            props = getattr(self.score, 'fileSettings', None)
-            if props is not None and hasattr(props, 'zoomPixelsQuarter'):
-                self.pixels_per_quarter = float(props.zoomPixelsQuarter)
+            self.pixels_per_quarter = float(self.score.fileSettings.zoomPixelsQuarter)
         except Exception:
             pass
         
@@ -461,11 +452,11 @@ class Editor(
         # Content height must not depend on scroll offset; compute using mm/quarter directly
         mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
         if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
-            px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
-            mm_per_quarter = (self.pixels_per_quarter) / max(1e-6, px_per_mm)
+            px_per_mm = self.canvas._px_per_mm
+            mm_per_quarter = self.pixels_per_quarter / px_per_mm
             print(f'Editor: Calculated mm_per_quarter={mm_per_quarter} from pixels_per_quarter={self.pixels_per_quarter} / px_per_mm={px_per_mm}')
-        ql = getattr(self.score, 'quarterNoteLength', PIANOTICK_QUARTER)
-        content_height_mm = (self.total_time / max(1e-6, ql)) * mm_per_quarter
+        ql = self.score.fileSettings.quarterNoteUnit
+        content_height_mm = (self.total_time / ql) * mm_per_quarter
         total_height_mm = content_height_mm + (2.0 * self.editor_margin)  # top + bottom margin equal to editor_margin
         
         # Reconcile canvas height to desired content height (shrink or grow).
@@ -611,9 +602,7 @@ class Editor(
 
                     # Keep internal state in sync with SCORE without persisting any change
                     try:
-                        file_settings = getattr(self.score, 'fileSettings', None)
-                        if file_settings is not None and hasattr(file_settings, 'zoomPixelsQuarter'):
-                            self.pixels_per_quarter = float(file_settings.zoomPixelsQuarter)
+                        self.pixels_per_quarter = float(self.score.fileSettings.zoomPixelsQuarter)
                     except Exception:
                         pass
 
@@ -660,9 +649,9 @@ class Editor(
             
             # Always calculate mm_per_quarter from the specified pixels_per_quarter
             # Don't use cached _quarter_note_spacing_mm as it might be from a different zoom level
-            mm_per_quarter = float(pixels_per_quarter) / max(1e-6, px_per_mm)
+            mm_per_quarter = float(pixels_per_quarter) / px_per_mm
             
-            ql = getattr(self.score, 'quarterNoteLength', 256.0)
+            ql = self.score.fileSettings.quarterNoteUnit
             time_quarters = (center_y_mm - self.editor_margin) / mm_per_quarter + self.scroll_time_offset
             center_time = time_quarters * ql
             

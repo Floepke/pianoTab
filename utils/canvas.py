@@ -644,8 +644,7 @@ class Canvas(Widget):
             # Get values from score
             if hasattr(self.piano_roll_editor, 'score') and self.piano_roll_editor.score:
                 score = self.piano_roll_editor.score
-                if hasattr(score, 'quarterNoteLength'):
-                    quarter_note_length = score.quarterNoteLength
+                quarter_note_length = score.fileSettings.quarterNoteUnit
 
         # Calculate current grid step spacing in mm based on the canvas' content scale
         grid_step_ticks = self._get_grid_step_ticks()
@@ -2230,12 +2229,12 @@ class Canvas(Widget):
         quarters = time_position_mm / mm_per_quarter
         # Get quarter note length from score if available
         quarter_note_length = 256.0
-        if hasattr(self, 'piano_roll_editor') and self.piano_roll_editor and getattr(self.piano_roll_editor, 'score', None):
-            ql = getattr(self.piano_roll_editor.score, 'quarterNoteLength', None)
+        if hasattr(self, 'piano_roll_editor') and self.piano_roll_editor and self.piano_roll_editor.score:
+            ql = self.piano_roll_editor.score.fileSettings.quarterNoteUnit
             if isinstance(ql, (int, float)) and ql > 0:
                 quarter_note_length = float(ql)
         
-        # Convert quarters to ticks using the score's quarterNoteLength
+        # Convert quarters to ticks using the score's quarterNoteUnit
         ticks = quarters * quarter_note_length
 
         # DEBUG: Print what's happening with detailed grid step info
@@ -2323,8 +2322,8 @@ class Canvas(Widget):
         quarter_note_length = 256.0  # Default
         if hasattr(self, 'piano_roll_editor') and self.piano_roll_editor and hasattr(self.piano_roll_editor, 'score'):
             score = self.piano_roll_editor.score
-            if score and hasattr(score, 'quarterNoteLength'):
-                quarter_note_length = score.quarterNoteLength
+            if score:
+                quarter_note_length = score.fileSettings.quarterNoteUnit
 
         # Calculate how many quarter notes this grid step represents using editor grid selector when available
         grid_step_ticks = self._get_grid_step_ticks()
