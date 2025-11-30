@@ -92,7 +92,6 @@ class SelectionManager:
             False - left button doesn't trigger selection rectangle anymore
         """
         # Track that left button is now down (independent tracking)
-        print(f"DEBUG SelectionManager: on_left_press() setting _left_button_is_down = True")
         self._left_button_is_down = True
         self._last_drag_pos = (x, y)
         
@@ -107,7 +106,6 @@ class SelectionManager:
         Returns:
             False - actual selection starts on drag
         """
-        print(f"DEBUG SelectionManager: on_right_press() setting _right_button_is_down = True")
         self._right_button_is_down = True
         self._last_drag_pos = (x, y)
         
@@ -122,7 +120,6 @@ class SelectionManager:
         Returns:
             True if handling selection rectangle
         """
-        print(f"DEBUG SelectionManager: on_right_drag() _right_button_is_down={self._right_button_is_down}, is_drawing_rect={self.is_drawing_rect}")
         
         if not self._right_button_is_down:
             return False
@@ -151,8 +148,6 @@ class SelectionManager:
                     # Clear any previous selection
                     self.clear_selection()
                     self.editor.canvas.delete_by_tag('cursor')
-                    
-                    print(f"DEBUG SelectionManager: Right-drag selection rect started at {self.rect_start} (moved {distance_px:.1f}px)")
                 else:
                     # Not enough movement yet, don't start rectangle
                     return False
@@ -172,9 +167,7 @@ class SelectionManager:
         
         Returns:
             False - selection rectangle not handled by left drag
-        """
-        print(f"DEBUG SelectionManager: on_left_drag() _left_button_is_down={self._left_button_is_down}, is_drawing_rect={self.is_drawing_rect}")
-        
+        """        
         # Track the last drag position and time
         from time import time
         self._last_drag_pos = (x, y)
@@ -189,9 +182,7 @@ class SelectionManager:
         
         Returns:
             False - left button doesn't finalize selection rectangle anymore
-        """
-        print(f"DEBUG SelectionManager: on_left_release() at ({x:.1f}, {y:.1f}), _left_button_is_down={self._left_button_is_down}")
-        
+        """        
         self._left_button_is_down = False
         self._last_drag_pos = None
         
@@ -205,9 +196,7 @@ class SelectionManager:
         
         Returns:
             True if finishing selection (consume event), False otherwise
-        """
-        print(f"DEBUG SelectionManager: on_right_release() at ({x:.1f}, {y:.1f}), _right_button_is_down={self._right_button_is_down}, is_drawing_rect={self.is_drawing_rect}")
-        
+        """        
         # Ignore release if button wasn't down
         if not self._right_button_is_down:
             print("DEBUG: Ignoring release (button not down)")

@@ -124,7 +124,7 @@ DRAWING_LAYERS = [
     'countline',
     
     # UI elements (top layers)
-    'cursorLine',      # Time cursor line
+    'cursor_line',      # Time cursor line
     'selectionrect',  # Selection rectangle
 ]
 

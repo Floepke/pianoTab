@@ -46,18 +46,7 @@ class GridDrawerMixin:
                 color='#000000',
                 tags=['time_signature_indicator', f'time_signature_indicator_{int(time_cursor)}']
             )
-            # dashed divide line
-            self.canvas.add_line(
-                x1_mm=self.editor_margin,
-                y1_mm=barline_y,
-                x2_mm=self.editor_margin - 12.5,
-                y2_mm=barline_y,
-                color='#000000',
-                width_mm=0.125,
-                dash=True,
-                dash_pattern_mm=(1.0, 1.0),
-                tags=['time_signature_indicator', f'time_signature_indicator_{int(time_cursor)}']
-            )
+            # divide line
             self.canvas.add_line(
                 x1_mm=self.editor_margin - 7.5,
                 y1_mm=barline_y,

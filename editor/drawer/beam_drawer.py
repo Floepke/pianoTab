@@ -52,17 +52,12 @@ class BeamDrawerMixin:
         if draw_mode in ('beam', 'selected'):
             self.canvas.delete_by_tag(str(beam.id))
             base_tag = str(beam.id)
-            marker_tag = 'beam'  # Regular beams don't use beam_marker tag
         elif draw_mode == 'cursor':
             self.canvas.delete_by_tag('cursor')
-            self.canvas.delete_by_tag('beam_marker')
             base_tag = 'cursor'
-            marker_tag = 'beam_marker'
         else:  # 'edit'
             self.canvas.delete_by_tag('edit')
-            self.canvas.delete_by_tag('beam_marker')
             base_tag = 'edit'
-            marker_tag = 'beam_marker'
         
         # Determine color
         if draw_mode in ('cursor', 'edit', 'selected'):
@@ -78,11 +73,11 @@ class BeamDrawerMixin:
         y_end = self.time_to_y(time + duration)
         
         if hand == '<': 
-            x1 = 8.25
-            x2 = 10
+            x1 = 10.25
+            x2 = 12
         else: 
-            x1 = self.editor_margin * 2 + self.stave_width - 8.25
-            x2 = self.editor_margin * 2 + self.stave_width - 10
+            x1 = self.editor_margin * 2 + self.stave_width - 10.25
+            x2 = self.editor_margin * 2 + self.stave_width - 12
 
         # Draw the beam line
         self.canvas.add_line(
@@ -92,7 +87,7 @@ class BeamDrawerMixin:
             y2_mm=y_end,
             color=color,
             width_mm=1,
-            tags=[base_tag, marker_tag]
+            tags=[base_tag, 'beam_line']
         )
 
         # Draw the start and end point guide lines
@@ -105,7 +100,7 @@ class BeamDrawerMixin:
             width_mm=.25,
             dash=True,
             dash_pattern_mm=[1, 2],
-            tags=[base_tag, marker_tag]
+            tags=[base_tag, 'beam_start_marker']
         )
         self.canvas.add_line(
             x1_mm=self.editor_margin + self.stave_width if hand == '>' else self.editor_margin,
@@ -116,5 +111,5 @@ class BeamDrawerMixin:
             width_mm=.25,
             dash=True,
             dash_pattern_mm=[1, 2],
-            tags=[base_tag, marker_tag]
+            tags=[base_tag, 'beam_end_marker']
         )

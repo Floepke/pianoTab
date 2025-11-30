@@ -272,7 +272,6 @@ class Editor(
             return closest_x_index + 1
         
         # Default to key 1 if no positions found
-        print('DEBUG: x_to_key_number found no positions, defaulting to key 1')
         return 1
     
     def time_to_y(self, time_ticks: float) -> float:
@@ -817,9 +816,7 @@ class Editor(
             
         Returns:
             True if event was handled
-        """
-        print(f"DEBUG Editor.handle_mouse_down: button={button}, pos=({x:.1f}, {y:.1f})")
-        
+        """        
         # Track which button is down and where
         self._mouse_button_down = button
         self._mouse_down_pos = (x, y)

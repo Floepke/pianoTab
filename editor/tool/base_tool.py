@@ -8,6 +8,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, Tuple
 from abc import ABC, abstractmethod
 
+from gui.colors import ACCENT_COLOR_HEX
+
 if TYPE_CHECKING:
     from editor.editor import Editor
     from file.SCORE import SCORE
@@ -347,7 +349,7 @@ class BaseTool(ABC):
                 continue
             
             # Skip cursor and temporary tags
-            if any(tag in ('cursor', 'cursorLine', 'edit', 'stem', 'beam_marker') for tag in tags):
+            if any(tag in ('cursor', 'cursor_line', 'edit', 'stem', 'beam_marker') for tag in tags):
                 continue
             
             # Parse tags to determine element type and ID
@@ -547,7 +549,7 @@ class BaseTool(ABC):
         """Remove the time cursor from the canvas."""
         self._cursor_time = None
         # Delete all cursor lines by tag
-        self.canvas.delete_by_tag('cursorLine')
+        self.canvas.delete_by_tag('cursor_line')
     
     def _draw_dash_cursor(self):
         """Draw or update the horizontal dashed cursor line at the current time.
@@ -558,7 +560,7 @@ class BaseTool(ABC):
         This creates a gap where the piano keys are displayed.
         """
         # Remove existing cursor lines by tag
-        self.canvas.delete_by_tag('cursorLine')
+        self.canvas.delete_by_tag('cursor_line')
 
         if self._cursor_time is None:
             return
@@ -582,36 +584,33 @@ class BaseTool(ABC):
         if left_x2 <= left_x1 and right_x2 <= right_x1:
             return
         
-        try:
-            # Draw left line (if there's space)
-            if left_x2 > left_x1:
-                self.canvas.add_line(
-                    x1_mm=left_x1,
-                    y1_mm=y_mm,
-                    x2_mm=left_x2,
-                    y2_mm=y_mm,
-                    color='#000000',
-                    width_mm=0.25,
-                    dash=True,
-                    dash_pattern_mm=(2.0, 2.0),
-                    tags=['cursorLine']
-                )
-            
-            # Draw right line (if there's space)
-            if right_x2 > right_x1:
-                self.canvas.add_line(
-                    x1_mm=right_x1,
-                    y1_mm=y_mm,
-                    x2_mm=right_x2,
-                    y2_mm=y_mm,
-                    color='#000000',
-                    width_mm=0.25,
-                    dash=True,
-                    dash_pattern_mm=(2.0, 2.0),
-                    tags=['cursorLine']
-                )
-        except Exception as e:
-            print(f'CURSOR: draw failed: {e}')
+        # Draw left line (if there's space)
+        if left_x2 > left_x1:
+            self.canvas.add_line(
+                x1_mm=left_x1,
+                y1_mm=y_mm,
+                x2_mm=left_x2,
+                y2_mm=y_mm,
+                color=ACCENT_COLOR_HEX,
+                width_mm=0.25,
+                dash=True,
+                dash_pattern_mm=(2.0, 2.0),
+                tags=['cursor_line']
+            )
+        
+        # Draw right line (if there's space)
+        if right_x2 > right_x1:
+            self.canvas.add_line(
+                x1_mm=right_x1,
+                y1_mm=y_mm,
+                x2_mm=right_x2,
+                y2_mm=y_mm,
+                color=ACCENT_COLOR_HEX,
+                width_mm=0.25,
+                dash=True,
+                dash_pattern_mm=(2.0, 2.0),
+                tags=['cursor_line']
+            )
 
     # === Helper Methods for Musical Coordinate Conversion ===
 
