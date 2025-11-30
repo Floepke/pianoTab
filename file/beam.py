@@ -81,7 +81,7 @@ class Beam:
             }
         }
     )
-    _slant: Optional[float] = field(
+    _height: Optional[float] = field(
         default=None,
         metadata={
             **config(field_name='slant'),
@@ -135,16 +135,16 @@ class Beam:
     
     # Property: slant
     @property
-    def slant(self) -> float:
+    def height(self) -> float:
         '''Get slant - inherits from globalBeam.slant if None.'''
-        if self._slant is not None:
-            return self._slant
+        if self._height is not None:
+            return self._height
         if self.score is None:
             print('Warning: Beam has no score reference for property inheritance.')
             return 5.0  # Fallback if no score reference
         return self.score.properties.globalBeam.slant
     
-    @slant.setter
-    def slant(self, value: Optional[float]):
+    @height.setter
+    def height(self, value: Optional[float]):
         '''Set slant - use None to reset to inheritance.'''
-        self._slant = value
+        self._height = value

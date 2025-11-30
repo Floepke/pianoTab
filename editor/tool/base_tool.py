@@ -254,6 +254,62 @@ class BaseTool(ABC):
     
     # === Helper Methods ===
     
+    def _point_to_line_distance(self, px: float, py: float, 
+                                x1: float, y1: float, x2: float, y2: float) -> float:
+        """
+        Calculate the perpendicular distance from a point to a line segment.
+        
+        Args:
+            px, py: Point coordinates
+            x1, y1: Line segment start
+            x2, y2: Line segment end
+            
+        Returns:
+            Distance from point to line segment
+        """
+        # Vector from line start to end
+        dx = x2 - x1
+        dy = y2 - y1
+        
+        # If line segment is actually a point, return distance to that point
+        line_length_sq = dx * dx + dy * dy
+        if line_length_sq < 1e-10:
+            return ((px - x1) ** 2 + (py - y1) ** 2) ** 0.5
+        
+        # Project point onto line (parameter t)
+        t = max(0, min(1, ((px - x1) * dx + (py - y1) * dy) / line_length_sq))
+        
+        # Find closest point on line segment
+        closest_x = x1 + t * dx
+        closest_y = y1 + t * dy
+        
+        # Return distance to closest point
+        return ((px - closest_x) ** 2 + (py - closest_y) ** 2) ** 0.5
+    
+    def is_point_near_line(self, px: float, py: float,
+                          x1: float, y1: float, x2: float, y2: float,
+                          line_width_mm: float) -> bool:
+        """
+        Check if a point is within the clickable area of a thick line.
+        
+        Creates a rectangle around the line based on its width and checks if the point falls inside.
+        
+        Args:
+            px, py: Point coordinates to test
+            x1, y1: Line segment start
+            x2, y2: Line segment end
+            line_width_mm: Width of the line in mm (creates hit area of width/2 on each side)
+            
+        Returns:
+            True if point is within the line's hit area, False otherwise
+        """
+        # Calculate perpendicular distance from point to line
+        distance = self._point_to_line_distance(px, py, x1, y1, x2, y2)
+        
+        # Hit if within half the line width (plus a small tolerance for easier clicking)
+        tolerance = (line_width_mm / 2.0) + 0.5  # Add 0.5mm tolerance
+        return distance <= tolerance
+    
     def get_element_at_position(self, x: float, y: float, element_types=None):
         """
         Find score element at the given position using canvas item hit detection.
@@ -291,7 +347,7 @@ class BaseTool(ABC):
                 continue
             
             # Skip cursor and temporary tags
-            if any(tag in ('cursor', 'cursorLine', 'select/edit', 'stem') for tag in tags):
+            if any(tag in ('cursor', 'cursorLine', 'edit', 'stem', 'beam_marker') for tag in tags):
                 continue
             
             # Parse tags to determine element type and ID

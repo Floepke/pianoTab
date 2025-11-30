@@ -59,7 +59,7 @@ class SCORE:
         hand: Literal['<', '>'] = "<",
         color: Optional[str] = None,
         width: Optional[float] = None,
-        slant: Optional[float] = None,
+        height: Optional[float] = None,
     ) -> Beam: ...
 
     def new_text(

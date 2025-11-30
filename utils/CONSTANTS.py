@@ -79,7 +79,7 @@ def get_visual_semitone_positions():
     The DRAWING_LAYERS list establishes the rendering sequence where:
     - Layer 0 (midinote) forms the background
     - Middle layers (1-22) contain musical notation elements
-    - Layer 23 (select/edit) shows user selections and edit highlights
+    - Layer 23 (edit) shows user selections and edit highlights
     - Layer 24 (cursor) is always drawn on top
 
     TAG_TO_LAYER provides O(1) lookup from layer tag names to their numerical z-index,

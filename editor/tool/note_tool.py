@@ -228,8 +228,8 @@ class NoteTool(BaseTool):
             self.edit_note.hand = self.hand_cursor
             self.edit_note.accidental = self.accidental_cursor
             
-            # Redraw in 'select/edit' mode for visual feedback
-            self.editor._draw_single_note(stave_idx, self.edit_note, draw_mode='select/edit')
+            # Redraw in 'edit' mode for visual feedback
+            self.editor._draw_single_note(stave_idx, self.edit_note, draw_mode='edit')
             
             print(f"NoteTool: Editing note {element.id} from stave {stave_idx}, assigned hand '{self.hand_cursor}', accidental {self.accidental_cursor}")
             return True
@@ -263,8 +263,8 @@ class NoteTool(BaseTool):
         )
         self.edit_stave_idx = stave_idx
         
-        # Draw in 'select/edit' mode
-        self.editor._draw_single_note(stave_idx, self.edit_note, draw_mode='select/edit')
+        # Draw in 'edit' mode
+        self.editor._draw_single_note(stave_idx, self.edit_note, draw_mode='edit')
         
         # Mark as modified (which will trigger engraving via FileManager)
         if hasattr(self.editor, 'on_modified') and self.editor.on_modified:
@@ -308,8 +308,8 @@ class NoteTool(BaseTool):
                     self.edit_note.duration = max_duration
                 # If max_duration <= 0, keep current duration (don't update)
         
-        # Redraw in 'select/edit' mode
-        self.editor._draw_single_note(self.edit_stave_idx, self.edit_note, draw_mode='select/edit')
+        # Redraw in 'edit' mode
+        self.editor._draw_single_note(self.edit_stave_idx, self.edit_note, draw_mode='edit')
 
         # Delete any existing cursor drawing
         self.editor.canvas.delete_by_tag('cursor')
@@ -327,8 +327,8 @@ class NoteTool(BaseTool):
         stave = self.editor.score.stave[self.edit_stave_idx]
         stave.event.note.sort(key=lambda n: n.time)
         
-        # Delete 'select/edit' drawing and redraw as 'note'
-        self.editor.canvas.delete_by_tag('select/edit')
+        # Delete 'edit' drawing and redraw as 'note'
+        self.editor.canvas.delete_by_tag('edit')
         self.editor._draw_single_note(self.edit_stave_idx, self.edit_note, draw_mode='note')
         
         # Redraw overlapping notes to update their continuation dots
@@ -430,8 +430,8 @@ class NoteTool(BaseTool):
         stave = self.editor.score.stave[self.edit_stave_idx]
         stave.event.note.sort(key=lambda n: n.time)
         
-        # Delete 'select/edit' drawing and redraw as 'note'
-        self.editor.canvas.delete_by_tag('select/edit')
+        # Delete 'edit' drawing and redraw as 'note'
+        self.editor.canvas.delete_by_tag('edit')
         self.editor._draw_single_note(self.edit_stave_idx, self.edit_note, draw_mode='note')
         
         # Redraw overlapping notes to update their continuation dots

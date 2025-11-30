@@ -57,16 +57,16 @@ class NoteDrawerMixin:
             self._draw_single_note(stave_idx, note)
 
     def _draw_single_note(self, stave_idx: int, note: Note, 
-                          draw_mode: Optional[Literal['note', 'cursor', 'select/edit', 'selected']] = 'note') -> None:
+                          draw_mode: Optional[Literal['note', 'cursor', 'edit', 'selected']] = 'note') -> None:
         '''Draw a single note event.
 
         Args:
             stave_idx: Index of the stave containing the note.
             note: The note event to draw.
-            draw_mode: The type of single note ('note', 'cursor' or 'select/edit')
+            draw_mode: The type of single note ('note', 'cursor' or 'edit')
                 - 'note': regular note drawing
                 - 'cursor': draw as cursor (accent color), don't draw the midinote
-                - 'select/edit': draw as select/edit note (accent color)
+                - 'edit': draw as edit note (accent color)
                 - 'selected': draw as selected note (accent color)
         '''
         # Guard against startup race condition
@@ -100,12 +100,12 @@ class NoteDrawerMixin:
         elif draw_mode == 'cursor':
             self.canvas.delete_by_tag('cursor')
             base_tag = 'cursor'
-        else:  # 'select/edit'
-            self.canvas.delete_by_tag('select/edit')
-            base_tag = 'select/edit'
+        else:  # 'edit'
+            self.canvas.delete_by_tag('edit')
+            base_tag = 'edit'
         
         # Determine color
-        if draw_mode in ('cursor', 'select/edit', 'selected'):
+        if draw_mode in ('cursor', 'edit', 'selected'):
             color = ACCENT_COLOR_HEX
         else:
             color = note.color
@@ -114,7 +114,7 @@ class NoteDrawerMixin:
     
     def _draw_midinote(self, note: Note, draw_mode: str, base_tag: str, color: str) -> None:
         '''Draw the midinote rectangle (background note representation).'''
-        if draw_mode in ('note', 'select/edit', 'selected'):
+        if draw_mode in ('note', 'edit', 'selected'):
             # Calculate positions
             x = self.pitch_to_x(note.pitch)
             y = self.time_to_y(note.time)
@@ -448,7 +448,7 @@ class NoteDrawerMixin:
         return self._time_op.greater(min_time_gap, 0)
 
     def _draw_note_continuation_dot(self, stave_idx: int, note: Note, 
-                                 draw_mode: Optional[Literal['note', 'cursor', 'select/edit', 'selected']] = 'note') -> None:
+                                 draw_mode: Optional[Literal['note', 'cursor', 'edit', 'selected']] = 'note') -> None:
         '''Draw a note continuation dot for a single note event.
 
         Args:
@@ -461,10 +461,10 @@ class NoteDrawerMixin:
                 - if another note time is found in the duration range we draw the dot at that time position on the current midinote.
                 - if another note time+duration is found in the duration range we draw the dot at that time position on the current midinote.
 
-            draw_mode: The type of single note ('note', 'cursor', 'select/edit' or 'selected')
+            draw_mode: The type of single note ('note', 'cursor', 'edit' or 'selected')
                 - 'note': regular note drawing
                 - 'cursor': draw as cursor (accent color), don't draw the midinote
-                - 'select/edit': draw as select/edit note (accent color)
+                - 'edit': draw as edit note (accent color)
                 - 'selected': draw as selected note (accent color)
         '''
         # Don't draw continuation dots for cursor mode
@@ -555,10 +555,10 @@ class NoteDrawerMixin:
         # Determine base tag and color (same as in _draw_single_note)
         if draw_mode in ('note', 'selected'):
             base_tag = str(note.id)
-        else:  # 'select/edit'
-            base_tag = 'select/edit'
+        else:  # 'edit'
+            base_tag = 'edit'
         
-        if draw_mode in ('select/edit', 'selected'):
+        if draw_mode in ('edit', 'selected'):
             color = ACCENT_COLOR_HEX
         else:
             color = note.color

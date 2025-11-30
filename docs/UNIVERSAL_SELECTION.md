@@ -85,7 +85,7 @@ Selection uses **direct coordinate checking**:
 Notes can be drawn in different modes:
 - `'note'`: Regular note (black)
 - `'cursor'`: Preview note (accent color)
-- `'select/edit'`: Note being edited (accent color)
+- `'edit'`: Note being edited (accent color)
 - `'selected'`: Selected note (accent color) ← Used by SelectionManager
 
 ## Implementation Files

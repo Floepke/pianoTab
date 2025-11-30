@@ -516,9 +516,6 @@ class GridSelector(BoxLayout):
         quarter_note_unit = QUARTER_NOTE_TICKS  # Fallback default
         if self.score:
             quarter_note_unit = self.score.fileSettings.quarterNoteUnit
-            print(f'GridSelector.get_grid_step(): Reading quarterNoteUnit = {quarter_note_unit} from score')
-        else:
-            print(f'GridSelector.get_grid_step(): self.score is None, using fallback = {quarter_note_unit}')
         
         # Calculate grid ticks based on selected grid name
         grid_ticks = quarter_note_unit  # Default to quarter note

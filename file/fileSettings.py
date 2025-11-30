@@ -32,7 +32,7 @@ class FileSettings:
             }
         }
     )
-    _editorRenderedStave: int = field(
+    editorRenderedStave: int = field(
         default=1,
         metadata={
             'tree_icon': 'property',
@@ -60,11 +60,11 @@ class FileSettings:
     
     def get_editor_rendered_stave(self) -> int:
         '''Get the current rendered stave index (1-based for user interface).'''
-        return self._editorRenderedStave
+        return self.editorRenderedStave
     
     def set_editor_rendered_stave(self, value: int):
         '''Set the current rendered stave index (1-based for user interface).'''
-        self._editorRenderedStave = max(1, int(value))
+        self.editorRenderedStave = max(1, int(value))
     
     def get_rendered_stave_index(self, num_staves: int = None) -> int:
         '''Get the 0-based stave index for internal use.
@@ -76,11 +76,11 @@ class FileSettings:
         Returns:
             0-based stave index, wrapped if num_staves is provided.
         '''
-        index = max(0, self._editorRenderedStave - 1)
+        index = max(0, self.editorRenderedStave - 1)
         if num_staves is not None and num_staves > 0:
             index = index % num_staves
         return index
     
     def set_rendered_stave_index(self, index: int):
         '''Set the 0-based stave index for internal use.'''
-        self._editorRenderedStave = max(1, index + 1)
+        self.editorRenderedStave = max(1, index + 1)
