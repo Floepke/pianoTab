@@ -131,7 +131,7 @@ class NoteDrawerMixin:
                 fill=True,
                 fill_color=note.colorMidiNote if draw_mode == 'note' else color,
                 outline=False,
-                tags=['midinote', base_tag]
+                tags=['midi_note', base_tag]
             )
     
     def _draw_notestop(self, stave_idx: int, note: Note, base_tag: str, color: str) -> None:
@@ -153,7 +153,7 @@ class NoteDrawerMixin:
                 fill=True,
                 fill_color=color,
                 outline=False,
-                tags=['stopsign', base_tag]
+                tags=['stop_sign', base_tag]
             )
     
     def _draw_notehead(self, note: Note, base_tag: str, color: str) -> None:
@@ -176,9 +176,9 @@ class NoteDrawerMixin:
         
         # determine tag for notehead type
         if note.pitch in BLACK_KEYS:
-            tag = 'noteheadblack'
+            tag = 'notehead_black'
         else:
-            tag = 'noteheadwhite'
+            tag = 'notehead_white'
 
         # Draw the notehead
         self.canvas.add_oval(
@@ -226,7 +226,7 @@ class NoteDrawerMixin:
                 fill=True,
                 fill_color=color if note.pitch not in BLACK_KEYS else '#FFFFFF',
                 outline=False,
-                tags=['leftdot', base_tag]
+                tags=['left_dot', base_tag]
             )
     
     def _draw_accidental(self, note: Note, base_tag: str, color: str) -> None:
@@ -316,7 +316,7 @@ class NoteDrawerMixin:
                     y2_mm=y,
                     width_mm=self.score.properties.globalBasegrid.barlineWidthMm,
                     color='#FFFFFF',
-                    tags=['stemwhitespace', base_tag],
+                    tags=['stem_white_space', base_tag],
                     cap='flat'
                 )
             else:
@@ -328,7 +328,7 @@ class NoteDrawerMixin:
                     y2_mm=y,
                     width_mm=self.score.properties.globalBasegrid.barlineWidthMm,
                     color='#FFFFFF',
-                    tags=['stemwhitespace', base_tag],
+                    tags=['stem_white_space', base_tag],
                     cap='flat'
                 )
 
@@ -377,10 +377,10 @@ class NoteDrawerMixin:
                     y2_mm=y2,
                     width_mm=self.score.properties.globalNote.stemWidthMm,
                     color=color,
-                    tags=['connectstem', base_tag]
+                    tags=['connect_stem', base_tag]
                 )
 
-                # draw stemwhitespace for chord connection if on barline
+                # draw stem_white_space for chord connection if on barline
                 if any(self._time_op.equal(note.time, barline_time) for barline_time in self.get_barline_positions()):
                     self.canvas.add_line(
                         x1_mm=x1,
@@ -389,7 +389,7 @@ class NoteDrawerMixin:
                         y2_mm=y1,
                         width_mm=self.score.properties.globalBasegrid.barlineWidthMm,
                         color='#FFFFFF',
-                        tags=['stemwhitespace', base_tag],
+                        tags=['stem_white_space', base_tag],
                         cap='flat'
                     )
 
@@ -581,7 +581,7 @@ class NoteDrawerMixin:
                 fill=True,
                 fill_color=color,
                 outline=False,
-                tags=['leftdot', base_tag]
+                tags=['left_dot', base_tag]
             )
 
     def _redraw_overlapping_notes(self, stave_idx: int, note: Note) -> None:

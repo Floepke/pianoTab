@@ -1,1 +1,443 @@
-{"metaInfo":{"appName":"pianoTAB","extension":".piano","description":"pianoTAB score file","version":"1.0","author":"pianoTAB Team","license":"MIT"},"header":{"title":"myTitle","subtitle":"mySubtitle","composer":"myComposer","arranger":"","lyricist":"","publisher":"","copyright":"Copyright \u00a9 2025, pianoTAB. All rights reserved.","created":"30-11-2025_13:12:05","modificationStamp":"30-11-2025_18:00:54","genre":"","comment":""},"properties":{"globalNote":{"color":"#000000","colorLeftMidiNote":"#dddddd","colorRightMidiNote":"#dddddd","stemWidthMm":0.25,"stemLengthMm":10,"beamWidthMm":0.25,"blackNoteDirection":"v","leftDotSizeScale":0.3,"noteHeadVisible?":true,"stemVisible?":true,"midiNoteVisible?":true,"accidentalVisible?":true,"noteStopVisible?":true,"continuationDotVisible?":true,"leftDotVisible?":true,"stopSignType":"pianoTAB","stopSignColor":"#000000"},"globalArticulation":{"color":"#000000","visible?":true},"globalBeam":{"color":"#000000","widthMm":4,"slant":5,"visible?":true},"globalGraceNote":{"color":"#000000","visible?":true},"globalCountLine":{"color":"#000000","widthMm":1,"dashPattern":[],"visible?":true},"globalSlur":{"color":"#000000","middleWidthMm":1,"startEndWidthMm":0.5,"visible?":true},"globalText":{"size":12,"color":"#000000","visible?":true},"globalBasegrid":{"gridlineColor":"#000000","gridlineWidthMm":0.125,"gridlineDashPattern":[2,2],"gridlineVisible?":true,"barlineColor":"#000000","barlineWidthMm":0.25,"barlineVisible?":true},"globalMeasureNumbering":{"color":"#000000","fontSize":12,"measureNumberingVisible?":true,"inStepsOf":1,"skipCount":[],"numberAtStartOfLine?":false},"globalStave":{"twoLineColor":"#000000","threeLineColor":"#000000","clefColor":"#000000","twoLineWidth":0.125,"threeLineWidth":0.25,"clefWidth":0.125,"visible?":true,"clefDashPattern":[2,2]},"globalPage":{"width":210,"height":297,"marginLeft":5,"marginRight":5,"marginUp":10,"marginDown":10,"headerHeight":12.5,"footerHeight":12.5},"globalSection":{"color":"#000000","lineWidth":1,"visible?":true},"globalStartRepeat":{"color":"#000000","lineWidth":1,"visible?":true},"globalEndrepeat":{"color":"#000000","lineWidth":1,"visible?":true}},"baseGrid":[{"numerator":4,"denominator":4,"gridTimes":[256,512,768],"measureAmount":8,"timeSignatureIndicatorVisible?":true}],"lineBreak":[{"id":11,"time":0.0,"type":"locked","staveRange":[{"lowestKey":0,"highestKey":0}]}],"stave":[{"name":"Stave 1","scale":1,"event":{"note":[{"id":1,"time":0,"duration":128,"pitch":40,"accidental":0,"velocity":100,"art":[],"hand":">","color":null,"colorMidiNote":null,"blackNoteDirection":null,"stemLengthMm":null,"stopSignColor":null},{"id":2,"time":128,"duration":128,"pitch":42,"accidental":0,"velocity":100,"art":[],"hand":">","color":null,"colorMidiNote":null,"blackNoteDirection":null,"stemLengthMm":null,"stopSignColor":null},{"id":3,"time":256,"duration":128,"pitch":44,"accidental":0,"velocity":100,"art":[],"hand":">","color":null,"colorMidiNote":null,"blackNoteDirection":null,"stemLengthMm":null,"stopSignColor":null},{"id":4,"time":384,"duration":128,"pitch":45,"accidental":0,"velocity":100,"art":[],"hand":">","color":null,"colorMidiNote":null,"blackNoteDirection":null,"stemLengthMm":null,"stopSignColor":null},{"id":5,"time":512,"duration":128,"pitch":47,"accidental":0,"velocity":100,"art":[],"hand":">","color":null,"colorMidiNote":null,"blackNoteDirection":null,"stemLengthMm":null,"stopSignColor":null},{"id":6,"time":640,"duration":128,"pitch":44,"accidental":0,"velocity":100,"art":[],"hand":">","color":null,"colorMidiNote":null,"blackNoteDirection":null,"stemLengthMm":null,"stopSignColor":null},{"id":7,"time":768,"duration":128,"pitch":47,"accidental":0,"velocity":100,"art":[],"hand":">","color":null,"colorMidiNote":null,"blackNoteDirection":null,"stemLengthMm":null,"stopSignColor":null},{"id":8,"time":896.0,"duration":128.0,"pitch":40,"accidental":0,"velocity":100,"art":[],"hand":">","color":null,"colorMidiNote":null,"blackNoteDirection":null,"stemLengthMm":null,"stopSignColor":null},{"id":12,"time":0.0,"duration":128,"pitch":28,"accidental":0,"velocity":100,"art":[],"hand":"<","color":null,"colorMidiNote":null,"blackNoteDirection":null,"stemLengthMm":null,"stopSignColor":null},{"id":13,"time":128.0,"duration":128,"pitch":30,"accidental":0,"velocity":100,"art":[],"hand":"<","color":null,"colorMidiNote":null,"blackNoteDirection":null,"stemLengthMm":null,"stopSignColor":null},{"id":14,"time":256.0,"duration":128,"pitch":32,"accidental":0,"velocity":100,"art":[],"hand":"<","color":null,"colorMidiNote":null,"blackNoteDirection":null,"stemLengthMm":null,"stopSignColor":null},{"id":15,"time":384.0,"duration":128,"pitch":33,"accidental":0,"velocity":100,"art":[],"hand":"<","color":null,"colorMidiNote":null,"blackNoteDirection":null,"stemLengthMm":null,"stopSignColor":null},{"id":16,"time":512.0,"duration":128,"pitch":35,"accidental":0,"velocity":100,"art":[],"hand":"<","color":null,"colorMidiNote":null,"blackNoteDirection":null,"stemLengthMm":null,"stopSignColor":null},{"id":17,"time":640.0,"duration":128,"pitch":32,"accidental":0,"velocity":100,"art":[],"hand":"<","color":null,"colorMidiNote":null,"blackNoteDirection":null,"stemLengthMm":null,"stopSignColor":null},{"id":18,"time":768.0,"duration":128,"pitch":35,"accidental":0,"velocity":100,"art":[],"hand":"<","color":null,"colorMidiNote":null,"blackNoteDirection":null,"stemLengthMm":null,"stopSignColor":null},{"id":19,"time":896.0,"duration":128.0,"pitch":28,"accidental":0,"velocity":100,"art":[],"hand":"<","color":null,"colorMidiNote":null,"blackNoteDirection":null,"stemLengthMm":null,"stopSignColor":null}],"graceNote":[],"countLine":[],"startRepeat":[],"endRepeat":[],"section":[],"beam":[{"id":9,"time":0.0,"duration":256.0,"hand":"<","color":null,"width":null,"slant":null},{"id":10,"time":0.0,"duration":256.0,"hand":">","color":null,"width":null,"slant":null}],"text":[],"slur":[],"tempo":[]}}],"fileSettings":{"quarterNoteUnit":256,"zoomPixelsQuarter":207.35999999999999,"editorRenderedStave":1,"drawScale":0.75}}
+{
+    "metaInfo": {
+        "appName": "pianoTAB",
+        "extension": ".piano",
+        "description": "pianoTAB score file",
+        "version": "1.0",
+        "author": "pianoTAB Team",
+        "license": "MIT"
+    },
+    "header": {
+        "title": "myTitle",
+        "subtitle": "mySubtitle",
+        "composer": "myComposer",
+        "arranger": "",
+        "lyricist": "",
+        "publisher": "",
+        "copyright": "Copyright © 2025, pianoTAB. All rights reserved.",
+        "created": "30-11-2025_13:12:05",
+        "modificationStamp": "30-11-2025_19:45:05",
+        "genre": "",
+        "comment": ""
+    },
+    "properties": {
+        "globalNote": {
+            "color": "#000000",
+            "colorLeftMidiNote": "#dddddd",
+            "colorRightMidiNote": "#dddddd",
+            "stemWidthMm": 0.25,
+            "stemLengthMm": 10,
+            "beamWidthMm": 0.25,
+            "blackNoteDirection": "v",
+            "leftDotSizeScale": 0.3,
+            "noteHeadVisible?": true,
+            "stemVisible?": true,
+            "midiNoteVisible?": true,
+            "accidentalVisible?": true,
+            "noteStopVisible?": true,
+            "continuationDotVisible?": true,
+            "leftDotVisible?": true,
+            "stopSignType": "pianoTAB",
+            "stopSignColor": "#000000"
+        },
+        "globalArticulation": {
+            "color": "#000000",
+            "visible?": true
+        },
+        "globalBeam": {
+            "color": "#000000",
+            "widthMm": 4,
+            "slant": 5,
+            "visible?": true
+        },
+        "globalGraceNote": {
+            "color": "#000000",
+            "visible?": true
+        },
+        "globalCountLine": {
+            "color": "#000000",
+            "widthMm": 1,
+            "dashPattern": [],
+            "visible?": true
+        },
+        "globalSlur": {
+            "color": "#000000",
+            "middleWidthMm": 1,
+            "startEndWidthMm": 0.5,
+            "visible?": true
+        },
+        "globalText": {
+            "size": 12,
+            "color": "#000000",
+            "visible?": true
+        },
+        "globalBasegrid": {
+            "gridlineColor": "#000000",
+            "gridlineWidthMm": 0.125,
+            "gridlineDashPattern": [
+                2,
+                2
+            ],
+            "gridlineVisible?": true,
+            "barlineColor": "#000000",
+            "barlineWidthMm": 0.25,
+            "barlineVisible?": true
+        },
+        "globalMeasureNumbering": {
+            "color": "#000000",
+            "fontSize": 12,
+            "measureNumberingVisible?": true,
+            "inStepsOf": 1,
+            "skipCount": [],
+            "numberAtStartOfLine?": false
+        },
+        "globalStave": {
+            "twoLineColor": "#000000",
+            "threeLineColor": "#000000",
+            "clefColor": "#000000",
+            "twoLineWidth": 0.125,
+            "threeLineWidth": 0.25,
+            "clefWidth": 0.125,
+            "visible?": true,
+            "clefDashPattern": [
+                2,
+                2
+            ]
+        },
+        "globalPage": {
+            "width": 210,
+            "height": 297,
+            "marginLeft": 5,
+            "marginRight": 5,
+            "marginUp": 10,
+            "marginDown": 10,
+            "headerHeight": 12.5,
+            "footerHeight": 12.5
+        },
+        "globalSection": {
+            "color": "#000000",
+            "lineWidth": 1,
+            "visible?": true
+        },
+        "globalStartRepeat": {
+            "color": "#000000",
+            "lineWidth": 1,
+            "visible?": true
+        },
+        "globalEndrepeat": {
+            "color": "#000000",
+            "lineWidth": 1,
+            "visible?": true
+        }
+    },
+    "baseGrid": [
+        {
+            "numerator": 4,
+            "denominator": 4,
+            "gridTimes": [
+                256,
+                512,
+                768
+            ],
+            "measureAmount": 8,
+            "timeSignatureIndicatorVisible?": true
+        }
+    ],
+    "lineBreak": [
+        {
+            "id": 19,
+            "time": 0,
+            "type": "locked",
+            "staveRange": [
+                {
+                    "lowestKey": 0,
+                    "highestKey": 0
+                }
+            ]
+        }
+    ],
+    "stave": [
+        {
+            "name": "Stave 1",
+            "scale": 1,
+            "event": {
+                "note": [
+                    {
+                        "id": 1,
+                        "time": 0,
+                        "duration": 128,
+                        "pitch": 40,
+                        "accidental": 0,
+                        "velocity": 100,
+                        "art": [],
+                        "hand": ">",
+                        "color": null,
+                        "colorMidiNote": null,
+                        "blackNoteDirection": null,
+                        "stemLengthMm": null,
+                        "stopSignColor": null
+                    },
+                    {
+                        "id": 2,
+                        "time": 128,
+                        "duration": 128,
+                        "pitch": 42,
+                        "accidental": 0,
+                        "velocity": 100,
+                        "art": [],
+                        "hand": ">",
+                        "color": null,
+                        "colorMidiNote": null,
+                        "blackNoteDirection": null,
+                        "stemLengthMm": null,
+                        "stopSignColor": null
+                    },
+                    {
+                        "id": 3,
+                        "time": 256,
+                        "duration": 128,
+                        "pitch": 44,
+                        "accidental": 0,
+                        "velocity": 100,
+                        "art": [],
+                        "hand": ">",
+                        "color": null,
+                        "colorMidiNote": null,
+                        "blackNoteDirection": null,
+                        "stemLengthMm": null,
+                        "stopSignColor": null
+                    },
+                    {
+                        "id": 4,
+                        "time": 384,
+                        "duration": 128,
+                        "pitch": 45,
+                        "accidental": 0,
+                        "velocity": 100,
+                        "art": [],
+                        "hand": ">",
+                        "color": null,
+                        "colorMidiNote": null,
+                        "blackNoteDirection": null,
+                        "stemLengthMm": null,
+                        "stopSignColor": null
+                    },
+                    {
+                        "id": 5,
+                        "time": 512,
+                        "duration": 128,
+                        "pitch": 47,
+                        "accidental": 0,
+                        "velocity": 100,
+                        "art": [],
+                        "hand": ">",
+                        "color": null,
+                        "colorMidiNote": null,
+                        "blackNoteDirection": null,
+                        "stemLengthMm": null,
+                        "stopSignColor": null
+                    },
+                    {
+                        "id": 6,
+                        "time": 640,
+                        "duration": 128,
+                        "pitch": 44,
+                        "accidental": 0,
+                        "velocity": 100,
+                        "art": [],
+                        "hand": ">",
+                        "color": null,
+                        "colorMidiNote": null,
+                        "blackNoteDirection": null,
+                        "stemLengthMm": null,
+                        "stopSignColor": null
+                    },
+                    {
+                        "id": 7,
+                        "time": 768,
+                        "duration": 128,
+                        "pitch": 47,
+                        "accidental": 0,
+                        "velocity": 100,
+                        "art": [],
+                        "hand": ">",
+                        "color": null,
+                        "colorMidiNote": null,
+                        "blackNoteDirection": null,
+                        "stemLengthMm": null,
+                        "stopSignColor": null
+                    },
+                    {
+                        "id": 8,
+                        "time": 896,
+                        "duration": 128,
+                        "pitch": 40,
+                        "accidental": 0,
+                        "velocity": 100,
+                        "art": [],
+                        "hand": ">",
+                        "color": null,
+                        "colorMidiNote": null,
+                        "blackNoteDirection": null,
+                        "stemLengthMm": null,
+                        "stopSignColor": null
+                    },
+                    {
+                        "id": 9,
+                        "time": 0,
+                        "duration": 128,
+                        "pitch": 28,
+                        "accidental": 0,
+                        "velocity": 100,
+                        "art": [],
+                        "hand": "<",
+                        "color": null,
+                        "colorMidiNote": null,
+                        "blackNoteDirection": null,
+                        "stemLengthMm": null,
+                        "stopSignColor": null
+                    },
+                    {
+                        "id": 10,
+                        "time": 128,
+                        "duration": 128,
+                        "pitch": 30,
+                        "accidental": 0,
+                        "velocity": 100,
+                        "art": [],
+                        "hand": "<",
+                        "color": null,
+                        "colorMidiNote": null,
+                        "blackNoteDirection": null,
+                        "stemLengthMm": null,
+                        "stopSignColor": null
+                    },
+                    {
+                        "id": 11,
+                        "time": 256,
+                        "duration": 128,
+                        "pitch": 32,
+                        "accidental": 0,
+                        "velocity": 100,
+                        "art": [],
+                        "hand": "<",
+                        "color": null,
+                        "colorMidiNote": null,
+                        "blackNoteDirection": null,
+                        "stemLengthMm": null,
+                        "stopSignColor": null
+                    },
+                    {
+                        "id": 12,
+                        "time": 384,
+                        "duration": 128,
+                        "pitch": 33,
+                        "accidental": 0,
+                        "velocity": 100,
+                        "art": [],
+                        "hand": "<",
+                        "color": null,
+                        "colorMidiNote": null,
+                        "blackNoteDirection": null,
+                        "stemLengthMm": null,
+                        "stopSignColor": null
+                    },
+                    {
+                        "id": 13,
+                        "time": 512,
+                        "duration": 128,
+                        "pitch": 35,
+                        "accidental": 0,
+                        "velocity": 100,
+                        "art": [],
+                        "hand": "<",
+                        "color": null,
+                        "colorMidiNote": null,
+                        "blackNoteDirection": null,
+                        "stemLengthMm": null,
+                        "stopSignColor": null
+                    },
+                    {
+                        "id": 14,
+                        "time": 640,
+                        "duration": 128,
+                        "pitch": 32,
+                        "accidental": 0,
+                        "velocity": 100,
+                        "art": [],
+                        "hand": "<",
+                        "color": null,
+                        "colorMidiNote": null,
+                        "blackNoteDirection": null,
+                        "stemLengthMm": null,
+                        "stopSignColor": null
+                    },
+                    {
+                        "id": 15,
+                        "time": 768,
+                        "duration": 128,
+                        "pitch": 35,
+                        "accidental": 0,
+                        "velocity": 100,
+                        "art": [],
+                        "hand": "<",
+                        "color": null,
+                        "colorMidiNote": null,
+                        "blackNoteDirection": null,
+                        "stemLengthMm": null,
+                        "stopSignColor": null
+                    },
+                    {
+                        "id": 16,
+                        "time": 896,
+                        "duration": 128,
+                        "pitch": 28,
+                        "accidental": 0,
+                        "velocity": 100,
+                        "art": [],
+                        "hand": "<",
+                        "color": null,
+                        "colorMidiNote": null,
+                        "blackNoteDirection": null,
+                        "stemLengthMm": null,
+                        "stopSignColor": null
+                    }
+                ],
+                "graceNote": [],
+                "countLine": [],
+                "startRepeat": [],
+                "endRepeat": [],
+                "section": [],
+                "beam": [
+                    {
+                        "id": 17,
+                        "time": 0,
+                        "duration": 256,
+                        "hand": "<",
+                        "color": null,
+                        "width": null,
+                        "slant": null
+                    },
+                    {
+                        "id": 18,
+                        "time": 0,
+                        "duration": 256,
+                        "hand": ">",
+                        "color": null,
+                        "width": null,
+                        "slant": null
+                    }
+                ],
+                "text": [],
+                "slur": [],
+                "tempo": []
+            }
+        }
+    ],
+    "fileSettings": {
+        "quarterNoteUnit": 256,
+        "zoomPixelsQuarter": 207.35999999999999,
+        "editorRenderedStave": 1,
+        "drawScale": 0.75
+    }
+}

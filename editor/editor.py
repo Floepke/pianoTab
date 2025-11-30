@@ -856,6 +856,7 @@ class Editor(
         # Determine if it was a drag based on tool's internal state
         # The tool's on_mouse_move already detected and handled dragging
         # We just need to dispatch the release event
+        
         if button == 'left':
             # Check if selection manager wants to handle this (if it's drawing rectangle)
             if self.selection_manager.on_left_release(x, y):

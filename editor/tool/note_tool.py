@@ -61,10 +61,6 @@ class NoteTool(BaseTool):
     
     def _set_selection_left(self):
         """Set all selected notes to left hand."""
-        # if not hasattr(self.editor, 'selection_manager'):
-        #     return
-        # if not self.editor.selection_manager.has_selection():
-        #     return
         
         self.editor.selection_manager._assign_selection_hand('<')
         
@@ -73,10 +69,6 @@ class NoteTool(BaseTool):
     
     def _set_selection_right(self):
         """Set all selected notes to right hand."""
-        # if not hasattr(self.editor, 'selection_manager'):
-        #     return
-        # if not self.editor.selection_manager.has_selection():
-        #     return
         
         self.editor.selection_manager._assign_selection_hand('>')
         

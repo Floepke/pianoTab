@@ -36,19 +36,70 @@ class GraceNoteDrawerMixin:
         # Draw grace notes from the currently rendered stave
         stave = self.score.stave[stave_idx]
         for gracenote in stave.event.graceNote:
-            self._draw_single_grace_note(stave_idx, gracenote)
+            self._draw_single_gracenote(stave_idx, gracenote)
 
-    def _draw_single_grace_note(self, stave_idx: int, gracenote: GraceNote) -> None:
+    def _draw_single_gracenote(self, stave_idx: int, gracenote: GraceNote, 
+                               draw_mode: str = 'grace_note') -> None:
         '''Draw a single grace note event.
 
         Args:
             stave_idx: Index of the stave containing the grace note.
             gracenote: The grace note event to draw.
+            draw_mode: The type of drawing ('grace_note', 'cursor', 'edit', 'selected')
+                - 'grace_note': regular grace note drawing
+                - 'cursor': draw as cursor (accent color)
+                - 'edit': draw as edit grace note (accent color)
+                - 'selected': draw as selected grace note (accent color)
         '''
-        # TODO: Implement grace note drawing
-        # - Grace notes are typically smaller than regular notes
-        # - Calculate x position: self.key_number_to_x_mm(gracenote.pitch)
-        # - Calculate y position: self.time_to_y_mm(gracenote.time)
-        # - Draw smaller rectangle: self.canvas.add_rectangle(...)
-        # - Tag with ['graceNotes', f'gracenote_{stave_idx}_{gracenote.id}']
-        pass
+        from gui.colors import ACCENT_COLOR_HEX
+        from utils.CONSTANTS import BLACK_KEYS
+        
+        # Guard against startup race condition
+        if not self.score:
+            return
+        
+        # Setup: tags and color
+        if draw_mode in ('grace_note', 'selected'):
+            self.canvas.delete_by_tag(str(gracenote.id))
+            base_tag = str(gracenote.id)
+        elif draw_mode == 'cursor':
+            self.canvas.delete_by_tag('cursor')
+            base_tag = 'cursor'
+        else:  # 'edit'
+            self.canvas.delete_by_tag('edit')
+            base_tag = 'edit'
+        
+        # Determine color
+        if draw_mode in ('cursor', 'edit', 'selected'):
+            color = ACCENT_COLOR_HEX
+        else:
+            color = gracenote.color
+        
+        # Calculate positions
+        x = self.pitch_to_x(gracenote.pitch)
+        y = self.time_to_y(gracenote.time)
+        
+        # Calculate dimensions - scale down to 0.6 of normal note size
+        scale = 0.75
+        semitone_width = self.semitone_width * 2 * scale
+        notehead_length = semitone_width
+        
+        # Determine tag for notehead type
+        if gracenote.pitch in BLACK_KEYS:
+            tag = 'gracenote_head_black'
+        else:
+            tag = 'gracenote_head_white'
+        
+        # Draw the notehead (scaled down, no stem, no left_dot)
+        self.canvas.add_oval(
+            x1_mm=x - semitone_width / 2,
+            y1_mm=y,
+            x2_mm=x + semitone_width / 2,
+            y2_mm=y + notehead_length,
+            fill=True,
+            fill_color=color if gracenote.pitch in BLACK_KEYS else '#FFFFFF',
+            outline=True,
+            outline_width_mm=self.score.properties.globalNote.stemWidthMm * scale,
+            outline_color=color,
+            tags=[tag, 'grace_note', base_tag]
+        )

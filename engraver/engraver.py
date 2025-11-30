@@ -986,7 +986,7 @@ class Engraver:
                                 fill=True,
                                 fill_color=col,
                                 outline=False,
-                                tags=['note', 'midinote']
+                                tags=['note', 'midi_note']
                             )
                         
                         operations.append(draw_note)

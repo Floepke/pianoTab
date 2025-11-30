@@ -1434,7 +1434,6 @@ class Canvas(Widget):
         
         # Debug: log all touch events
         button = getattr(touch, 'button', None)
-        print(f"DEBUG Canvas.on_touch_down: button={button}, pos={touch.pos}, uid={touch.uid}")
         
         # Only handle if inside our widget
         if not self.collide_point(*touch.pos):
@@ -1450,10 +1449,8 @@ class Canvas(Widget):
 
         # Mouse wheel vertical scrolling in scale_to_width mode
         if self.scale_to_width and hasattr(touch, 'button') and touch.button in ('scrollup', 'scrolldown'):
-            print(f"DEBUG Canvas.on_touch_down: SCROLL EVENT detected, button={touch.button}")
             content_h = self._content_height_px()
             if content_h > self._view_h:  # scrolling only if content taller than viewport
-                print(f"DEBUG Canvas.on_touch_down: Processing scroll (content_h={content_h} > view_h={self._view_h})")
                 # Get mouse position in mm before scrolling
                 mm_before = self._px_to_mm(*touch.pos)
                 
@@ -1486,13 +1483,11 @@ class Canvas(Widget):
                 mm_after = self._px_to_mm(*touch.pos)
                 editor = getattr(self, 'piano_roll_editor', None)
                 if editor is not None and hasattr(editor, 'selection_manager'):
-                    print(f"DEBUG Canvas.on_touch_down: Notifying selection_manager.on_scroll({mm_after[0]}, {mm_after[1]}, 0.0, {scroll_delta})")
                     editor.selection_manager.on_scroll(
                         mm_after[0], mm_after[1], 
                         0.0,  # scroll_x (no horizontal scroll)
                         scroll_delta  # scroll_y delta in pixels
                     )
-            print(f"DEBUG Canvas.on_touch_down: Scroll event processed, returning True")
             return True
 
         # Convert to mm (top-left origin)

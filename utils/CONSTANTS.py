@@ -86,46 +86,46 @@ def get_visual_semitone_positions():
     useful for setting canvas element stacking with the tag_raise() method.
 '''
 DRAWING_LAYERS = [
-    # midinote in background of the notation.
-    'midinote', 
+    # midi_note in background of the notation.
+    'midi_note', 
     
     # stave elements
     'gridline',        
     'barline',
-    'stemwhitespace', # stemwhitespace above grid but below stave lines.
+    'stem_white_space', # stem_white_space above grid but below stave lines.
     'stavethreeline',  
     'stavetwoline',    
     'staveclefline',   
-    'connectstem',     
+    'connect_stem',     
     
     # note elements
-    'noteheadwhite',
-    'noteheadblack',      
-    'stopsign',
-    'leftdot',
+    'notehead_white',
+    'notehead_black',      
+    'stop_sign',
+    'left_dot',
     'stem',
-    'connectstem',
+    'connect_stem',
     'accidental',
 
-    # gracenote          
-    'gracenote',
+    # grace_note          
+    'grace_note',
 
     # beam elements      
     'beam',
-    'beamstem',
+    'beam_stem',
 
     # other notation elements
-    'measurenumber',
+    'measure_number',
 
     'slur',
     'text',
     'tempo',
     'linebreak',
-    'countline',
+    'count_line',
     
     # UI elements (top layers)
     'cursor_line',      # Time cursor line
-    'selectionrect',  # Selection rectangle
+    'selection_rect',  # Selection rectangle
 ]
 
 # Create a lookup dict for quick tag->layer mapping
