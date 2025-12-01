@@ -123,16 +123,25 @@ class NoteDrawerMixin:
             # Calculate dimensions
             semitone_width = self.semitone_width * 2
             
+            rect_x1 = x - semitone_width / 2
+            rect_y1 = y + semitone_width / 2 if note.blackNoteDirection == 'v' else y
+            rect_x2 = x + semitone_width / 2
+            rect_y2 = y_note_stop
+            
             self.canvas.add_rectangle(
-                x1_mm=x - semitone_width / 2,
-                y1_mm=y + semitone_width / 2 if note.blackNoteDirection == 'v' else y,
-                x2_mm=x + semitone_width / 2,
-                y2_mm=y_note_stop,
+                x1_mm=rect_x1,
+                y1_mm=rect_y1,
+                x2_mm=rect_x2,
+                y2_mm=rect_y2,
                 fill=True,
                 fill_color=note.colorMidiNote if draw_mode == 'note' else color,
                 outline=False,
                 tags=['midi_note', base_tag]
             )
+            
+            # Register detection rectangle (only for real notes, not cursor/edit)
+            if draw_mode in ('note', 'selected'):
+                self.detection_rects[note.id] = (rect_x1, rect_y1, rect_x2, rect_y2)
     
     def _draw_notestop(self, stave_idx: int, note: Note, base_tag: str, color: str) -> None:
         '''Draw the note stop sign (triangle) if followed by a rest.'''

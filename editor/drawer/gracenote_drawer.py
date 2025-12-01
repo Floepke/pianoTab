@@ -90,12 +90,18 @@ class GraceNoteDrawerMixin:
         else:
             tag = 'gracenote_head_white'
         
+        # Detection rectangle coordinates
+        detect_x1 = x - semitone_width / 2
+        detect_y1 = y
+        detect_x2 = x + semitone_width / 2
+        detect_y2 = y + notehead_length
+        
         # Draw the notehead (scaled down, no stem, no left_dot)
         self.canvas.add_oval(
-            x1_mm=x - semitone_width / 2,
-            y1_mm=y,
-            x2_mm=x + semitone_width / 2,
-            y2_mm=y + notehead_length,
+            x1_mm=detect_x1,
+            y1_mm=detect_y1,
+            x2_mm=detect_x2,
+            y2_mm=detect_y2,
             fill=True,
             fill_color=color if gracenote.pitch in BLACK_KEYS else '#FFFFFF',
             outline=True,
@@ -103,3 +109,7 @@ class GraceNoteDrawerMixin:
             outline_color=color,
             tags=[tag, 'grace_note', base_tag]
         )
+        
+        # Register detection rectangle (only for real grace notes, not cursor/edit)
+        if draw_mode in ('grace_note', 'selected'):
+            self.detection_rects[gracenote.id] = (detect_x1, detect_y1, detect_x2, detect_y2)

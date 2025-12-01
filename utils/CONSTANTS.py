@@ -120,8 +120,8 @@ DRAWING_LAYERS = [
     'slur',
     'text',
     'tempo',
-    'linebreak',
-    'count_line',
+        'line_break',
+        'count_line',
     
     # UI elements (top layers)
     'cursor_line',      # Time cursor line

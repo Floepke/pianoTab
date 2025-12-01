@@ -314,13 +314,12 @@ class BaseTool(ABC):
     
     def get_element_at_position(self, x: float, y: float, element_types=None):
         """
-        Find score element at the given position using canvas item hit detection.
-        Ignores cursor items and returns the first real element found.
+        Find score element at the given position using detection rectangles.
         
         Args:
             x, y: Position in canvas coordinates (mm)
             element_types: Optional list of element types to filter by 
-                        (e.g., ['note', 'beam', 'slur'])
+                        (e.g., ['note', 'beam', 'slur', 'line_break'])
             
         Returns:
             Tuple of (element_object, element_type, stave_idx) or (None, None, None)
@@ -330,70 +329,59 @@ class BaseTool(ABC):
             if note:
                 print(f"Found {elem_type} with id {note.id} on stave {stave}")
         """
-        # Convert mm coordinates to pixel coordinates for canvas hit detection
-        x_px = x * self.editor.canvas._px_per_mm
-        y_px = y * self.editor.canvas._px_per_mm
-        
-        # Get ALL canvas items at this position (not just topmost)
-        item_ids = self.editor.canvas.get_all_items_at_position(x_px, y_px)
-        
-        if not item_ids:
+        if not self.editor.score:
             return (None, None, None)
         
-        # Iterate through all items, skipping cursor/temporary items
-        for item_id in item_ids:
-            # Get tags from the canvas item
-            tags = self.editor.canvas.get_tags(item_id)
+        # Check all registered detection rectangles
+        for element_id, (x1, y1, x2, y2) in self.editor.detection_rects.items():
+            # Normalize rectangle coordinates (in case x2 < x1 or y2 < y1)
+            min_x, max_x = min(x1, x2), max(x1, x2)
+            min_y, max_y = min(y1, y2), max(y1, y2)
             
-            if not tags:
-                continue
-            
-            # Skip cursor and temporary tags
-            if any(tag in ('cursor', 'cursor_line', 'edit', 'stem', 'beam_marker') for tag in tags):
-                continue
-            
-            # Parse tags to determine element type and ID
-            # Tags format: ['element_type', 'element_id']
-            element_type = None
-            element_id = None
-            
-            for tag in tags:
-                # Check if it's a numeric ID
-                if tag.isdigit():
-                    element_id = int(tag)
-                # Check if it's an element type tag (support older/newer variants)
-                elif tag in (
-                    'notehead', 'notehead_black', 'notehead_white', 'midi_note', 'left_dot',
-                    'beam', 'slur', 'tempo', 'text', 'barline', 'grace_note', 'gracenote_head_black', 
-                    'gracenote_head_white'
-                ):
-                    element_type = tag
-            
-            # If we didn't find a valid element in this item, continue to next
-            if element_id is None or element_type is None:
-                continue
-            
-            # Normalize element type
-            normalized_type = self._normalize_element_type(element_type)
-            
-            # Filter by element types if specified
-            if element_types is not None and normalized_type not in element_types:
-                continue
-            
-            # Use SCORE.find_by_id() to get the element
-            element = self.editor.score.find_by_id(element_id)
-            
-            if element is None:
-                continue
-            
-            # Find which stave contains this element
-            stave_idx = self._find_stave_for_element(element)
-            
-            # Found a valid element - return it
-            return (element, normalized_type, stave_idx)
+            # Check if point is inside rectangle
+            if min_x <= x <= max_x and min_y <= y <= max_y:
+                # Find the element by ID
+                element = self.editor.score.find_by_id(element_id)
+                
+                if element is None:
+                    continue
+                
+                # Determine element type from the element itself
+                element_type = self._get_element_type(element)
+                
+                # Filter by element types if specified
+                if element_types is not None and element_type not in element_types:
+                    continue
+                
+                # Find which stave contains this element
+                stave_idx = self._find_stave_for_element(element)
+                
+                # Found a valid element - return it
+                return (element, element_type, stave_idx)
         
         # No valid element found at this position
         return (None, None, None)
+    
+    def _get_element_type(self, element) -> str:
+        """Determine the type of an element from its class."""
+        class_name = element.__class__.__name__
+        
+        # Map class names to element types
+        type_map = {
+            'Note': 'note',
+            'GraceNote': 'grace_note',
+            'Beam': 'beam',
+            'Slur': 'slur',
+            'Tempo': 'tempo',
+            'Text': 'text',
+            'LineBreak': 'line_break',
+            'CountLine': 'count_line',
+            'StartRepeat': 'start_repeat',
+            'EndRepeat': 'end_repeat',
+            'Section': 'section',
+        }
+        
+        return type_map.get(class_name, class_name.lower())
 
     def _normalize_element_type(self, canvas_tag: str) -> str:
         """
@@ -414,6 +402,7 @@ class BaseTool(ABC):
             'tempo': 'tempo',
             'text': 'text',
             'barline': 'barline',
+            'line_break': 'line_break',
             # Grace note variants (legacy camelCase and new snake_case)
             'grace_note': 'grace_note',
             'gracenote_head_black': 'grace_note',
@@ -423,6 +412,15 @@ class BaseTool(ABC):
 
     def _find_stave_for_element(self, element) -> Optional[int]:
         """Find which stave contains the given element."""
+        # Check score-level elements first (lineBreak, section, etc.)
+        score = self.editor.score
+        for score_level_type in ['lineBreak', 'section']:
+            if hasattr(score, score_level_type):
+                event_list = getattr(score, score_level_type)
+                if element in event_list:
+                    return None  # Score-level elements have no stave_idx
+        
+        # Check stave-level elements
         for stave_idx, stave in enumerate(self.editor.score.stave):
             if not hasattr(stave, 'event'):
                 continue

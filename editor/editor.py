@@ -98,6 +98,9 @@ class Editor(
         self._mouse_button_down: Optional[str] = None  # 'left' or 'right' when button is down
         self._mouse_down_pos: Optional[Tuple[float, float]] = None  # (x_mm, y_mm) where button went down
         
+        # Detection rectangles: maps element ID to detection rectangle (x1, y1, x2, y2) in mm
+        self.detection_rects: Dict[int, Tuple[float, float, float, float]] = {}
+        
         # Cursor management for hover (restore tool cursor on enter/leave)
         self._is_hovering = False
         Window.bind(mouse_pos=self._update_cursor_on_hover)
@@ -438,6 +441,9 @@ class Editor(
         if self.score is None:
             print('Editor: redraw_pianoroll() called but no score loaded yet')
             return
+        
+        # Clear detection rectangles for fresh registration
+        self.detection_rects.clear()
         
         # Always sync zoom from SCORE first
         try:

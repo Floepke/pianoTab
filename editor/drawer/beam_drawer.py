@@ -113,3 +113,12 @@ class BeamDrawerMixin:
             dash_pattern_mm=[1, 2],
             tags=[base_tag, 'beam_end_marker']
         )
+        
+        # Register detection rectangle (the main beam line area, only for real beams)
+        if draw_mode in ('beam', 'selected'):
+            # Detection area covers the main beam line with some margin
+            detect_x1 = min(x1, x2) - 1  # Add 1mm margin on each side
+            detect_x2 = max(x1, x2) + 1
+            detect_y1 = min(y_start, y_end)
+            detect_y2 = max(y_start, y_end)
+            self.detection_rects[beam.id] = (detect_x1, detect_y1, detect_x2, detect_y2)
