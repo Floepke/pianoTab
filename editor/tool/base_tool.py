@@ -309,7 +309,7 @@ class BaseTool(ABC):
         distance = self._point_to_line_distance(px, py, x1, y1, x2, y2)
         
         # Hit if within half the line width (plus a small tolerance for easier clicking)
-        tolerance = (line_width_mm / 2.0) + 0.5  # Add 0.5mm tolerance
+        tolerance = (line_width_mm / 2.0) + 1  # Add 1mm tolerance
         return distance <= tolerance
     
     def get_element_at_position(self, x: float, y: float, element_types=None):
@@ -403,7 +403,6 @@ class BaseTool(ABC):
             'text': 'text',
             'barline': 'barline',
             'line_break': 'line_break',
-            # Grace note variants (legacy camelCase and new snake_case)
             'grace_note': 'grace_note',
             'gracenote_head_black': 'grace_note',
             'gracenote_head_white': 'grace_note',

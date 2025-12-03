@@ -177,6 +177,15 @@ class NoteTool(BaseTool):
             time = score_length - duration
         if time < 0:
             time = 0
+
+        # mouse gesture for note switching:
+        # if mouse is outside the stave area
+        # the note hand switches to the left
+        # or right hand respectively.
+        if pitch == 1:
+            self.hand_cursor = '<'
+        elif pitch == 88:
+            self.hand_cursor = '>'
         
         cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_cursor)
         
@@ -348,8 +357,6 @@ class NoteTool(BaseTool):
     def on_right_click(self, x: float, y: float) -> bool:
         """Called when right mouse button is clicked (without drag)."""
         
-        print(f"NoteTool.on_right_click called at ({x:.1f}, {y:.1f})")
-        
         # delete any existing cursor drawing
         self.editor.canvas.delete_by_tag('cursor')
 
@@ -357,9 +364,7 @@ class NoteTool(BaseTool):
         element, elem_type, stave_idx = self.get_element_at_position(x, y, element_types=['note'])
         
         if element and elem_type == 'note':
-            # Found a note to delete
-            print(f"NoteTool: Deleting note {element.id} from stave {stave_idx}")
-            
+            # DELETE MODE: Remove the clicked note
             # Save note's time, duration, id, and hand before deletion
             note_time = element.time
             note_duration = element.duration

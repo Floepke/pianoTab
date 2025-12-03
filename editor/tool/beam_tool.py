@@ -59,18 +59,7 @@ class BeamTool(BaseTool):
                 x2 = self.editor.editor_margin * 2 + self.editor.stave_width - 10
             
             # Check main vertical beam line (1mm width)
-            if self.is_point_near_line(x, y, x1, y_start, x2, y_end, line_width_mm=1.0):
-                return (beam, stave_idx)
-            
-            # Check horizontal guide lines (0.25mm width)
-            guide_x2 = self.editor.editor_margin + self.editor.stave_width if beam.hand == '>' else self.editor.editor_margin
-            
-            # Top guide line
-            if self.is_point_near_line(x, y, x1, y_start, guide_x2, y_start, line_width_mm=0.25):
-                return (beam, stave_idx)
-            
-            # Bottom guide line
-            if self.is_point_near_line(x, y, x1, y_end, guide_x2, y_end, line_width_mm=0.25):
+            if self.is_point_near_line(x, y, x1, y_start, x2, y_end, line_width_mm=10):
                 return (beam, stave_idx)
         
         return (None, None)

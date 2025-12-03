@@ -81,9 +81,9 @@ class BeamDrawerMixin:
 
         # Draw the beam line
         self.canvas.add_line(
-            x1_mm=x1,
+            x1_mm=x2,
             y1_mm=y_start,
-            x2_mm=x2,
+            x2_mm=x1,
             y2_mm=y_end,
             color=color,
             width_mm=1,
@@ -94,7 +94,7 @@ class BeamDrawerMixin:
         self.canvas.add_line(
             x1_mm=self.editor_margin + self.stave_width if hand == '>' else self.editor_margin,
             y1_mm=y_start,
-            x2_mm=x1,
+            x2_mm=x2,
             y2_mm=y_start,
             color=color,
             width_mm=.25,
@@ -105,7 +105,7 @@ class BeamDrawerMixin:
         self.canvas.add_line(
             x1_mm=self.editor_margin + self.stave_width if hand == '>' else self.editor_margin,
             y1_mm=y_end,
-            x2_mm=x2,
+            x2_mm=x1,
             y2_mm=y_end,
             color=color,
             width_mm=.25,
