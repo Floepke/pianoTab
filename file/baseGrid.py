@@ -33,7 +33,7 @@ class BaseGrid:
         }
     )
     gridTimes: List[float] = field(
-        default_factory=lambda: [100.0, 512.0, 768.0],
+        default_factory=lambda: [100.0, 200.0, 300.0],
         metadata={
             'tree_icon': 'property',
             'tree_tooltip': 'Grid line time positions within measure',

@@ -271,11 +271,11 @@ class pianoTAB(App):
                 return False
             if ch in ('=', '+'):
                 if self.editor is not None:
-                    self.editor.zoom_in(factor=1.01)
+                    self.editor.zoom_in(factor=1.2)
                     return True
             elif ch in ('-', '_'):
                 if self.editor is not None:
-                    self.editor.zoom_out(factor=1.01)
+                    self.editor.zoom_out(factor=1.2)
                     return True
         except Exception:
             pass

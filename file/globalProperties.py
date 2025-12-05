@@ -414,7 +414,7 @@ class GlobalBasegrid:
             }
         }
     )
-    gridlineDashPattern: List[float] = field(
+    gridlineDashPatternMm: List[float] = field(
         default_factory=lambda: [2, 2],
         metadata={
             'tree_icon': 'property',

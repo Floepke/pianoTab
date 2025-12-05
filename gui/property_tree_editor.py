@@ -1483,7 +1483,7 @@ class PropertyTreeEditor(BoxLayout):
         popup.open()
 
     def _open_number_list_dialog(self, path: Tuple[Union[str, int], ...], values: List[Union[int, float]], is_float_list: bool):
-        hint = '(Give numbers seperated by <space> e.g. 100.0 512.0 768.0)'
+        hint = ''
         prompt = f'Set {self._path_to_prompt(path)}: {hint}'
         txt = ' '.join(
             _fmt_float(v) if isinstance(v, float) and not float(v).is_integer() else str(int(v))

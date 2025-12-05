@@ -12,10 +12,16 @@ class NoteTool(BaseTool):
     
     def __init__(self, editor):
         super().__init__(editor)
-        self.hand_cursor = '<'  # Default to left hand
-        self.accidental_cursor = 0  # Accidental for cursor: 0 (none), -1 (flat), 1 (sharp)
+        
+        # accidental tracking
+        self.last_pitch = None
+        self.accidental_value = 0  # Accidental for cursor: 0 (none), -1 (flat), 1 (sharp)
+        self.accidental_switch = 1 # 1: sharp/flat, 2: double sharp/flat, 0: none
+
+        # Editing state
         self.edit_note = None  # Note being created/edited during drag
         self.edit_stave_idx = None  # Stave index of note being edited
+        self.hand_cursor = '<'  # Default to left hand
     
     @property
     def name(self) -> str:
@@ -30,7 +36,8 @@ class NoteTool(BaseTool):
         super().on_activate()
         # Reset to default hand and accidental
         self.hand_cursor = '<'
-        self.accidental_cursor = 0
+        self.accidental_value = 0
+        self.accidental_switch = 0
     
     def get_contextual_buttons(self) -> dict:
         """Return contextual toolbar buttons for note tool.
@@ -98,11 +105,16 @@ class NoteTool(BaseTool):
         """Handle key press events."""
         # Map 'a' key for accidental toggling: 0 -> -1 -> 1 -> 0
         if key == 'a':
-            # Switch accidental state
-            if self.editor.accidental_on == 0:
-                self.editor.accidental_on = 1
+            # set the initial accidental switch value
+            if self.accidental_switch == 0:
+                self.accidental_switch = 1  # Start with sharp/flat
+                self.accidental_value = 0
+            elif self.accidental_switch == 1:
+                self.accidental_switch = 2  # Double sharp/flat
+                self.accidental_value = 0
             else:
-                self.editor.accidental_on = 0
+                self.accidental_switch = 0  # None
+                self.accidental_value = 0
             
             # Redraw cursor at current mouse position with new accidental
             pitch, time = self.get_pitch_and_time(x, y)
@@ -115,7 +127,7 @@ class NoteTool(BaseTool):
             if time < 0:
                 time = 0
             
-            cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_cursor)
+            cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_value)
             self._draw_cursor(cursor, type='cursor')
             return True  # We handled this key
         
@@ -133,7 +145,7 @@ class NoteTool(BaseTool):
             if time < 0:
                 time = 0
             
-            cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_cursor)
+            cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_value)
             self._draw_cursor(cursor, type='cursor')
             return True  # We handled this key
         elif key == '.' or key == 'period':
@@ -149,7 +161,7 @@ class NoteTool(BaseTool):
             if time < 0:
                 time = 0
             
-            cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_cursor)
+            cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_value)
             self._draw_cursor(cursor, type='cursor')
             return True  # We handled this key
         
@@ -186,15 +198,16 @@ class NoteTool(BaseTool):
         #     self.hand_cursor = '>'
 
         # accidental tracking
-        if self.editor.accidental_on:
-            if self.editor.last_pitch is not None:
-                if pitch > self.editor.last_pitch:
-                    self.accidental_cursor = -1
-                elif pitch < self.editor.last_pitch:
-                    self.accidental_cursor = 1
-            self.editor.last_pitch = pitch
+        print(self.accidental_value)
+        if self.accidental_switch != 0:
+            if self.last_pitch is not None:
+                if pitch < self.last_pitch:
+                    self.accidental_value = self.accidental_switch
+                elif pitch > self.last_pitch:
+                    self.accidental_value = -self.accidental_switch
+            self.last_pitch = pitch
         
-        cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_cursor)
+        cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_value)
         
         # redraw cursor
         self._draw_cursor(cursor, type='cursor')
@@ -234,12 +247,12 @@ class NoteTool(BaseTool):
             
             # Assign current cursor hand and accidental to the note being edited
             self.edit_note.hand = self.hand_cursor
-            self.edit_note.accidental = self.accidental_cursor
+            self.edit_note.accidental = self.accidental_value
             
             # Redraw in 'edit' mode for visual feedback
             self.editor._draw_single_note(stave_idx, self.edit_note, draw_mode='edit')
             
-            print(f"NoteTool: Editing note {element.id} from stave {stave_idx}, assigned hand '{self.hand_cursor}', accidental {self.accidental_cursor}")
+            print(f"NoteTool: Editing note {element.id} from stave {stave_idx}, assigned hand '{self.hand_cursor}', accidental {self.accidental_value}")
             return True
         
         # CREATE MODE: No note clicked, create new one
@@ -267,7 +280,7 @@ class NoteTool(BaseTool):
             hand=self.hand_cursor,
             duration=duration,
             velocity=100,
-            accidental=self.accidental_cursor
+            accidental=self.accidental_value
         )
         self.edit_stave_idx = stave_idx
         

@@ -109,17 +109,17 @@ class GridDrawerMixin:
                     grid_tick_position = time_cursor + grid_time
                     y1 = self.time_to_y(grid_tick_position)
                     
-                    # Only draw if within viewport
+                    # draw gridTimes gridlines
                     if 0 <= y1 <= self.canvas.height_mm + self.editor_margin:
                         self.canvas.add_line(
                             x1_mm=self.editor_margin, 
                             y1_mm=y1,
                             x2_mm=self.editor_margin + self.stave_width, 
                             y2_mm=y1,
-                            color=self.gridline_color,
-                            width_mm=self.gridline_width,
+                            color=self.score.properties.globalBasegrid.gridlineColor,
+                            width_mm=self.score.properties.globalBasegrid.gridlineWidthMm,
                             dash=True,  # Dashed gridlines
-                            dash_pattern_mm=tuple(self.gridline_dash_pattern),
+                            dash_pattern_mm=self.score.properties.globalBasegrid.gridlineDashPatternMm,
                             tags=['gridline', f'gridline_{int(grid_tick_position)}_{i}']
                         )
 

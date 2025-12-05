@@ -114,10 +114,6 @@ class Editor(
         # Mark editor as ready for drawing (all initialization complete)
         self._ready: bool = True
 
-        # accidental tracking
-        self.accidental_on = False
-        self.last_pitch = None
-
     def _apply_settings_from_score(self):
         '''Synchronize editor state from SCORE.fileSettings and SCORE.properties.
 
@@ -158,7 +154,7 @@ class Editor(
             self.barline_width = basegrid.barlineWidthMm
             self.gridline_color = basegrid.gridlineColor
             self.gridline_width = basegrid.gridlineWidthMm
-            self.gridline_dash_pattern = basegrid.gridlineDashPattern
+            self.gridline_dash_pattern = basegrid.gridlineDashPatternMm
 
     # Defer zoom refresh until the canvas attaches us and scale is known.
     

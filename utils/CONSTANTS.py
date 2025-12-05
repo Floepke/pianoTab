@@ -13,6 +13,7 @@ PHYSICAL_SEMITONE_POSITIONS = 103
 
 # BE gaps - positions where extra visual spacing is added between key groups
 BE_GAPS = [3, 8, 15, 20, 27, 32, 39, 44, 51, 56, 63, 68, 75, 80, 87]
+CF_GAPS = [1, 6, 13, 18, 25, 30, 37, 42, 49, 54, 61, 66, 73, 78, 85]
 '''Key positions where extra spacing (BE gaps) should be added for visual grouping.'''
 
 # Black key positions in the 88-key layout
@@ -102,11 +103,11 @@ DRAWING_LAYERS = [
     
     # note elements
     'stop_sign',
+    'accidental',
     'notehead_white',
     'notehead_black',      
     'left_dot',
     'stem',
-    'accidental',
 
     # grace_note          
     'grace_note',

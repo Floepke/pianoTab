@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Literal, Optional
 
 from file import note
 from gui.colors import ACCENT_COLOR_HEX
-from utils.CONSTANTS import BLACK_KEYS, OPERATOR_TRESHOLD, BE_GAPS
+from utils.CONSTANTS import BLACK_KEYS, CF_GAPS, OPERATOR_TRESHOLD, BE_GAPS
 from utils.operator import OperatorThreshold
 import copy
 
@@ -80,10 +80,11 @@ class NoteDrawerMixin:
         self._draw_midinote(note, draw_mode, base_tag, color)
         self._draw_notestop(stave_idx, note, base_tag, color)
         self._draw_notehead(note, base_tag, color)
-        self._draw_dashed_guide(stave_idx, note, base_tag=base_tag, color=color)
+        self._draw_centered_dashed_guide(stave_idx, note, base_tag=base_tag, color=color)
         self._draw_accidental(note, base_tag, color)
-        #self._draw_left_dot(note, base_tag, color)
+        self._draw_centered_dashed_guide(stave_idx, note, base_tag=base_tag, color=color)
         #self._draw_solid_guide(note, base_tag, color)
+        #self._draw_left_dot(note, base_tag, color)
         #self._draw_stem_whitespace(note, base_tag)
         #self._draw_note_continuation_dot(stave_idx, note, draw_mode=draw_mode)
     
@@ -239,52 +240,33 @@ class NoteDrawerMixin:
             )
     
     def _draw_accidental(self, note: Note, base_tag: str, color: str) -> None:
-        '''Draw the accidental line (sharp/flat indicator).'''
-        is_bcef = (note.pitch in BE_GAPS or note.pitch - 1 in BE_GAPS)
+        '''Draw the accidental line (sharp/flat indicator).
         
-        if (note.pitch in BLACK_KEYS or is_bcef) and note.accidental != 0:
-            # Calculate positions
-            x = self.pitch_to_x(note.pitch)
-            y = self.time_to_y(note.time)
-            
-            # Calculate dimensions
-            semitone_width = self.semitone_width * 2
-            notehead_length = semitone_width
-            if note.pitch in BLACK_KEYS:
-                semitone_width *= 0.75
-            
-            # Adjust y for black notes above stem
-            if note.blackNoteDirection == '^' and note.pitch in BLACK_KEYS:
-                y -= notehead_length
-            
-            # Determine the 'from_pitch' position
-            from_pitch = note.pitch + note.accidental
-            from_pitch_x = self.pitch_to_x(from_pitch)
-            
-            # Draw the accidental based on black note direction
-            if note.blackNoteDirection == '^' and note.pitch in BLACK_KEYS:
-                # Black note is above the stem
-                self.canvas.add_line(
-                    x1_mm=x,
-                    y1_mm=y,
-                    x2_mm=from_pitch_x,
-                    y2_mm=y - notehead_length/2,
-                    width_mm=self.score.properties.globalNote.stemWidthMm,
-                    color=color,
-                    tags=['accidental', base_tag]
-                )
-            else:
-                # Black note is below the stem
-                acc_y = y + semitone_width
-                self.canvas.add_line(
-                    x1_mm=x,
-                    y1_mm=acc_y,
-                    x2_mm=from_pitch_x,
-                    y2_mm=acc_y + notehead_length/2,
-                    width_mm=self.score.properties.globalNote.stemWidthMm,
-                    color=color,
-                    tags=['accidental', base_tag]
-                )
+        The accidental value indicates the source pitch (semitones away):
+        '''
+        # validation
+        a = note.accidental
+        p = note.pitch
+        t = note.time
+        if a+p in BLACK_KEYS or abs(a) > 2 or a == 0:
+            return  # No accidentals on black keys
+        
+        # Calculate positions
+        x_note = self.pitch_to_x(p)
+        y_note = self.time_to_y(t)
+        x_from = self.pitch_to_x(p + a)
+        y_from = self.time_to_y(t)
+
+        # Draw the accidental line
+        self.canvas.add_line(
+            x1_mm=x_from,
+            y1_mm=y_from + self.semitone_width * 3,
+            x2_mm=x_note,
+            y2_mm=y_note + self.semitone_width,
+            width_mm=self.score.properties.globalNote.stemWidthMm,
+            color=color,
+            tags=['accidental', base_tag]
+        )
     
     def _draw_solid_guide(self, note: Note, base_tag: str, color: str) -> None:
         '''Draw the horizontal stem line.'''
@@ -345,9 +327,8 @@ class NoteDrawerMixin:
                     cap='flat'
                 )
 
-    def _draw_dashed_guide(self, stave_idx: int, note: Note, base_tag: str, color: str) -> None:
-        '''Draw connection lines between notes that form a chord (same time) or in case of a single note:
-        draw a centered guide line if the note is not part of a chord.
+    def _draw_centered_dashed_guide(self, stave_idx: int, note: Note, base_tag: str, color: str) -> None:
+        '''Draw a centered connection guide line between the outer notes that form a chord (same start time).
         
         Args:
             stave_idx: Index of the stave containing the note
@@ -370,27 +351,9 @@ class NoteDrawerMixin:
         
         # Find all notes with the same start time
         same_time_notes = [n for n in note_list if self._time_op.equal(n.time, note.time)]
-        
-        # If less than 2 notes at same time, no chord to draw
+
         if len(same_time_notes) < 2:
-            # Calculate positions
-            x = self.pitch_to_x(note.pitch)
-            y = self.time_to_y(note.time)
-            
-            # Draw centered guide line
-            guide_length_mm = 16.0  # Total length of the guide line
-            self.canvas.add_line(
-                x1_mm=x - guide_length_mm / 2,
-                y1_mm=y,
-                x2_mm=x + guide_length_mm / 2,
-                y2_mm=y,
-                width_mm=self.score.properties.globalNote.stemWidthMm,
-                color=color,
-                tags=['note_guide', base_tag],
-                dash=True,
-                dash_pattern_mm=[1, 2]
-            )
-            return
+            return  # No chord, only a single note
         
         # Find the lowest pitch note in the chord
         lowest_note = min(same_time_notes, key=lambda n: n.pitch)
@@ -416,11 +379,11 @@ class NoteDrawerMixin:
             y1_mm=y1,
             x2_mm=x2 + guide_overspan,
             y2_mm=y2,
-            width_mm=self.score.properties.globalNote.stemWidthMm,
-            color=color,
+            width_mm=self.score.properties.globalBasegrid.gridlineWidthMm, # 2 times thinner than stem by design
+            color='#000000',
             tags=['chord_guide', base_tag],
             dash=True,
-            dash_pattern_mm=[1, 2]
+            dash_pattern_mm=self.score.properties.globalBasegrid.gridlineDashPatternMm
         )
 
     def _a_following_notes_diff_is_less_then_interval(self, stave_idx: int, note: Note, interval: int = 12) -> bool:
