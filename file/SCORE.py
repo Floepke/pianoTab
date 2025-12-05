@@ -196,7 +196,7 @@ class SCORE:
                      timeSignatureIndicatorVisible: int = 1) -> None:
         '''Add a new baseGrid to the score.'''
         if gridTimes is None:
-            gridTimes = [256.0, 512.0, 768.0]
+            gridTimes = [100.0, 512.0, 768.0]
         basegrid = BaseGrid(numerator=numerator,
                             denominator=denominator,
                             gridTimes=gridTimes,
@@ -261,7 +261,7 @@ class SCORE:
                 # Look for notes within a reasonable time window
                 nearby_notes = [
                     note for note in stave.event.note 
-                    if abs(note.time - beam_time) <= beam.time + 256.0  # Within one quarter note
+                    if abs(note.time - beam_time) <= beam.time + 100.0  # Within one quarter note
                 ]
                 if not nearby_notes:
                     warnings.append(f'Beam {beam.id} at time {beam_time} in stave {stave_idx} has no nearby notes')

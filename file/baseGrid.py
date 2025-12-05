@@ -27,13 +27,13 @@ class BaseGrid:
             'tree_tooltip': 'Time signature denominator (note value per beat)',
             'tree_edit_type': 'choice',
             'tree_edit_options': {
-                'choices': [1, 2, 4, 8, 16, 32],
-                'choice_labels': ['1', '2', '4', '8', '16', '32'],
+                'choices': [1, 2, 4, 8, 16, 32, 64, 128],
+                'choice_labels': ['1', '2', '4', '8', '16', '32', '64', '128'],
             }
         }
     )
     gridTimes: List[float] = field(
-        default_factory=lambda: [256.0, 512.0, 768.0],
+        default_factory=lambda: [100.0, 512.0, 768.0],
         metadata={
             'tree_icon': 'property',
             'tree_tooltip': 'Grid line time positions within measure',

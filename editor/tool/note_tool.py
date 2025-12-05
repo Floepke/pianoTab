@@ -98,13 +98,11 @@ class NoteTool(BaseTool):
         """Handle key press events."""
         # Map 'a' key for accidental toggling: 0 -> -1 -> 1 -> 0
         if key == 'a':
-            # Three-step cycle: 0 (none) -> -1 (flat) -> 1 (sharp) -> 0 (none)
-            if self.accidental_cursor == 0:
-                self.accidental_cursor = -1
-            elif self.accidental_cursor == -1:
-                self.accidental_cursor = 1
-            else:  # self.accidental_cursor == 1
-                self.accidental_cursor = 0
+            # Switch accidental state
+            if self.editor.accidental_on == 0:
+                self.editor.accidental_on = 1
+            else:
+                self.editor.accidental_on = 0
             
             # Redraw cursor at current mouse position with new accidental
             pitch, time = self.get_pitch_and_time(x, y)
@@ -178,14 +176,23 @@ class NoteTool(BaseTool):
         if time < 0:
             time = 0
 
-        # mouse gesture for note switching:
-        # if mouse is outside the stave area
-        # the note hand switches to the left
-        # or right hand respectively.
-        if pitch == 1:
-            self.hand_cursor = '<'
-        elif pitch == 88:
-            self.hand_cursor = '>'
+        # # mouse gesture for note switching:
+        # # if mouse is outside the stave area
+        # # the note hand switches to the left
+        # # or right hand respectively.
+        # if pitch == 1:
+        #     self.hand_cursor = '<'
+        # elif pitch == 88:
+        #     self.hand_cursor = '>'
+
+        # accidental tracking
+        if self.editor.accidental_on:
+            if self.editor.last_pitch is not None:
+                if pitch > self.editor.last_pitch:
+                    self.accidental_cursor = -1
+                elif pitch < self.editor.last_pitch:
+                    self.accidental_cursor = 1
+            self.editor.last_pitch = pitch
         
         cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_cursor)
         

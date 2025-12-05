@@ -111,9 +111,9 @@ score = SCORE()
 score.new_stave('treble', 4)
 
 # Add some notes
-score.new_note(stave_idx=0, time=0, pitch=60, duration=256)  # C4
-score.new_note(stave_idx=0, time=256, pitch=64, duration=256)  # E4
-score.new_note(stave_idx=0, time=512, pitch=67, duration=256)  # G4
+score.new_note(stave_idx=0, time=0, pitch=60, duration=100)  # C4
+score.new_note(stave_idx=0, time=100, pitch=64, duration=100)  # E4
+score.new_note(stave_idx=0, time=512, pitch=67, duration=100)  # G4
 
 # Create and render piano roll
 piano_roll = PianoRollEditor(canvas, score)

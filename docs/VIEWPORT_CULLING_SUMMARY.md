@@ -28,7 +28,7 @@
 | **10 measures** | Smooth | Smooth | No change (all visible) |
 | **50 measures** | Slight lag | Smooth | 60% fewer items drawn |
 | **128 measures** | **Severe lag** | **Smooth** | **84% fewer items drawn** |
-| **256 measures** | Unusable | Smooth | 92% fewer items drawn |
+| **100 measures** | Unusable | Smooth | 92% fewer items drawn |
 
 ## How It Works
 

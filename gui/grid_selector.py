@@ -24,7 +24,7 @@ class SpinBox(BoxLayout):
     
     value = NumericProperty(1)
     min_value = NumericProperty(1)
-    max_value = NumericProperty(99)
+    max_value = NumericProperty(32)
     
     def __init__(self, **kwargs):
         super().__init__(orientation='horizontal', size_hint_y=None, height=36, spacing=4, **kwargs)
@@ -283,7 +283,7 @@ class GridSelector(BoxLayout):
         
         # Grid step display label
         self.grid_label = Label(
-            text='Grid Unit: 256.0',
+            text='Grid Snap: 100.0',
             size_hint_y=None,
             height=self.widget_height,
             font_size='16sp',
@@ -359,7 +359,7 @@ class GridSelector(BoxLayout):
         left_vbox = BoxLayout(orientation='vertical', size_hint_x=None, width=56)
         left_vbox.add_widget(_W(size_hint_y=1))
         dec_btn = Button(
-            text='−',
+            text='-',
             size_hint=(None, None),
             width=56,
             height=56,  # was 58; match + button
@@ -508,7 +508,7 @@ class GridSelector(BoxLayout):
         if '.' not in grid_text:
             grid_text += '.0'
         
-        self.grid_label.text = f'Grid Unit: {grid_text}'
+        self.grid_label.text = f'Grid Snap: {grid_text}'
     
     def get_grid_step(self):
         '''Calculate and return current grid step value in piano ticks.'''

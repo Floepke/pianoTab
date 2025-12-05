@@ -30,7 +30,7 @@ I've completely rebuilt the `PianoRollEditor` class to match your specific Tkint
 
 ### 🕐 **Time Coordinate System**
 - **Vertical time flow**: Top to bottom (like your Tkinter version)
-- **Ticks-based**: Uses your `PIANOTICK_QUARTER = 256.0` system
+- **Ticks-based**: Uses your `PIANOTICK_QUARTER = 100.0` system
 - **Zoom support**: Pixels per quarter note scaling
 - **Scroll support**: Time offset for navigation
 

@@ -439,9 +439,9 @@ C0.845679179894,0.827547972674 0.876190338624,0.819054704579 0.903703703704,0.80
 		<key>BMPSpecification</key>
 		<dict>
 			<key>ColorDepthWIS</key>
-			<string>256 Colors</string>
+			<string>100 Colors</string>
 			<key>ColorListNameWIS</key>
-			<string>256 Best</string>
+			<string>100 Best</string>
 			<key>HeightWIS</key>
 			<string>64</string>
 			<key>WidthWIS</key>
@@ -456,7 +456,7 @@ C0.845679179894,0.827547972674 0.876190338624,0.819054704579 0.903703703704,0.80
 		<key>ExporBackground</key>
 		<string>No (Black) Background</string>
 		<key>ExportColorTable</key>
-		<string>256 Best</string>
+		<string>100 Best</string>
 		<key>ExportCompresion</key>
 		<string>1</string>
 		<key>ExportContent</key>
@@ -478,7 +478,7 @@ C0.845679179894,0.827547972674 0.876190338624,0.819054704579 0.903703703704,0.80
 		<key>HideExtension</key>
 		<string>NO</string>
 		<key>ICOColorTable</key>
-		<string>256 Best</string>
+		<string>100 Best</string>
 		<key>JPGColorSpace</key>
 		<string>sRGB_ColorSpace</string>
 		<key>JPGExporBackground</key>

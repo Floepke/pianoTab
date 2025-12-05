@@ -20,7 +20,7 @@ The pianoTAB project now uses **auto-generation** for all `new_*()` methods in `
 
 1. Event classes define fields with metadata:
 ```python
-duration: float = field(default=256.0, metadata=config(field_name='dur'))
+duration: float = field(default=100.0, metadata=config(field_name='dur'))
 ```
 
 2. `file/event_factory.py` uses `dataclasses.fields()` to introspect

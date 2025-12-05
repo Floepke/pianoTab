@@ -113,10 +113,10 @@ class Editor(
         
         # Mark editor as ready for drawing (all initialization complete)
         self._ready: bool = True
-        
-        # TEST: Verify freeze_updates blocks frame rendering (REMOVE AFTER TESTING)
-        # Uncomment to test - mouse cursor should freeze for 3 seconds
-        # Clock.schedule_once(lambda dt: self.canvas.test_freeze_at_startup(3.0), 1.0)
+
+        # accidental tracking
+        self.accidental_on = False
+        self.last_pitch = None
 
     def _apply_settings_from_score(self):
         '''Synchronize editor state from SCORE.fileSettings and SCORE.properties.
@@ -405,7 +405,7 @@ class Editor(
             total_ticks += measure_ticks * grid.measureAmount
         return total_ticks
     
-    def get_barline_positions(self) -> List[float]:
+    def _get_barline_positions(self) -> List[float]:
         '''Get list of barline positions in ticks.
         
         This method calculates where barlines occur in the score based on the
@@ -427,6 +427,35 @@ class Editor(
                 total_ticks += measure_ticks
         
         return barline_positions
+    
+    def _get_barline_and_grid_positions(self) -> List[float]:
+        '''Get list of barline positions in ticks.
+        
+        This method calculates where barlines occur in the score based on the
+        baseGrid configuration. It can be reused by the editor and engraver.
+        
+        Returns:
+            List of tick positions where barlines should be drawn.
+        '''
+        barline_and_grid_positions = []
+        cursor = 0.0
+        
+        for grid in self.score.baseGrid:
+            ql = self.score.fileSettings.quarterNoteUnit
+            measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
+            
+            for _ in range(grid.measureAmount):
+                # add barline position
+                barline_and_grid_positions.append(cursor)
+                
+                # add grid lines within the measure
+                for g in grid.gridTimes:
+                    barline_and_grid_positions.append(cursor + g)
+
+                # update cursor
+                cursor += measure_ticks
+        
+        return barline_and_grid_positions
     
     def redraw_pianoroll(self):
         '''Redraw the complete piano roll with all elements.
@@ -480,6 +509,7 @@ class Editor(
             self.canvas.set_size_mm(self.canvas.width_mm, desired_height_mm, reset_scroll=False)
         
         # Draw all elements:
+        
         self._draw_stave()
         self._draw_barlines_and_grid()
         self._draw_notes()
@@ -498,7 +528,7 @@ class Editor(
     # Drawing order is now set automatically by tags when items are created.
     
     # Zoom and interaction methods (simplified for initial implementation)
-    def zoom_in(self, factor: float = 1.25):
+    def zoom_in(self, factor: float = 1.01):
         '''Increase SCORE.fileSettings.zoomPixelsQuarter by factor (px per quarter).
         
         Preserves the musical time at the viewport center so content appears to expand
@@ -528,7 +558,7 @@ class Editor(
         except Exception as e:
             print(f'DEBUG: zoom_in failed: {e}')
     
-    def zoom_out(self, factor: float = 1.25):
+    def zoom_out(self, factor: float = 1.01):
         '''Decrease SCORE.fileSettings.zoomPixelsQuarter by factor (px per quarter).
         
         Preserves the musical time at the viewport center so content appears to contract

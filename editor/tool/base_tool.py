@@ -9,13 +9,11 @@ from typing import TYPE_CHECKING, Optional, Tuple
 from abc import ABC, abstractmethod
 
 from gui.colors import ACCENT_COLOR_HEX
+from utils.CONSTANTS import BLACK_KEYS
 
 if TYPE_CHECKING:
     from editor.editor import Editor
     from file.SCORE import SCORE
-
-# Import engraver for automatic rendering on score changes
-from engraver import get_engraver_instance
 
 
 class BaseTool(ABC):
@@ -331,6 +329,81 @@ class BaseTool(ABC):
         """
         if not self.editor.score:
             return (None, None, None)
+
+        note_flag = False
+        note_list = []
+        
+        # Check all registered detection rectangles
+        for element_id, (x1, y1, x2, y2) in self.editor.detection_rects.items():
+            # Normalize rectangle coordinates (in case x2 < x1 or y2 < y1)
+            min_x, max_x = min(x1, x2), max(x1, x2)
+            min_y, max_y = min(y1, y2), max(y1, y2)
+            
+            # Check if point is inside rectangle
+            if min_x <= x <= max_x and min_y <= y <= max_y:
+                # Find the element by ID
+                element = self.editor.score.find_by_id(element_id)
+                
+                if element is None:
+                    continue
+                
+                # Determine element type from the element itself
+                element_type = self._get_element_type(element)
+                
+                # Filter by element types if specified
+                if element_types is not None and element_type not in element_types:
+                    continue
+                
+                # Find which stave contains this element
+                stave_idx = self._find_stave_for_element(element)
+
+                if element_type == 'note':
+                    note_flag = True
+                    note_list.append( (element, element_type, stave_idx) )
+                
+                # # Found a valid element - return it
+                # return (element, element_type, stave_idx)
+
+        if note_flag and len(note_list) > 1:
+            # if there are multiple notes under the mouse xy we need to select the right one
+            for n in note_list:
+                element, element_type, stave_idx = n
+                
+                # 
+                if element.pitch in BLACK_KEYS:
+                    center_pitch = self.editor.pitch_to_x(element.pitch)
+                    if abs(x - center_pitch) < self.editor.semitone_width / 2:  # 3mm tolerance for black keys
+                        return (element, element_type, stave_idx)
+        else:
+            return (None, None, None)
+        
+        # No valid element found at this position
+        return (None, None, None)
+
+    def get_element_at_position(self, x: float, y: float, element_types=None):
+        """
+        Find score element at the given position using detection rectangles.
+        
+        When multiple elements overlap, selects the one whose center is closest
+        to the mouse cursor position.
+        
+        Args:
+            x, y: Position in canvas coordinates (mm)
+            element_types: Optional list of element types to filter by 
+                        (e.g., ['note', 'beam', 'slur', 'line_break'])
+            
+        Returns:
+            Tuple of (element_object, element_type, stave_idx) or (None, None, None)
+            
+        Example:
+            note, elem_type, stave = self.get_element_at_position(x, y, ['note'])
+            if note:
+                print(f"Found {elem_type} with id {note.id} on stave {stave}")
+        """
+        if not self.editor.score:
+            return (None, None, None)
+
+        candidates = []
         
         # Check all registered detection rectangles
         for element_id, (x1, y1, x2, y2) in self.editor.detection_rects.items():
@@ -356,11 +429,30 @@ class BaseTool(ABC):
                 # Find which stave contains this element
                 stave_idx = self._find_stave_for_element(element)
                 
-                # Found a valid element - return it
-                return (element, element_type, stave_idx)
+                # Calculate center of the rectangle
+                center_x = (min_x + max_x) / 2.0
+                center_y = (min_y + max_y) / 2.0
+                
+                # Calculate distance from mouse to center
+                distance = ((x - center_x) ** 2 + (y - center_y) ** 2) ** 0.5
+                
+                # Add to candidates with distance
+                candidates.append((element, element_type, stave_idx, distance))
         
-        # No valid element found at this position
-        return (None, None, None)
+        # If no candidates found, return None
+        if not candidates:
+            return (None, None, None)
+        
+        # If only one candidate, return it
+        if len(candidates) == 1:
+            element, element_type, stave_idx, _ = candidates[0]
+            return (element, element_type, stave_idx)
+        
+        # Multiple candidates - select the one with the smallest distance to center
+        closest = min(candidates, key=lambda c: c[3])  # Sort by distance (4th element)
+        element, element_type, stave_idx, _ = closest
+        
+        return (element, element_type, stave_idx)
     
     def _get_element_type(self, element) -> str:
         """Determine the type of an element from its class."""
@@ -441,43 +533,6 @@ class BaseTool(ABC):
             self.canvas.request_redraw()
         elif hasattr(self.editor, 'refresh'):
             self.editor.refresh()
-    
-    def trigger_engrave(self):
-        """
-        Trigger engraving of the current score for ALL canvases.
-        
-        Call this method after ANY modification to the SCORE model to
-        queue a layout calculation and rendering task.
-        
-        The engraver automatically handles:
-        - Running layout calculations in a background thread
-        - Discarding old render tasks when new changes arrive
-        - Drawing results on the canvas on the main thread
-        
-        Triggers engraving for:
-        - Editor canvas (main editing view)
-        - Print preview canvas (if available via editor.gui)
-        """
-        try:
-            # Safety check - don't engrave if score is None
-            if self.score is None:
-                print("BaseTool: Cannot trigger engrave - score is None")
-                return
-                
-            engraver = get_engraver_instance()
-            
-            # ONLY trigger for print preview canvas (not the editor canvas!)
-            # The editor has its own drawing system (piano roll)
-            if hasattr(self.editor, 'gui') and self.editor.gui:
-                preview_canvas = self.editor.gui.get_preview_widget()
-                if preview_canvas:
-                    engraver.do_engrave(
-                        score=self.score,
-                        canvas=preview_canvas,
-                        callback=self._on_preview_engrave_complete
-                    )
-        except Exception as e:
-            print(f"BaseTool: Failed to trigger engrave: {e}")
     
     def _on_engrave_complete(self, success: bool, error: Optional[str]):
         """

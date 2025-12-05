@@ -634,7 +634,7 @@ class Canvas(Widget):
         '''
         # Get editor margin (mm) and quarter note length (ticks)
         editor_margin_mm = 0.0  # Default fallback
-        quarter_note_length = 256.0  # Default
+        quarter_note_length = 100.0  # Default
 
         if hasattr(self, 'piano_roll_editor') and self.piano_roll_editor:
             # Get editor margin from the piano roll editor (not canvas)
@@ -2223,7 +2223,7 @@ class Canvas(Widget):
         mm_per_quarter = float(self._quarter_note_spacing_mm)
         quarters = time_position_mm / mm_per_quarter
         # Get quarter note length from score if available
-        quarter_note_length = 256.0
+        quarter_note_length = 100.0
         if hasattr(self, 'piano_roll_editor') and self.piano_roll_editor and self.piano_roll_editor.score:
             ql = self.piano_roll_editor.score.fileSettings.quarterNoteUnit
             if isinstance(ql, (int, float)) and ql > 0:
@@ -2314,7 +2314,7 @@ class Canvas(Widget):
         Uses direct pixel calculation to avoid double conversion.
         '''
         # Get values directly from the score
-        quarter_note_length = 256.0  # Default
+        quarter_note_length = 100.0  # Default
         if hasattr(self, 'piano_roll_editor') and self.piano_roll_editor and hasattr(self.piano_roll_editor, 'score'):
             score = self.piano_roll_editor.score
             if score:

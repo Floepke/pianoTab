@@ -83,7 +83,7 @@ def _generate_event_factory(event_class: Type, event_list_name: str):
         {event_class.__name__}: The created event instance
     
     Example:
-        score.{event_list_name}(pitch=60, duration=256.0)
+        score.{event_list_name}(pitch=60, duration=100.0)
     '''
     
     return factory_method

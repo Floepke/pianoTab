@@ -14,7 +14,7 @@ class GlobalNote:
         }
     )
     colorLeftMidiNote: str = field(
-        default='#dddddd',
+        default='#FFD24D',
         metadata={
             'tree_icon': 'colorproperty',
             'tree_tooltip': 'Default MIDI rectangle color for left hand notes',
@@ -22,7 +22,7 @@ class GlobalNote:
         }
     )
     colorRightMidiNote: str = field(
-        default='#dddddd',
+        default='#FFD24D',
         metadata={
             'tree_icon': 'colorproperty',
             'tree_tooltip': 'Default MIDI rectangle color for right hand notes',

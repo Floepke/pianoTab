@@ -14,7 +14,7 @@ class Slur:
         the x axis is pitch in semitones from C4. 
         for example if middle C = 40, -7 is f3 position, 6 = f#4 position
         So we use a grid in the x axis of semitones from C4
-        the y axis is time in pianoticks (quarter note = 256.0)
+        the y axis is time in pianoticks (quarter note = 100.0)
     '''
     id: int = field(
         default=0,

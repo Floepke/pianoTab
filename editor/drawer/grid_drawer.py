@@ -5,7 +5,9 @@ Handles drawing barlines, measure numbers, and gridlines.
 '''
 
 from kivy.metrics import sp
+from gui.colors import LIGHT_DARKER_HEX
 from utils.CONSTANTS import PIANOTICK_QUARTER
+from utils.operator import OperatorThreshold
 
 
 class GridDrawerMixin:
@@ -16,10 +18,11 @@ class GridDrawerMixin:
     def _draw_barlines_and_grid(self):
         '''Draw barlines and grid lines based on baseGrid configuration.'''
         
-        # Initialize time cursor
+        # Initialize
         time_cursor = 0.0
         measure_number = 1
         unit = self.score.fileSettings.quarterNoteUnit
+        barlines = self._get_barline_positions()
         
         for grid in self.score.baseGrid:
             
@@ -104,21 +107,54 @@ class GridDrawerMixin:
                     
                     # Calculate absolute time position
                     grid_tick_position = time_cursor + grid_time
-                    grid_y = self.time_to_y(grid_tick_position)
+                    y1 = self.time_to_y(grid_tick_position)
                     
                     # Only draw if within viewport
-                    if 0 <= grid_y <= self.canvas.height_mm + self.editor_margin:
+                    if 0 <= y1 <= self.canvas.height_mm + self.editor_margin:
                         self.canvas.add_line(
                             x1_mm=self.editor_margin, 
-                            y1_mm=grid_y,
+                            y1_mm=y1,
                             x2_mm=self.editor_margin + self.stave_width, 
-                            y2_mm=grid_y,
+                            y2_mm=y1,
                             color=self.gridline_color,
                             width_mm=self.gridline_width,
                             dash=True,  # Dashed gridlines
                             dash_pattern_mm=tuple(self.gridline_dash_pattern),
                             tags=['gridline', f'gridline_{int(grid_tick_position)}_{i}']
                         )
+
+                # draw grid 3 based on the grid unit
+                grid_step = self.grid_selector.get_grid_step()
+                grid_step_cursor = 0.0
+                color = "#d9d9d9"
+                is_color = True
+                while OperatorThreshold().less(grid_step_cursor, meas_length):
+                    grid_tick_position = time_cursor + grid_step_cursor
+                    y1 = self.time_to_y(grid_tick_position)
+                    y2 = self.time_to_y(grid_tick_position + grid_step)
+
+                    # resize the rectangle if needed
+                    for barline_pos in barlines:
+                        if OperatorThreshold().greater(barline_pos, grid_step_cursor) and OperatorThreshold().less(barline_pos, grid_step_cursor + grid_step):
+                            y2 = self.time_to_y(time_cursor + barline_pos)
+                            break
+
+                    # Only draw if within viewport
+                    if 0 <= y1 <= self.canvas.height_mm + self.editor_margin and not is_color:
+                        # draw the grid rectangle
+                        self.canvas.add_rectangle(
+                            x1_mm=self.editor_margin, 
+                            y1_mm=y1,
+                            x2_mm=self.editor_margin + self.stave_width, 
+                            y2_mm=y2,
+                            fill=True,
+                            fill_color=color,
+                            outline=False,
+                            tags=['cursor_grid']
+                        )
+                    is_color = not is_color
+                    
+                    grid_step_cursor += grid_step
                 
                 # Move time cursor forward by one measure
                 time_cursor += meas_length

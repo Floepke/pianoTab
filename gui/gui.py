@@ -141,7 +141,7 @@ class Editor(BoxLayout):
 
         self.canvas_view = Canvas(
             width_mm=210.0, height_mm=297.0,
-            background_color=(1, 1, 1, 1),
+            background_color=LIGHT_DARKER,
             border_color=DARK,
             border_width_px=1.0,
             keep_aspect=True,

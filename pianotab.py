@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 '''
-pianoTAB - Music Notation Editor
+pianoTAB - Piano-Roll Music Notation
 Main application entry point for Kivy version.
 '''
 import sys
@@ -103,7 +103,7 @@ from font import load_embedded_font, cleanup_font, FONT_NAME, apply_default_font
 class pianoTAB(App):
     '''Main pianoTAB application.'''
     
-    title = 'pianoTAB - Music Notation Editor'
+    title = 'pianoTAB - Piano-Roll Music Notation'
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -160,6 +160,11 @@ class pianoTAB(App):
         print(f'pianoTAB: After assignment - grid_selector.score = {self.gui.side_panel.grid_selector.score}')
         print(f'pianoTAB: Assigned score to grid_selector, quarterNoteUnit={self.editor.score.fileSettings.quarterNoteUnit if self.editor.score else "N/A"}')
         
+        # Bind grid_selector changes to redraw piano roll
+        self.gui.side_panel.grid_selector.bind(
+            current_grid_step=lambda instance, value: self.editor.redraw_pianoroll()
+        )
+        
         # Connect tool_selector to editor's tool_manager
         self.gui.side_panel.tool_selector.callback = lambda tool_name: self.editor.tool_manager.set_active_tool(tool_name)
         
@@ -189,7 +194,7 @@ class pianoTAB(App):
         # Create initial score once canvas is ready (event-driven)
         def _initialize_score():
             # Load test file on startup
-            test_file = '/home/floepie/Documents/pianoTab/test.piano'
+            test_file = '/home/flop/pianoTab/test.piano'
             
             if os.path.exists(test_file):
                 self.file_manager.load_file_manually(test_file)
@@ -200,32 +205,6 @@ class pianoTAB(App):
 
             # redraw_pianoroll because the editor initially draws it's pixels per quarter wrong.
             Clock.schedule_once(lambda dt: self.editor.redraw_pianoroll(), 0)
-            
-            # Trigger initial engraving for both canvases
-            def _trigger_initial_engrave(dt):
-                Logger.info('pianoTAB: Triggering initial engraving')
-                try:
-                    # Safety check - make sure score is loaded
-                    if self.editor.score is None:
-                        Logger.warning('pianoTAB: Cannot engrave - score is None')
-                        return
-                    
-                    from engraver import get_engraver_instance
-                    engraver = get_engraver_instance()
-                    
-                    # ONLY engrave print preview canvas (editor has its own drawing system)
-                    preview_canvas = self.gui.get_preview_widget()
-                    if preview_canvas:
-                        engraver.do_engrave(
-                            score=self.editor.score,
-                            canvas=preview_canvas
-                        )
-                except Exception as e:
-                    Logger.warning(f'pianoTAB: Initial engraving failed: {e}')
-                    import traceback
-                    traceback.print_exc()
-            
-            # Clock.schedule_once(_trigger_initial_engrave, 0.2)
 
         try:
             self.editor.canvas.on_ready(_initialize_score)
@@ -269,6 +248,7 @@ class pianoTAB(App):
             # Refresh grid selector in case quarterNoteUnit changed
             if hasattr(self.gui, 'side_panel') and hasattr(self.gui.side_panel, 'grid_selector'):
                 self.gui.side_panel.grid_selector.refresh_from_score()
+                self.editor.redraw_pianoroll()
             
             # Redraw editor piano roll to reflect changes
             if self.editor is not None:
@@ -291,11 +271,11 @@ class pianoTAB(App):
                 return False
             if ch in ('=', '+'):
                 if self.editor is not None:
-                    self.editor.zoom_in(1.2)
+                    self.editor.zoom_in(factor=1.01)
                     return True
             elif ch in ('-', '_'):
                 if self.editor is not None:
-                    self.editor.zoom_out(1.2)
+                    self.editor.zoom_out(factor=1.01)
                     return True
         except Exception:
             pass

@@ -21,7 +21,7 @@ class OperatorThreshold:
         >>> op.greater(1.005, 1.0) # False - within threshold, considered equal
     """
     
-    def __init__(self, threshold: float = 0.001):
+    def __init__(self, threshold: float = 0.000001):
         """
         Initialize the operator with a comparison threshold.
         

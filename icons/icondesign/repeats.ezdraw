@@ -384,7 +384,7 @@
 		<key>ExporBackground</key>
 		<string>No (Black) Background</string>
 		<key>ExportColorTable</key>
-		<string>256 Best</string>
+		<string>100 Best</string>
 		<key>ExportCompresion</key>
 		<string>1</string>
 		<key>ExportContent</key>
@@ -408,7 +408,7 @@
 		<key>HideExtension</key>
 		<string>NO</string>
 		<key>ICOColorTable</key>
-		<string>256 Best</string>
+		<string>100 Best</string>
 		<key>ICOExporBackground</key>
 		<string>No (White) Background</string>
 		<key>JPGColorSpace</key>
@@ -991,7 +991,7 @@
 		<key>OutlineDrawing</key>
 		<string>NO</string>
 		<key>WindowLocation</key>
-		<string>50 812 435 498 0 0 2560 1440 </string>
+		<string>50 812 435 498 0 0 1000 1440 </string>
 		<key>ZoomPercent</key>
 		<string>168.750000</string>
 	</dict>

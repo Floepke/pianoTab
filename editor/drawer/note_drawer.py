@@ -38,7 +38,7 @@ class NoteDrawerMixin:
         
         def pitch_to_x(self, pitch: int) -> float: ...
         def time_to_y(self, time: float) -> float: ...
-        def get_barline_positions(self) -> list[float]: ...
+        def _get_barline_positions(self) -> list[float]: ...
     
     def _draw_notes(self) -> None:
         '''Draw all note events from the currently rendered stave.'''
@@ -80,12 +80,12 @@ class NoteDrawerMixin:
         self._draw_midinote(note, draw_mode, base_tag, color)
         self._draw_notestop(stave_idx, note, base_tag, color)
         self._draw_notehead(note, base_tag, color)
-        self._draw_left_dot(note, base_tag, color)
+        self._draw_dashed_guide(stave_idx, note, base_tag=base_tag, color=color)
         self._draw_accidental(note, base_tag, color)
-        self._draw_stem(note, base_tag, color)
-        self._draw_stem_whitespace(note, base_tag)
-        self._draw_chord_connections(stave_idx, note, base_tag=base_tag, color=color)
-        self._draw_note_continuation_dot(stave_idx, note, draw_mode=draw_mode)
+        #self._draw_left_dot(note, base_tag, color)
+        #self._draw_solid_guide(note, base_tag, color)
+        #self._draw_stem_whitespace(note, base_tag)
+        #self._draw_note_continuation_dot(stave_idx, note, draw_mode=draw_mode)
     
     def _setup_note_drawing(self, note: Note, draw_mode: str) -> tuple[str, str]:
         '''Setup drawing by deleting old elements and determining tag and color.
@@ -144,7 +144,7 @@ class NoteDrawerMixin:
                 self.detection_rects[note.id] = (rect_x1, rect_y1, rect_x2, rect_y2)
     
     def _draw_notestop(self, stave_idx: int, note: Note, base_tag: str, color: str) -> None:
-        '''Draw the note stop sign (triangle) if followed by a rest.'''
+        '''Draw the note stop sign (triangle) if followed by a rest or a large single pitch jump.'''
         if self._is_followed_by_rest(stave_idx, note):
             # Calculate positions
             x = self.pitch_to_x(note.pitch)
@@ -175,7 +175,7 @@ class NoteDrawerMixin:
         semitone_width = self.semitone_width * 2
         notehead_length = semitone_width
         if note.pitch in BLACK_KEYS:
-            semitone_width *= 0.75  # slightly smaller notehead for black keys
+            semitone_width *= 0.7  # slightly smaller notehead for black keys
         
         # Adjust y position for black notes above stem
         if base_tag == 'cursor' and note.pitch in BLACK_KEYS and self.score.properties.globalNote.blackNoteDirection == '^':
@@ -286,11 +286,15 @@ class NoteDrawerMixin:
                     tags=['accidental', base_tag]
                 )
     
-    def _draw_stem(self, note: Note, base_tag: str, color: str) -> None:
+    def _draw_solid_guide(self, note: Note, base_tag: str, color: str) -> None:
         '''Draw the horizontal stem line.'''
         # Calculate positions (stem is at note time, not adjusted for black notes)
         x = self.pitch_to_x(note.pitch)
         y = self.time_to_y(note.time)
+
+        # skip if note starts at barline or grid positions
+        if any(self._time_op.equal(note.time, pos) for pos in self._get_barline_and_grid_positions()):
+            return
         
         # Calculate stem endpoint
         if note.hand == '<':
@@ -299,9 +303,9 @@ class NoteDrawerMixin:
             xx = x + note.stemLengthMm
         
         self.canvas.add_line(
-            x1_mm=x,
+            x1_mm=x - 2,
             y1_mm=y,
-            x2_mm=xx,
+            x2_mm=x + 2,
             y2_mm=y,
             width_mm=self.score.properties.globalNote.stemWidthMm,
             color=color,
@@ -310,18 +314,18 @@ class NoteDrawerMixin:
     
     def _draw_stem_whitespace(self, note: Note, base_tag: str) -> None:
         '''Draw stem whitespace to highlight stem on barlines.'''
-        if any(self._time_op.equal(note.time, barline_time) for barline_time in self.get_barline_positions()):
+        if any(self._time_op.equal(note.time, barline_time) for barline_time in self._get_barline_positions()):
             # Calculate positions
             x = self.pitch_to_x(note.pitch)
             y = self.time_to_y(note.time)
             
             # Calculate stem endpoint
             if note.hand == '<':
-                xx = x - note.stemLengthMm
+                xx = x + 2
                 self.canvas.add_line(
-                    x1_mm=x + 2,
+                    x1_mm=x + 4,
                     y1_mm=y,
-                    x2_mm=xx - 2,
+                    x2_mm=x - 4,
                     y2_mm=y,
                     width_mm=self.score.properties.globalBasegrid.barlineWidthMm,
                     color='#FFFFFF',
@@ -331,9 +335,9 @@ class NoteDrawerMixin:
             else:
                 xx = x + note.stemLengthMm
                 self.canvas.add_line(
-                    x1_mm=x - 2,
+                    x1_mm=x - 4,
                     y1_mm=y,
-                    x2_mm=xx + 2,
+                    x2_mm=x + 4,
                     y2_mm=y,
                     width_mm=self.score.properties.globalBasegrid.barlineWidthMm,
                     color='#FFFFFF',
@@ -341,12 +345,13 @@ class NoteDrawerMixin:
                     cap='flat'
                 )
 
-    def _draw_chord_connections(self, stave_idx: int, note: Note, base_tag: str, color: str) -> None:
-        '''Draw connection lines between notes that form a chord (same time).
+    def _draw_dashed_guide(self, stave_idx: int, note: Note, base_tag: str, color: str) -> None:
+        '''Draw connection lines between notes that form a chord (same time) or in case of a single note:
+        draw a centered guide line if the note is not part of a chord.
         
         Args:
             stave_idx: Index of the stave containing the note
-            note: The note to check for chord connections
+            note: The note to check for chord connections or single note guide
             base_tag: Tag for canvas items
             color: Color for the connection line
         '''
@@ -357,50 +362,107 @@ class NoteDrawerMixin:
         if stave_idx >= len(self.score.stave):
             return
         
+        # check if note starts at barline or grid positions
+        if any(self._time_op.equal(note.time, pos) for pos in self._get_barline_and_grid_positions()):
+            return  # Don't draw chord guide on barline/grid positions
+        
         note_list = self.score.stave[stave_idx].event.note
         
-        # Find notes with the same time and same hand
+        # Find all notes with the same start time
+        same_time_notes = [n for n in note_list if self._time_op.equal(n.time, note.time)]
+        
+        # If less than 2 notes at same time, no chord to draw
+        if len(same_time_notes) < 2:
+            # Calculate positions
+            x = self.pitch_to_x(note.pitch)
+            y = self.time_to_y(note.time)
+            
+            # Draw centered guide line
+            guide_length_mm = 16.0  # Total length of the guide line
+            self.canvas.add_line(
+                x1_mm=x - guide_length_mm / 2,
+                y1_mm=y,
+                x2_mm=x + guide_length_mm / 2,
+                y2_mm=y,
+                width_mm=self.score.properties.globalNote.stemWidthMm,
+                color=color,
+                tags=['note_guide', base_tag],
+                dash=True,
+                dash_pattern_mm=[1, 2]
+            )
+            return
+        
+        # Find the lowest pitch note in the chord
+        lowest_note = min(same_time_notes, key=lambda n: n.pitch)
+        
+        # Only draw if this is the lowest note - prevents drawing multiple times
+        if note.id != lowest_note.id:
+            return
+        
+        # Find the highest pitch note in the chord
+        highest_note = max(same_time_notes, key=lambda n: n.pitch)
+        
+        # Calculate positions for the chord guide line
+        x1 = self.pitch_to_x(lowest_note.pitch)
+        y1 = self.time_to_y(lowest_note.time)
+        
+        x2 = self.pitch_to_x(highest_note.pitch)
+        y2 = self.time_to_y(highest_note.time)  # Should be same as y1 within threshold
+        
+        # Draw connection line between the lowest and highest notes
+        guide_overspan = self.semitone_width * 4  # Extend beyond noteheads
+        self.canvas.add_line(
+            x1_mm=x1 - guide_overspan,
+            y1_mm=y1,
+            x2_mm=x2 + guide_overspan,
+            y2_mm=y2,
+            width_mm=self.score.properties.globalNote.stemWidthMm,
+            color=color,
+            tags=['chord_guide', base_tag],
+            dash=True,
+            dash_pattern_mm=[1, 2]
+        )
+
+    def _a_following_notes_diff_is_less_then_interval(self, stave_idx: int, note: Note, interval: int = 12) -> bool:
+        '''Check if the next note that starts on the current notes end time is less than the given interval away.
+        
+        Args:
+            stave_idx: Index of the stave containing the note.
+            note: The note to check.
+        Returns:
+            True if the next note that starts on the current notes end time in the same hand is more than an octave apart,
+            False otherwise.
+        '''
+        # Guard against startup race condition
+        if not self.score:
+            return True  # Default to showing note stop
+        # Get the stave's note list
+        if stave_idx >= len(self.score.stave):
+            return True  # Default to showing note stop if stave not found
+        
+        stave = self.score.stave[stave_idx]
+        answer = False
+        if not hasattr(stave.event, 'note'):
+            return True  # Default to showing note stop if no notes
+        
+        note_list = stave.event.note
+        note_end_time = note.time + note.duration
         for other_note in note_list:
             # Skip the current note itself
             if other_note.id == note.id:
                 continue
             
-            # Only connect notes in the same hand or continue if we check our current note.
+            # Only check notes in the same hand
             if other_note.hand != note.hand:
                 continue
             
-            # Check if notes have the same start time (using threshold)
-            if self._time_op.equal(note.time, other_note.time):
-                # Calculate positions for both notes
-                x1 = self.pitch_to_x(note.pitch)
-                y1 = self.time_to_y(note.time)
-                
-                x2 = self.pitch_to_x(other_note.pitch)
-                y2 = self.time_to_y(other_note.time)  # Should be same as y1 within threshold
-                
-                # Draw connection line between the two chord notes
-                self.canvas.add_line(
-                    x1_mm=x1,
-                    y1_mm=y1,
-                    x2_mm=x2,
-                    y2_mm=y2,
-                    width_mm=self.score.properties.globalNote.stemWidthMm,
-                    color=color,
-                    tags=['connect_stem', base_tag]
-                )
-
-                # draw stem_white_space for chord connection if on barline
-                if any(self._time_op.equal(note.time, barline_time) for barline_time in self.get_barline_positions()):
-                    self.canvas.add_line(
-                        x1_mm=x1,
-                        y1_mm=y1,
-                        x2_mm=x2,
-                        y2_mm=y1,
-                        width_mm=self.score.properties.globalBasegrid.barlineWidthMm,
-                        color='#FFFFFF',
-                        tags=['stem_white_space', base_tag],
-                        cap='flat'
-                    )
+            # Check if this note starts at the current note's end time (using threshold)
+            if self._time_op.equal(other_note.time, note_end_time):
+                # Check if pitch difference is more than an octave
+                if abs(other_note.pitch - note.pitch) <= interval:
+                    answer = True
+                    break # found a note within an octave
+        return answer
 
     def _is_followed_by_rest(self, stave_idx: int, note: Note) -> bool:
         '''Check if a note is followed by a rest (gap) in the same hand.
@@ -548,7 +610,7 @@ class NoteDrawerMixin:
                 dot_times.append(other_end)
         
         # Check for barline crossings
-        barline_positions = self.get_barline_positions()
+        barline_positions = self._get_barline_positions()
         for barline_time in barline_positions:
             # Check if barline falls within this note's duration (using threshold)
             if self._time_op.less(note_start, barline_time) and self._time_op.less(barline_time, note_end):

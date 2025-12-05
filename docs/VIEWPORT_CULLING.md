@@ -67,7 +67,7 @@ Assumptions:
 | 10            | ~150        | ~150          | 0% (all visible)  |
 | 50            | ~750        | ~300          | 60% culled        |
 | 128           | ~1920       | ~300          | **84% culled**    |
-| 256           | ~3840       | ~300          | **92% culled**    |
+| 100           | ~3840       | ~300          | **92% culled**    |
 
 ## Implementation Details
 

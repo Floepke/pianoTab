@@ -9,10 +9,10 @@ class FileSettings:
     '''
     
     quarterNoteUnit: float = field(
-        default=256.0,
+        default=100.0,
         metadata={
             'tree_icon': 'property',
-            'tree_tooltip': 'Quarter note time unit: fundamental temporal resolution (how many units = one quarter note). Default 256.0 means whole note = 1024, eighth = 128. All event times/durations reference this base unit. WARNING: Changing this after score creation rescales the entire timeline and changes meaning of all existing time values. In normal usage don\'t touch it :)',
+            'tree_tooltip': 'Quarter note time unit: fundamental temporal resolution (how many units = one quarter note). Default 100.0 means whole note = 1024, eighth = 128. All event times/durations reference this base unit. WARNING: Changing this after score creation rescales the entire timeline and changes meaning of all existing time values. In normal usage don\'t touch it :)',
             'tree_edit_type': 'float',
             'tree_edit_options': {
                 'min': 1.0,
@@ -24,7 +24,7 @@ class FileSettings:
         default=100.0,
         metadata={
             'tree_icon': 'property',
-            'tree_tooltip': 'Zoom level in pixels per quarter note. Adjusts the horizontal zoom of the timeline in the editor. Default is 1.0 (256 pixels per quarter note). Higher values zoom in, lower values zoom out.',
+            'tree_tooltip': 'Zoom level in pixels per quarter note. Adjusts the horizontal zoom of the timeline in the editor. Default is 1.0 (100 pixels per quarter note). Higher values zoom in, lower values zoom out.',
             'tree_edit_type': 'float',
             'tree_edit_options': {
                 'min': 0.1,

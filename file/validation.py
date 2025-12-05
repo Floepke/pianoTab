@@ -47,7 +47,7 @@ def get_field_defaults(cls: Type) -> Dict[str, Any]:
     
     Returns:
         Dict mapping JSON field names to their default values.
-        Example: {'pitch': 40, 'dur': 256.0, 'color': None, ...}
+        Example: {'pitch': 40, 'dur': 100.0, 'color': None, ...}
     '''
     defaults = {}
     mappings = get_field_mappings(cls)

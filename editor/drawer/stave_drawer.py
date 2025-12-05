@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from utils.canvas import Canvas
 
 from utils.CONSTANTS import PIANO_KEY_COUNT, PIANOTICK_QUARTER
+from gui.colors import rgba_to_hex, LIGHT_DARKER
 
 
 class StaveDrawerMixin:

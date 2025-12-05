@@ -35,7 +35,7 @@ class Note:
     )
     
     duration: float = field(
-        default=256.0,
+        default=100.0,
         metadata={
             **config(field_name='duration'),
             'tree_icon': 'property',

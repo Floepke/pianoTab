@@ -29,7 +29,7 @@ class SCORE:
         self,
         stave_idx: int = 0,
         time: float = 0.0,
-        duration: float = 256.0,
+        duration: float = 100.0,
         pitch: int = 40,
         accidental: int = 0,
         velocity: int = 80,

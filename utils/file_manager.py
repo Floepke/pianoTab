@@ -904,9 +904,9 @@ class FileManager:
     def _update_window_title(self):
         '''Update the window title to show current filepath.'''
         if self.current_path:
-            title = f'pianoTAB - music notation editor - {self.current_path}'
+            title = f'pianoTAB - Piano-Roll Music Notation - {self.current_path}'
         else:
-            title = 'pianoTAB - music notation editor - Untitled'
+            title = 'pianoTAB - Piano-Roll Music Notation - Untitled'
         
         # Add asterisk if file has unsaved changes
         if self.dirty:
@@ -1088,18 +1088,6 @@ class FileManager:
         '''Mark the current file as having unsaved changes and trigger print preview update.'''
         self.dirty = True
         self._update_window_title()  # Update title to show asterisk
-        
-        # Trigger engraver to update print preview
-        try:
-            from engraver import get_engraver_instance
-            score = self.get_score()
-            if score and hasattr(self, 'gui') and self.gui:
-                preview_canvas = self.gui.get_preview_widget()
-                if preview_canvas:
-                    engraver = get_engraver_instance()
-                    engraver.do_engrave(score, preview_canvas, None)
-        except Exception as e:
-            print(f"FileManager: Failed to trigger engraver: {e}")
 
     # Convenience: single place to access the current SCORE
     def get_score(self) -> Optional[SCORE]:
