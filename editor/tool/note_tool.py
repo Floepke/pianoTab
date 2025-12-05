@@ -16,7 +16,7 @@ class NoteTool(BaseTool):
         # accidental tracking
         self.last_pitch = None
         self.accidental_value = 0  # Accidental for cursor: 0 (none), -1 (flat), 1 (sharp)
-        self.accidental_switch = 1 # 1: sharp/flat, 2: double sharp/flat, 0: none
+        self.accidental_switch = 0 # 1: sharp/flat, 2: double sharp/flat, 0: off
 
         # Editing state
         self.edit_note = None  # Note being created/edited during drag
@@ -25,7 +25,7 @@ class NoteTool(BaseTool):
     
     @property
     def name(self) -> str:
-        return "Note"
+        return 'Note'
     
     @property
     def cursor(self) -> str:
@@ -188,17 +188,7 @@ class NoteTool(BaseTool):
         if time < 0:
             time = 0
 
-        # # mouse gesture for note switching:
-        # # if mouse is outside the stave area
-        # # the note hand switches to the left
-        # # or right hand respectively.
-        # if pitch == 1:
-        #     self.hand_cursor = '<'
-        # elif pitch == 88:
-        #     self.hand_cursor = '>'
-
         # accidental tracking
-        print(self.accidental_value)
         if self.accidental_switch != 0:
             if self.last_pitch is not None:
                 if pitch < self.last_pitch:
@@ -251,8 +241,7 @@ class NoteTool(BaseTool):
             
             # Redraw in 'edit' mode for visual feedback
             self.editor._draw_single_note(stave_idx, self.edit_note, draw_mode='edit')
-            
-            print(f"NoteTool: Editing note {element.id} from stave {stave_idx}, assigned hand '{self.hand_cursor}', accidental {self.accidental_value}")
+
             return True
         
         # CREATE MODE: No note clicked, create new one
@@ -291,7 +280,6 @@ class NoteTool(BaseTool):
         if hasattr(self.editor, 'on_modified') and self.editor.on_modified:
             self.editor.on_modified()
         
-        print(f"NoteTool: Creating new note {self.edit_note.id}")
         return True
 
     def on_drag(self, x: float, y: float, start_x: float, start_y: float) -> bool:

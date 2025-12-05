@@ -5,6 +5,7 @@ from kivy.core.window import Window
 from kivy.metrics import sp
 import math
 
+from gui.colors import DARK_HEX
 from file.SCORE import SCORE
 from file.note import Note
 from utils.canvas import Canvas
@@ -48,7 +49,7 @@ class Editor(
     
     def __init__(self, editor_canvas: Canvas, score: SCORE = None, gui=None):
         self.canvas: Canvas = editor_canvas
-        self.score: SCORE = None  # Will be initialized via new_score() or load_score()
+        self.score: SCORE = score  # Will be initialized via new_score() or load_score()
         self.gui = gui
         
         # Initialize dimensions from canvas
@@ -113,6 +114,16 @@ class Editor(
         
         # Mark editor as ready for drawing (all initialization complete)
         self._ready: bool = True
+
+        # Redraw overlay keyboard on canvas resize/layout changes
+        try:
+            from kivy.clock import Clock
+            def _redraw_overlay_scheduled(*_):
+                Clock.schedule_once(lambda dt: self._draw_keyboard_overlay(), 0)
+            # Bind to canvas size and pos to catch viewport changes
+            self.canvas.bind(size=_redraw_overlay_scheduled, pos=_redraw_overlay_scheduled)
+        except Exception:
+            pass
 
     def _apply_settings_from_score(self):
         '''Synchronize editor state from SCORE.fileSettings and SCORE.properties.
@@ -510,15 +521,21 @@ class Editor(
         self._draw_barlines_and_grid()
         self._draw_notes()
         self._draw_grace_notes()
-        self._draw_beams()
-        self._draw_slurs()
-        self._draw_texts()
+        #self._draw_beams()
+        #self._draw_slurs()
+        #self._draw_texts()
         self._draw_tempos()
-        self._draw_count_lines()
-        self._draw_line_breaks()
+        #self._draw_count_lines()
+        #self._draw_line_breaks()
 
         # Force canvas redraw with culling now that all items are added
         self.canvas._redraw_all()
+
+        # Draw the fixed keyboard overlay at the bottom (outside scissor)
+        try:
+            self._draw_keyboard_overlay()
+        except Exception as e:
+            print(f'Editor: keyboard overlay draw failed: {e}')
     
     # Removed update_drawing_order() - no longer needed!
     # Drawing order is now set automatically by tags when items are created.
@@ -646,6 +663,11 @@ class Editor(
                     # Recompute layout with current canvas scale and re-render content height
                     self._calculate_layout()
                     self.redraw_pianoroll()
+                    # Also refresh overlay keyboard after redraw
+                    try:
+                        self._draw_keyboard_overlay()
+                    except Exception:
+                        pass
                 except Exception as inner_e:
                     print(f'DEBUG: zoom_refresh inner failed: {inner_e}')
 
@@ -937,6 +959,52 @@ class Editor(
         return result
         
         return result
+
+    # ----- Overlay keyboard (non-clipped, fixed height) -----
+    def _draw_keyboard_overlay(self):
+        """Draw a permanent keyboard strip at the bottom of the editor viewport.
+
+        Drawn as an overlay outside the scissor so it does not scroll, simulating a
+        separate panel while sharing the editor's X mapping.
+        """
+        canvas = self.canvas
+        # Overlay height in pixels: panel height / 3 * 2 (two-thirds of 120px = 80px)
+        BASE_PANEL_HEIGHT_PX = 120
+        KEYBOARD_OVERLAY_HEIGHT_PX = int(BASE_PANEL_HEIGHT_PX * 2 / 3)
+
+        # Reserve overlay area and clear previous overlay content
+        canvas.set_overlay_bottom_px(KEYBOARD_OVERLAY_HEIGHT_PX)
+        canvas.overlay_clear()
+
+        # If the canvas is not laid out yet, bail out gracefully
+        px_per_mm = float(getattr(canvas, '_px_per_mm', 0.0) or 0.0)
+        view_x = float(getattr(canvas, '_view_x', 0) or 0)
+        view_y = float(getattr(canvas, '_view_y', 0) or 0)
+        if px_per_mm <= 0:
+            return
+
+        # Black keys: centered on editor's pitch_to_x, width = one semitone width
+        key_width_mm = float(getattr(self, 'semitone_width', 3.0))
+        key_width_px = key_width_mm * px_per_mm
+        # Draw shorter keys: occupy only two-thirds of the overlay height
+        key_height_px = float(int(KEYBOARD_OVERLAY_HEIGHT_PX * 2 / 3))
+        # Add bottom margin equal to one-third of overlay height
+        bottom_margin_px = float(KEYBOARD_OVERLAY_HEIGHT_PX - key_height_px)
+
+        # Draw each black key rectangle
+        for pitch in BLACK_KEYS:
+            cx_mm = self.pitch_to_x(pitch)
+            cx_px, _ = canvas._mm_to_px_point(cx_mm, 0.0)
+            x1_px = float(cx_px) - (key_width_px / 2.0)
+            canvas.overlay_draw_rect_px(x1_px, view_y + bottom_margin_px, key_width_px, key_height_px, color='#15151A')
+
+        # Draw overlay border (a thick outline around the keyboard area)
+        try:
+            view_w = float(getattr(canvas, '_view_w', 0) or 0)
+            # Top border line of the overlay strip
+            canvas.overlay_draw_rect_px(view_x, view_y + KEYBOARD_OVERLAY_HEIGHT_PX - 4.0, view_w, 4.0, color=DARK_HEX)
+        except Exception:
+            pass
     
     def handle_mouse_move(self, x: float, y: float) -> bool:
         """

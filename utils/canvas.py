@@ -32,7 +32,7 @@ class CustomScrollbar(Widget):
         
         # Colors using system theme - logical color mapping
         self.track_color = LIGHT_DARKER       # Track: lighter version of light theme
-        self.thumb_color = ACCENT_COLOR       # Thumb: accent color for better visibility
+        self.thumb_color = DARK       # Thumb: accent color for better visibility
         self.thumb_hover_color = DARK         # Hover: full dark theme color
         self.thumb_drag_color = DARK          # Drag: same as hover for consistency
         
@@ -344,6 +344,15 @@ class Canvas(Widget):
         self._scissor_pop = ScissorPop()
         self.canvas.add(self._scissor_pop)
 
+        # Overlay area below the clipped viewport (e.g., fixed keyboard strip)
+        # Drawn OUTSIDE the scissor so it's not clipped.
+        self.overlay_bottom_px: int = 0
+        self._overlay_bg_group = InstructionGroup()
+        self._overlay_group = InstructionGroup()
+        # Overlay background first, then overlay content
+        self.canvas.add(self._overlay_bg_group)
+        self.canvas.add(self._overlay_group)
+
         # Items and tags
         self._next_id: int = 1
         self._items: Dict[int, Dict[str, Any]] = {}
@@ -380,6 +389,40 @@ class Canvas(Widget):
 
         # Initial layout
         self._update_layout_and_redraw()
+
+    # ----- Overlay API -----
+
+    def set_overlay_bottom_px(self, height_px: int):
+        """Reserve a fixed-height overlay area at the bottom of the viewport (in pixels).
+
+        Content inside the main canvas will be clipped to (view_h - height_px),
+        while the overlay region remains visible and not clipped.
+        """
+        try:
+            h = int(height_px or 0)
+        except Exception:
+            h = 0
+        self.overlay_bottom_px = max(0, h)
+        self._update_layout_and_redraw()
+
+    def overlay_clear(self):
+        """Clear overlay content instructions (keeps the overlay background)."""
+        if hasattr(self, '_overlay_group') and self._overlay_group is not None:
+            self._overlay_group.clear()
+
+    def overlay_draw_rect_px(self, x: float, y: float, w: float, h: float, color: str = '#000000'):
+        """Draw a solid rectangle in overlay space using pixel coordinates.
+
+        Args:
+            x, y: Bottom-left position in pixels (Kivy coordinate space)
+            w, h: Width/height in pixels
+            color: Hex color string like '#RRGGBB' or '#RRGGBBAA'
+        """
+        if not hasattr(self, '_overlay_group') or self._overlay_group is None:
+            return
+        rgba = self._parse_color(color)
+        self._overlay_group.add(Color(*rgba))
+        self._overlay_group.add(Rectangle(pos=(x, y), size=(w, h)))
 
     def set_piano_roll_editor(self, editor):
         '''Set the piano roll editor reference for accessing score data.'''
@@ -1629,19 +1672,33 @@ class Canvas(Widget):
         self._scissor.x = int(window_x)
         self._scissor.y = int(window_y)
         self._scissor.width = int(self._view_w)
-        self._scissor.height = int(self._view_h)
+        # Reduce scissor height by overlay to keep content above overlay area
+        effective_h = max(0, int(self._view_h) - int(self.overlay_bottom_px or 0))
+        self._scissor.height = int(effective_h)
 
         # Background covers the visible widget area
-        self._bg_rect.pos = (self._view_x, self._view_y)
-        self._bg_rect.size = (self._view_w, self._view_h)
+        self._bg_rect.pos = (self._view_x, self._view_y + (self.overlay_bottom_px or 0))
+        self._bg_rect.size = (self._view_w, effective_h)
         self._bg_color_instr.rgba = self.background_color
+
+        # Overlay background (bottom strip), drawn outside scissor
+        # Fill exactly overlay_bottom_px at the bottom of the viewport
+        if hasattr(self, '_overlay_bg_group') and self._overlay_bg_group is not None:
+            self._overlay_bg_group.clear()
+            ob = int(self.overlay_bottom_px or 0)
+            if ob > 0:
+                self._overlay_bg_group.add(Color(*self.background_color))
+                self._overlay_bg_group.add(Rectangle(pos=(self._view_x, self._view_y), size=(self._view_w, ob)))
 
         # Border (around the full logical page/content); computed separately
         self._update_border()
 
-        # Update scrollbar layout
-        if hasattr(self, 'custom_scrollbar'):
-            self.custom_scrollbar.update_layout()
+        # Update scrollbar layout if present
+        if hasattr(self, 'custom_scrollbar') and self.custom_scrollbar is not None:
+            try:
+                self.custom_scrollbar.update_layout()
+            except Exception:
+                pass
 
         # Skip the redraw if the editor is updating (editor will call _redraw_all after adding all items)
         if not self._updating_from_editor:

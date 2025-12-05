@@ -4,19 +4,17 @@ New modular GUI scaffold for pianoTAB.
 - MainMenu(): wraps the existing MenuBar using the current callbacks config
 - SidePanel(): fixed-width vertical panel with GridSelector + ToolSelector
 - Editor(): wrapper hosting the mm-based Canvas
-- PrintView(): wrapper hosting a Canvas configured for preview
-- TreeViewEditor(): temporary stub below the Editor (to be replaced later)
+- PianoKeyboard(): permanent piano keyboard display that highlights stave lines
+- PropertyTreeEditor(): comprehensive property tree editor for SCORE
 
 Layout:
-  Root (vertical)
-    - MainMenu() at the top
-    - OuterSplit (horizontal, 3 logical areas via nesting)
-        [Left: SidePanel (fixed width, outer sash width = 0, not resizable)]
-        [Right: MidRightSplit (horizontal, sash 80px with contextual toolbar)]
-                     [Left: CenterSplit (vertical, sash 80px for tooltips)]
-                                [Top   : Editor()]
-                                [Bottom: TreeViewEditor()]
-                     [Right: PrintView()]
+    Root (vertical)
+        - MainMenu() at the top
+        - OuterSplit (horizontal, 2 logical areas)
+                [Left: SidePanel (fixed width, outer sash width = 0, not resizable)]
+                [Right: MidRightSplit (horizontal, sash 80px with contextual toolbar)]
+                                         [Left : Editor()]
+                                         [Right: PropertyTreeEditor()]
 
 Cross-link:
 - CenterSplit (vertical) is cross-linked with MidRightSplit (horizontal)
@@ -180,30 +178,6 @@ class PrintView(BoxLayout):
         return self.canvas_view
 
 
-class TreeViewEditor(BoxLayout):
-    '''
-    Temporary stub for the property tree editor area (bottom panel).
-    Replace later with a real PropertyTreeEditor implementation.
-    '''
-    def __init__(self, **kwargs):
-        super().__init__(orientation='vertical', **kwargs)
-        with self.canvas.before:
-            Color(*DARK_LIGHTER)
-            self._bg = Rectangle(pos=self.pos, size=self.size)
-        self.bind(pos=lambda *_: setattr(self._bg, 'pos', self.pos),
-                  size=lambda *_: setattr(self._bg, 'size', self.size))
-
-        lbl = Label(
-            text='Tree View Editor (stub)\nReplace with PropertyTreeEditor later',
-            size_hint=(1, 1),
-            color=LIGHT,
-            font_size='16sp',
-            halign='center',
-            valign='middle'
-        )
-        lbl.bind(size=lbl.setter('text_size'))
-        self.add_widget(lbl)
-
 
 class GUI(BoxLayout):
     '''
@@ -230,7 +204,6 @@ class GUI(BoxLayout):
         self.side_panel: Optional[SidePanel] = None
         self.editor: Optional[Editor] = None
         self.property_tree: Optional[PropertyTreeEditor] = None
-        self.print_view: Optional[PrintView] = None
 
         # Build nested split structure
         self._build_splits()
@@ -248,28 +221,13 @@ class GUI(BoxLayout):
         self.side_panel.size_hint_x = None
         self.side_panel.width = SIDE_PANEL_WIDTH_PX
 
-        # CENTER-VERTICAL: Editor (top) + Tree (bottom) via a vertical split (80px sash for tooltips)
-        self.center_split = SplitView(
-            orientation='vertical',
-            sash_width=80,
-            split_ratio=0.75,
-            sash_color=DARK,
-            min_left_size=80,
-            min_right_size=0
-        )
-
+        # CENTER: Editor only (keyboard is drawn as overlay in the editor canvas)
         self.editor = Editor()
+
+        # RIGHT: PropertyTreeEditor
         self.property_tree = PropertyTreeEditor()
-        self.center_split.set_left(self.editor)
-        self.center_split.set_right(self.property_tree)
-        
-        # Connect property tree to sash for tooltip display
-        self.property_tree.tooltip_sash = self.center_split.sash
 
-        # RIGHT: PrintView
-        self.print_view = PrintView()
-
-        # MID-RIGHT horizontal split: [center_split | sash(80) | print_view]
+        # MID-RIGHT horizontal split: [center_split | sash(80) | property_tree]
         self.mid_right_split = SplitView(
             orientation='horizontal',
             sash_width=80,
@@ -280,15 +238,13 @@ class GUI(BoxLayout):
         )
         # Tighten snap threshold for right-panel snap-to-fit
         self.mid_right_split.snap_threshold = 80
-        self.mid_right_split.set_left(self.center_split)
-        self.mid_right_split.set_right(self.print_view)
+        self.mid_right_split.set_left(self.editor)
+        self.mid_right_split.set_right(self.property_tree)
 
-        # Cross-link the 40px sashes for combined X/Y deltas while dragging
-        try:
-            self.mid_right_split.sash.set_linked_split(self.center_split)
-            self.center_split.sash.set_linked_split(self.mid_right_split)
-        except Exception:
-            pass
+        # Connect property tree to sash for tooltip display
+        self.property_tree.tooltip_sash = self.mid_right_split.sash
+
+        # Disable cross-linking to avoid accidental vertical sash changes from horizontal sash
         
         # Initialize default toolbar for vertical sash (always visible buttons with tooltips)
         try:
@@ -308,62 +264,6 @@ class GUI(BoxLayout):
         # Add to GUI root
         self.add_widget(self.outer_layout)
 
-        # Setup right-panel snap-to-fit for A4 aspect on the mid-right split and keep updated
-        Clock.schedule_once(self._setup_preview_snap_ratio, 0)
-        self.mid_right_split.bind(size=lambda *_: self._setup_preview_snap_ratio())
-
-    def _simulate_snap_drag(self, *_):
-        '''Simulate dragging the sash to the snap position programmatically.'''
-        sp = getattr(self, 'mid_right_split', None)
-        if not sp or not hasattr(sp, 'snap_ratio') or sp.snap_ratio is None:
-            return
-        
-        # Calculate the target position based on snap_ratio
-        if sp.orientation == 'horizontal':
-            # For horizontal split, snap_ratio determines X position
-            target_x = sp.x + (sp.snap_ratio * sp.width)
-            target_pos = (target_x, sp.center_y)
-        else:
-            # For vertical split, snap_ratio determines Y position
-            target_y = sp.y + ((1.0 - sp.snap_ratio) * sp.height)
-            target_pos = (sp.center_x, target_y)
-        
-        # Call update_split directly as if user dragged to this position
-        sp.update_split(target_pos)
-
-    def _setup_preview_snap_ratio(self, *_):
-        '''
-        Calculate and set the snap ratio on the mid-right split so the right panel
-        (print preview) snaps to the exact width where an A4 page fits fully:
-          right_width == right_height / (height_mm / width_mm).
-        Uses a snap threshold of 40 px on the vertical sash.
-        '''
-        sp = getattr(self, 'mid_right_split', None)
-        if not sp:
-            return
-        # Wait until sizes are ready
-        if sp.width <= 0 or sp.height <= 0:
-            Clock.schedule_once(self._setup_preview_snap_ratio, 0)
-            return
-
-        # Determine A4 aspect ratio from the print view canvas
-        try:
-            cv = self.print_view.get_canvas() if self.print_view else None
-        except Exception:
-            cv = None
-        page_w_mm = getattr(cv, 'width_mm', 210.0) if cv else 210.0
-        page_h_mm = getattr(cv, 'height_mm', 297.0) if cv else 297.0
-        aspect_ratio = (page_h_mm / page_w_mm) if page_w_mm else (297.0 / 210.0)
-
-        # Ensure the desired snap threshold and compute snap ratio
-        try:
-            sp.snap_threshold = 80
-        except Exception:
-            pass
-        sp.set_snap_ratio_from_aspect(aspect_ratio)
-        
-        # Actually snap to the calculated position
-        Clock.schedule_once(self._simulate_snap_drag, 0.1)
 
     # ----- Compatibility API expected by App and menu callbacks -----
 
@@ -484,10 +384,8 @@ class GUI(BoxLayout):
             return None
 
     def get_preview_widget(self):
-        try:
-            return self.print_view.get_canvas() if self.print_view else None
-        except Exception:
-            return None
+        # No preview widget since PropertyTreeEditor is now in the right panel
+        return None
 
     def get_side_panel(self):
         return self.side_panel
@@ -544,5 +442,4 @@ __all__ = [
     'SidePanel',
     'Editor',
     'PrintView',
-    'TreeViewEditor',
 ]

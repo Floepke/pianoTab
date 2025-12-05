@@ -82,8 +82,7 @@ class NoteDrawerMixin:
         self._draw_notehead(note, base_tag, color)
         self._draw_centered_dashed_guide(stave_idx, note, base_tag=base_tag, color=color)
         self._draw_accidental(note, base_tag, color)
-        self._draw_centered_dashed_guide(stave_idx, note, base_tag=base_tag, color=color)
-        #self._draw_solid_guide(note, base_tag, color)
+        self._draw_solid_guide(note, base_tag, color)
         #self._draw_left_dot(note, base_tag, color)
         #self._draw_stem_whitespace(note, base_tag)
         #self._draw_note_continuation_dot(stave_idx, note, draw_mode=draw_mode)
@@ -383,7 +382,7 @@ class NoteDrawerMixin:
             color='#000000',
             tags=['chord_guide', base_tag],
             dash=True,
-            dash_pattern_mm=self.score.properties.globalBasegrid.gridlineDashPatternMm
+            dash_pattern_mm=[1, 1.3]
         )
 
     def _a_following_notes_diff_is_less_then_interval(self, stave_idx: int, note: Note, interval: int = 12) -> bool:
@@ -684,3 +683,32 @@ class NoteDrawerMixin:
         for other_note in note_list:
             if other_note.id in notes_to_redraw:
                 self._draw_single_note(stave_idx, other_note, draw_mode='note')
+
+    # def _draw_display(self, stave_idx: int, note: Note, base_tag: str, color: str) -> None:
+    #     '''Draw the note display (text) above the notehead.'''
+    #     # only draw for regular notes
+    #     if base_tag in ('cursor', 'edit'):
+    #         return
+
+    #     # Calculate positions
+    #     x = self.pitch_to_x(note.pitch)
+    #     y = self.time_to_y(note.time) - self.semitone_width * 0.5  # Position above notehead
+
+    #     # create the display text
+    #     pitch_classes = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
+    #     pitch_class = pitch_classes[note.pitch % 12]
+    #     octave = (note.pitch // 12) - 1
+    #     display_text = f'{pitch_class}{octave}'
+
+    #     # Draw the text
+    #     self.canvas.add_text(
+    #         text=display_text,
+    #         x_mm=x,
+    #         y_mm=y,
+    #         font_size_pt=6,
+    #         angle_deg=0.0,
+    #         anchor='bottom',
+    #         color='#000000',
+    #         tags=['note_display', base_tag],
+    #         z_index=None
+    #     )

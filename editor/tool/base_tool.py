@@ -309,76 +309,6 @@ class BaseTool(ABC):
         # Hit if within half the line width (plus a small tolerance for easier clicking)
         tolerance = (line_width_mm / 2.0) + 1  # Add 1mm tolerance
         return distance <= tolerance
-    
-    def get_element_at_position(self, x: float, y: float, element_types=None):
-        """
-        Find score element at the given position using detection rectangles.
-        
-        Args:
-            x, y: Position in canvas coordinates (mm)
-            element_types: Optional list of element types to filter by 
-                        (e.g., ['note', 'beam', 'slur', 'line_break'])
-            
-        Returns:
-            Tuple of (element_object, element_type, stave_idx) or (None, None, None)
-            
-        Example:
-            note, elem_type, stave = self.get_element_at_position(x, y, ['note'])
-            if note:
-                print(f"Found {elem_type} with id {note.id} on stave {stave}")
-        """
-        if not self.editor.score:
-            return (None, None, None)
-
-        note_flag = False
-        note_list = []
-        
-        # Check all registered detection rectangles
-        for element_id, (x1, y1, x2, y2) in self.editor.detection_rects.items():
-            # Normalize rectangle coordinates (in case x2 < x1 or y2 < y1)
-            min_x, max_x = min(x1, x2), max(x1, x2)
-            min_y, max_y = min(y1, y2), max(y1, y2)
-            
-            # Check if point is inside rectangle
-            if min_x <= x <= max_x and min_y <= y <= max_y:
-                # Find the element by ID
-                element = self.editor.score.find_by_id(element_id)
-                
-                if element is None:
-                    continue
-                
-                # Determine element type from the element itself
-                element_type = self._get_element_type(element)
-                
-                # Filter by element types if specified
-                if element_types is not None and element_type not in element_types:
-                    continue
-                
-                # Find which stave contains this element
-                stave_idx = self._find_stave_for_element(element)
-
-                if element_type == 'note':
-                    note_flag = True
-                    note_list.append( (element, element_type, stave_idx) )
-                
-                # # Found a valid element - return it
-                # return (element, element_type, stave_idx)
-
-        if note_flag and len(note_list) > 1:
-            # if there are multiple notes under the mouse xy we need to select the right one
-            for n in note_list:
-                element, element_type, stave_idx = n
-                
-                # 
-                if element.pitch in BLACK_KEYS:
-                    center_pitch = self.editor.pitch_to_x(element.pitch)
-                    if abs(x - center_pitch) < self.editor.semitone_width / 2:  # 3mm tolerance for black keys
-                        return (element, element_type, stave_idx)
-        else:
-            return (None, None, None)
-        
-        # No valid element found at this position
-        return (None, None, None)
 
     def get_element_at_position(self, x: float, y: float, element_types=None):
         """
@@ -735,7 +665,7 @@ class BaseTool(ABC):
         
         if grid_step > 0:
             # Snap down to the grid line (floor) - captures as soon as you enter the grid cell
-            snapped_ticks = math.floor(ticks / grid_step) * grid_step
+            snapped_ticks = math.floor((ticks / grid_step)) * grid_step
             return snapped_ticks
         
         return ticks
