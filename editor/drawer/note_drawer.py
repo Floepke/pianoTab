@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal, Optional
 
 from file import note
-from gui.colors import ACCENT_COLOR_HEX
+from gui.colors import ACCENT_HEX, LIGHT_DARKER_HEX, LIGHT_HEX
 from utils.CONSTANTS import BLACK_KEYS, CF_GAPS, OPERATOR_TRESHOLD, BE_GAPS
 from utils.operator import OperatorThreshold
 import copy
@@ -80,13 +80,14 @@ class NoteDrawerMixin:
         self._draw_midinote(note, draw_mode, base_tag, color)
         self._draw_notestop(stave_idx, note, base_tag, color)
         self._draw_notehead(note, base_tag, color)
-        self._draw_centered_dashed_guide(stave_idx, note, base_tag=base_tag, color=color)
         self._draw_accidental(note, base_tag, color)
-        self._draw_centered_dashed_guide(stave_idx, note, base_tag=base_tag, color=color)
-        #self._draw_solid_guide(note, base_tag, color)
+        self._draw_stem(note, base_tag, color)
+        self._draw_stem_whitespace(note, base_tag)
+        self._draw_note_continuation_dot(stave_idx, note, draw_mode=draw_mode)
+        self._draw_connect_stem(stave_idx, note, base_tag, color)
+        #self._draw_centered_dashed_guide(stave_idx, note, base_tag=base_tag, color=color)
         #self._draw_left_dot(note, base_tag, color)
-        #self._draw_stem_whitespace(note, base_tag)
-        #self._draw_note_continuation_dot(stave_idx, note, draw_mode=draw_mode)
+        #self._draw_solid_guide(note, base_tag, color)
     
     def _setup_note_drawing(self, note: Note, draw_mode: str) -> tuple[str, str]:
         '''Setup drawing by deleting old elements and determining tag and color.
@@ -107,7 +108,7 @@ class NoteDrawerMixin:
         
         # Determine color
         if draw_mode in ('cursor', 'edit', 'selected'):
-            color = ACCENT_COLOR_HEX
+            color = ACCENT_HEX
         else:
             color = note.color
         
@@ -197,7 +198,7 @@ class NoteDrawerMixin:
             x2_mm=x + semitone_width / 2,
             y2_mm=y + notehead_length,
             fill=True,
-            fill_color=color if note.pitch in BLACK_KEYS else '#FFFFFF',
+            fill_color=color if note.pitch in BLACK_KEYS else LIGHT_HEX,
             outline=True,
             outline_width_mm=self.score.properties.globalNote.stemWidthMm,
             outline_color=color,
@@ -205,8 +206,25 @@ class NoteDrawerMixin:
         )
     
     def _draw_left_dot(self, note: Note, base_tag: str, color: str) -> None:
-        '''Draw the left hand indicator dot inside the notehead.'''
+        '''
+            Draw the left hand indicator dot inside the notehead. Only drawn if
+            a note from the opposite hand is starting at the same time and the
+            pitch is < the current note's pitch + 3.
+
+        '''
         if note.hand == '<':
+            # # Check if there is a note from the opposite hand starting at the same time
+            # for other_note in self.score.stave[0].event.note:
+            #     # Skip myself
+            #     if other_note.id == note.id:
+            #         continue
+
+            #     if self._time_op.equal(other_note.time, note.time) and other_note.hand == '>':
+            #         if other_note.pitch <= note.pitch + 2:
+            #             break
+            #     else:
+            #         return  # No matching note found, skip drawing the dot
+
             # Calculate positions
             x = self.pitch_to_x(note.pitch)
             y = self.time_to_y(note.time)
@@ -238,6 +256,43 @@ class NoteDrawerMixin:
                 outline=False,
                 tags=['left_dot', base_tag]
             )
+        # else:
+        #     # case of a right hand note
+        #     # Check if there is a note from the opposite hand starting at the same time
+        #     for other_note in self.score.stave[0].event.note:
+        #         # Skip myself
+        #         if other_note.id == note.id:
+        #             continue
+
+        #         if self._time_op.equal(other_note.time, note.time) and other_note.hand == '<':
+        #             if other_note.pitch >= note.pitch - 2:
+        #                 break
+        #         else:
+        #             return  # No matching note found, skip drawing the dot
+        #     ...
+
+    def _draw_stem(self, note: Note, base_tag: str, color: str) -> None:
+        '''Draw the stem line.'''
+        # Calculate positions
+        x = self.pitch_to_x(note.pitch)
+        y = self.time_to_y(note.time)
+
+        # Calculate stem endpoint
+        if note.hand == '<':
+            stem_end_x = x - self.score.properties.globalNote.stemLengthMm
+        else:
+            stem_end_x = x + self.score.properties.globalNote.stemLengthMm
+        
+        # Draw the stem
+        self.canvas.add_line(
+            x1_mm=x,
+            y1_mm=y,
+            x2_mm=stem_end_x,
+            y2_mm=y,
+            width_mm=self.score.properties.globalNote.stemWidthMm,
+            color=color,
+            tags=['stem', base_tag]
+        )
     
     def _draw_accidental(self, note: Note, base_tag: str, color: str) -> None:
         '''Draw the accidental line (sharp/flat indicator).
@@ -305,24 +360,24 @@ class NoteDrawerMixin:
             if note.hand == '<':
                 xx = x + 2
                 self.canvas.add_line(
-                    x1_mm=x + 4,
+                    x1_mm=x + 2,
                     y1_mm=y,
-                    x2_mm=x - 4,
+                    x2_mm=x - 2,
                     y2_mm=y,
                     width_mm=self.score.properties.globalBasegrid.barlineWidthMm,
-                    color='#FFFFFF',
+                    color=LIGHT_DARKER_HEX,
                     tags=['stem_white_space', base_tag],
                     cap='flat'
                 )
             else:
                 xx = x + note.stemLengthMm
                 self.canvas.add_line(
-                    x1_mm=x - 4,
+                    x1_mm=x - 2,
                     y1_mm=y,
-                    x2_mm=x + 4,
+                    x2_mm=x + 2,
                     y2_mm=y,
                     width_mm=self.score.properties.globalBasegrid.barlineWidthMm,
-                    color='#FFFFFF',
+                    color=LIGHT_DARKER_HEX,
                     tags=['stem_white_space', base_tag],
                     cap='flat'
                 )
@@ -385,6 +440,65 @@ class NoteDrawerMixin:
             dash=True,
             dash_pattern_mm=self.score.properties.globalBasegrid.gridlineDashPatternMm
         )
+
+    def _draw_connect_stem(self, stave_idx: int, note: Note, base_tag: str, color: str) -> None:
+        '''Draw a centered connection guide line between the outer notes that form a chord (same start time).
+        
+        Args:
+            stave_idx: Index of the stave containing the note
+            note: The note to check for chord connections or single note guide
+            base_tag: Tag for canvas items
+            color: Color for the connection line
+        '''
+        # Guard against startup race condition
+        if not self.score:
+            return
+        
+        if stave_idx >= len(self.score.stave):
+            return
+        
+        # # check if note starts at barline or grid positions
+        # if any(self._time_op.equal(note.time, pos) for pos in self._get_barline_and_grid_positions()):
+        #     return  # Don't draw chord guide on barline/grid positions
+        
+        note_list = [n for n in self.score.stave[stave_idx].event.note if n.hand == note.hand]
+        
+        # Find all notes with the same start time
+        same_time_notes = [n for n in note_list if self._time_op.equal(n.time, note.time)]
+
+        if len(same_time_notes) < 2:
+            return  # No chord, only a single note
+        
+        # Find the lowest pitch note in the chord
+        lowest_note = min(same_time_notes, key=lambda n: n.pitch)
+        
+        # Only draw if this is the lowest note - prevents drawing multiple times
+        if note.id != lowest_note.id:
+            return
+        
+        # Find the highest pitch note in the chord
+        highest_note = max(same_time_notes, key=lambda n: n.pitch)
+        
+        # Calculate positions for the chord guide line
+        x1 = self.pitch_to_x(lowest_note.pitch)
+        y1 = self.time_to_y(lowest_note.time)
+        
+        x2 = self.pitch_to_x(highest_note.pitch)
+        y2 = self.time_to_y(highest_note.time)  # Should be same as y1 within threshold
+        
+        # Draw connection line between the lowest and highest notes
+        if note.hand == '<':
+            x2 -= self.score.properties.globalNote.stemLengthMm
+            self.canvas.add_line(
+                x1_mm=x1,
+                y1_mm=y1,
+                x2_mm=x2,
+                y2_mm=y2,
+                width_mm=self.score.properties.globalBasegrid.barlineWidthMm, # 2 times thinner than stem by design
+                color='#000000',
+                tags=['chord_guide', base_tag],
+                dash=False
+            )
 
     def _a_following_notes_diff_is_less_then_interval(self, stave_idx: int, note: Note, interval: int = 12) -> bool:
         '''Check if the next note that starts on the current notes end time is less than the given interval away.
@@ -593,7 +707,7 @@ class NoteDrawerMixin:
             base_tag = 'edit'
         
         if draw_mode in ('edit', 'selected'):
-            color = ACCENT_COLOR_HEX
+            color = ACCENT_HEX
         else:
             color = note.color
         

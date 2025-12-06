@@ -20,6 +20,7 @@ from editor.drawer import (
     BeamDrawerMixin, SlurDrawerMixin, TextDrawerMixin, TempoDrawerMixin,
     CountLineDrawerMixin, LineBreakDrawerMixin
 )
+# Removed legacy overlay import (using separate GUI panel instead)
 
 
 class Editor(
@@ -114,6 +115,9 @@ class Editor(
         # Mark editor as ready for drawing (all initialization complete)
         self._ready: bool = True
 
+        # Keyboard overlay moved to separate GUI panel; ensure no legacy overlay state
+        self.keyboard_overlay = None
+
     def _apply_settings_from_score(self):
         '''Synchronize editor state from SCORE.fileSettings and SCORE.properties.
 
@@ -171,7 +175,6 @@ class Editor(
         if hasattr(self, 'grid_selector') and self.grid_selector:
             self.grid_selector.score = self.score
             self.grid_selector.refresh_from_score()
-            print(f'Editor: Updated grid_selector.score, quarterNoteUnit={self.score.fileSettings.quarterNoteUnit}')
         
         # Clear any active selection from previous file
         if hasattr(self, 'selection_manager') and self.selection_manager:
@@ -276,7 +279,7 @@ class Editor(
     def time_to_y(self, time_ticks: float) -> float:
         '''Convert time in ticks to Y coordinate in millimeters (top-left origin).'''
         mm_per_quarter = self.canvas._quarter_note_spacing_mm
-        ql = self.score.fileSettings.quarterNoteUnit
+        ql = PIANOTICK_QUARTER
         time_quarters = time_ticks / ql
         result = self.editor_margin + (time_quarters * mm_per_quarter) - (self.scroll_time_offset * mm_per_quarter)
         return result
@@ -285,7 +288,7 @@ class Editor(
         '''Convert Y coordinate to time in ticks (inverse of time_to_y_mm).'''
         mm_per_quarter = self.canvas._quarter_note_spacing_mm
         time_quarters = (y_mm - self.editor_margin) / mm_per_quarter + self.scroll_time_offset
-        ql = self.score.fileSettings.quarterNoteUnit
+        ql = PIANOTICK_QUARTER
         return time_quarters * ql
     
     def auto_scroll_if_near_edge(self, y_mm: float) -> bool:
@@ -392,11 +395,11 @@ class Editor(
         
         return True
     
-    def get_score_length_in_ticks(self) -> float:
+    def _get_score_length_in_ticks(self) -> float:
         '''Calculate total score length in ticks based on your algorithm.'''
         total_ticks = 0.0
         for grid in self.score.baseGrid:
-            ql = self.score.fileSettings.quarterNoteUnit
+            ql = PIANOTICK_QUARTER
             measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
             total_ticks += measure_ticks * grid.measureAmount
         return total_ticks
@@ -414,13 +417,18 @@ class Editor(
         total_ticks = 0.0
         
         for grid in self.score.baseGrid:
-            ql = self.score.fileSettings.quarterNoteUnit
+            ql = PIANOTICK_QUARTER
             measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
+            grid_step = measure_ticks / grid.numerator
             
             for _ in range(grid.measureAmount):
-                # Barline at the end of this measure
-                barline_positions.append(total_ticks)
+                for g in grid.gridCountsEnabled:
+                    if g == 1:
+                        barline_positions.append(total_ticks + grid_step * (g - 1))
                 total_ticks += measure_ticks
+
+        # Add final barline at the end of the score
+        barline_positions.append(total_ticks)
         
         return barline_positions
     
@@ -433,20 +441,19 @@ class Editor(
         Returns:
             List of tick positions where barlines should be drawn.
         '''
+        # first get the barline positions from the dedicated method above
         barline_and_grid_positions = []
         cursor = 0.0
         
         for grid in self.score.baseGrid:
-            ql = self.score.fileSettings.quarterNoteUnit
+            ql = PIANOTICK_QUARTER
             measure_ticks = (ql * 4) * (grid.numerator / grid.denominator)
-            
+            grid_step = measure_ticks / grid.numerator
+
+            # add gridline and barline positions within each measure
             for _ in range(grid.measureAmount):
-                # add barline position
-                barline_and_grid_positions.append(cursor)
-                
-                # add grid lines within the measure
-                for g in grid.gridTimes:
-                    barline_and_grid_positions.append(cursor + g)
+                for g in grid.gridCountsEnabled:
+                    barline_and_grid_positions.append(cursor + grid_step * (g - 1))
 
                 # update cursor
                 cursor += measure_ticks
@@ -483,7 +490,7 @@ class Editor(
         self.canvas.clear()
         
         # Calculate required dimensions
-        self.total_time = self.get_score_length_in_ticks()
+        self.total_time = self._get_score_length_in_ticks()
         print(f'Editor: Calculated total_time={self.total_time} ticks from {len(self.score.baseGrid)} baseGrids')
         # Content height must not depend on scroll offset; compute using mm/quarter directly
         mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
@@ -491,7 +498,7 @@ class Editor(
             px_per_mm = self.canvas._px_per_mm
             mm_per_quarter = self.pixels_per_quarter / px_per_mm
             print(f'Editor: Calculated mm_per_quarter={mm_per_quarter} from pixels_per_quarter={self.pixels_per_quarter} / px_per_mm={px_per_mm}')
-        ql = self.score.fileSettings.quarterNoteUnit
+        ql = PIANOTICK_QUARTER
         content_height_mm = (self.total_time / ql) * mm_per_quarter
         total_height_mm = content_height_mm + (2.0 * self.editor_margin)  # top + bottom margin equal to editor_margin
         
@@ -688,7 +695,7 @@ class Editor(
             # Don't use cached _quarter_note_spacing_mm as it might be from a different zoom level
             mm_per_quarter = float(pixels_per_quarter) / px_per_mm
             
-            ql = self.score.fileSettings.quarterNoteUnit
+            ql = PIANOTICK_QUARTER
             time_quarters = (center_y_mm - self.editor_margin) / mm_per_quarter + self.scroll_time_offset
             center_time = time_quarters * ql
             

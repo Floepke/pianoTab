@@ -92,13 +92,27 @@ from kivy.core.window import Window
 from kivy.clock import Clock
 from kivy.logger import Logger
 from kivy.utils import platform
-from gui.gui import GUI
+
+# Ensure Kivy has a valid default font BEFORE importing any font modules
+try:
+    from kivy.resources import resource_find
+    roboto_regular = resource_find('data/fonts/Roboto-Regular.ttf')
+    roboto_bold = resource_find('data/fonts/Roboto-Bold.ttf')
+    roboto_italic = resource_find('data/fonts/Roboto-Italic.ttf')
+    roboto_bolditalic = resource_find('data/fonts/Roboto-BoldItalic.ttf')
+    if all([roboto_regular, roboto_bold, roboto_italic, roboto_bolditalic]):
+        Config.set('kivy', 'default_font', ['Roboto', roboto_regular, roboto_bold, roboto_italic, roboto_bolditalic])
+except Exception:
+    pass
+
+from font import load_embedded_font, cleanup_font, FONT_NAME, apply_default_font
+from kivy.core.text import LabelBase
 from gui.colors import DARK
+from utils.settings_manager import SettingsManager
+from gui.gui import GUI
 from editor.editor import Editor
 from file.SCORE import SCORE
 from utils.file_manager import FileManager
-from utils.settings_manager import SettingsManager
-from font import load_embedded_font, cleanup_font, FONT_NAME, apply_default_font
 
 class pianoTAB(App):
     '''Main pianoTAB application.'''
@@ -120,13 +134,18 @@ class pianoTAB(App):
     
     def build(self):
         '''Build and return the root widget - UI construction only.'''
-        # Load embedded font before creating any widgets
+        # Load embedded font BEFORE creating any widgets and before importing GUI pieces
         try:
             load_embedded_font()
             apply_default_font()
             Logger.info(f'pianoTAB: Using embedded font: {FONT_NAME}')
         except Exception as e:
             Logger.warning(f'pianoTAB: Could not load embedded font: {e}')
+            # Minimal fallback to avoid DEFAULT_FONT None error
+            try:
+                LabelBase.register(name='default', fn_regular=FONT_NAME)
+            except Exception:
+                pass
         
         # Window setup
         Window.clearcolor = DARK
@@ -156,11 +175,8 @@ class pianoTAB(App):
         # Connect editor to grid_selector for cursor snapping
         self.editor.grid_selector = self.gui.side_panel.grid_selector
         
-        # Connect score to grid_selector for quarterNoteUnit access
-        print(f'pianoTAB: Before assignment - grid_selector.score = {self.gui.side_panel.grid_selector.score}')
+        # Connect score to grid_selector for grid access
         self.gui.side_panel.grid_selector.score = self.editor.score
-        print(f'pianoTAB: After assignment - grid_selector.score = {self.gui.side_panel.grid_selector.score}')
-        print(f'pianoTAB: Assigned score to grid_selector, quarterNoteUnit={self.editor.score.fileSettings.quarterNoteUnit if self.editor.score else "N/A"}')
         
         # Bind grid_selector changes to redraw piano roll
         self.gui.side_panel.grid_selector.bind(
@@ -206,6 +222,7 @@ class pianoTAB(App):
                 self.file_manager.new_file()
 
             # redraw_pianoroll because the editor initially draws it's pixels per quarter wrong.
+            Clock.schedule_once(lambda dt: self.editor.zoom_in(factor=1.0), .2)
             Clock.schedule_once(lambda dt: self.editor.redraw_pianoroll(), 0)
 
         try:
@@ -247,7 +264,7 @@ class pianoTAB(App):
             if self.file_manager is not None:
                 self.file_manager.mark_dirty()
             
-            # Refresh grid selector in case quarterNoteUnit changed
+            # Refresh grid selector in case
             if hasattr(self.gui, 'side_panel') and hasattr(self.gui.side_panel, 'grid_selector'):
                 self.gui.side_panel.grid_selector.refresh_from_score()
                 self.editor.redraw_pianoroll()
@@ -277,17 +294,18 @@ class pianoTAB(App):
                     # Common Kivy key name for F11
                     if key == 293 or str(key).lower() == 'f11':
                         self.toggle_fullscreen()
+                        print('pianoTAB: Toggled fullscreen via F11')
                         return True
                 except Exception:
                     pass
                 return False
-            if ch in ('=', '+'):
+            if ch in ('i'):
                 if self.editor is not None:
-                    self.editor.zoom_in(factor=1.2)
+                    self.editor.zoom_in(factor=1.02)
                     return True
-            elif ch in ('-', '_'):
+            elif ch in ('o'):
                 if self.editor is not None:
-                    self.editor.zoom_out(factor=1.2)
+                    self.editor.zoom_out(factor=1.02)
                     return True
             # Also allow F11 when codepoint is provided as 'f'
             # but avoid hijacking normal 'f' typing; prefer key/scancode path above
@@ -319,6 +337,20 @@ class pianoTAB(App):
                     self._is_fullscreen = False
             except Exception as e2:
                 Logger.warning(f'pianoTAB: Fallback fullscreen handling failed: {e2}')
+
+    def restart_app(self):
+        """Restart the current application process in-place using os.execl."""
+        try:
+            # Best effort to persist settings before restart
+            try:
+                if hasattr(self, 'settings') and self.settings is not None:
+                    self.settings.save()
+            except Exception:
+                pass
+            import os, sys
+            os.execl(sys.executable, sys.executable, *sys.argv)
+        except Exception as e:
+            Logger.warning(f'pianoTAB: Failed to restart app: {e}')
 
     def _test_scroll_sequence(self, dt):
         '''Test: scroll to time 0 now, then to 1024.0 two seconds later.'''

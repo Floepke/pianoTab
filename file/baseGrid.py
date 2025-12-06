@@ -32,11 +32,11 @@ class BaseGrid:
             }
         }
     )
-    gridTimes: List[float] = field(
-        default_factory=lambda: [100.0, 200.0, 300.0],
+    gridCountsEnabled: List[int] = field(
+        default_factory=lambda: [1, 2, 3, 4],
         metadata={
             'tree_icon': 'property',
-            'tree_tooltip': 'Grid line time positions within measure',
+            'tree_tooltip': 'Grid line counts within each measure. Here we define which counts are shown as lines in the grid. In a 4/4 time signature if i fill \'2 3 4\' and skip the 1 then the barline will not be drawn at the start of each measure from this grid object.',
             'tree_edit_type': 'list',
         }
     )

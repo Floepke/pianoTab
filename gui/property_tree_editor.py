@@ -53,7 +53,7 @@ from kivy.properties import NumericProperty
 from kivy.clock import Clock
 from kivy.core.window import Window
 
-from gui.colors import DARK_LIGHTER, LIGHT_DARKER, DARK, ACCENT_COLOR
+from gui.colors import DARK_LIGHTER, LIGHT_DARKER, DARK, ACCENT, LIGHT
 from utils.canvas import CustomScrollbar
 from file.SCORE import SCORE, Event
 from file.ui_metadata import get_field_tooltip, get_field_label
@@ -183,7 +183,7 @@ class NumericSpinBox(BoxLayout):
             background_color=input_bg_color,
             foreground_color=input_fg_color,
             cursor_color=input_fg_color,
-            selection_color=(ACCENT_COLOR[0], ACCENT_COLOR[1], ACCENT_COLOR[2], 0.35),
+            selection_color=(ACCENT[0], ACCENT[1], ACCENT[2], 0.35),
         )
         self.input.bind(on_text_validate=self._commit_from_text, focus=self._on_focus_change)
         self.add_widget(self.input)
@@ -196,7 +196,7 @@ class NumericSpinBox(BoxLayout):
             background_normal='',
             background_down='',
             background_color=TRANSPARENT,
-            color=ACCENT_COLOR,
+            color=ACCENT,
         )
         self.dec_btn.bind(on_press=lambda *_: self._nudge(-self._step))
         self.add_widget(self.dec_btn)
@@ -209,7 +209,7 @@ class NumericSpinBox(BoxLayout):
             background_normal='',
             background_down='',
             background_color=TRANSPARENT,
-            color=ACCENT_COLOR,
+            color=ACCENT,
         )
         self.inc_btn.bind(on_press=lambda *_: self._nudge(+self._step))
         self.add_widget(self.inc_btn)
@@ -776,8 +776,8 @@ class PropertyTreeEditor(BoxLayout):
 
     def _row_text_color(self) -> Tuple[float, float, float, float]:
         # Match stripes: row 0 at top has LIGHT_DARKER, row 1 has DARK_LIGHTER
-        # Make DARK_LIGHTER row labels white for readability
-        return WHITE if (self._row_counter % 2 == 1) else BLACK
+        # Use LIGHT_DARKER text on DARK_LIGHTER rows for improved contrast
+        return LIGHT if (self._row_counter % 2 == 1) else BLACK
 
     def _row_bg_color(self) -> Tuple[float, float, float, float]:
         # Background color for current row index to match zebra stripes
@@ -891,7 +891,7 @@ class PropertyTreeEditor(BoxLayout):
         # Accent-colored background behind the entire header row but leave a gap for the divider line
         try:
             with row.canvas.before:
-                Color(*ACCENT_COLOR)
+                Color(*ACCENT)
                 header_bg_left = Rectangle()
                 header_bg_right = Rectangle()
 
@@ -1407,7 +1407,7 @@ class PropertyTreeEditor(BoxLayout):
             # Draw solid background to ensure contrast and place content above it
             try:
                 with tile.canvas.before:
-                    Color(*ACCENT_COLOR)
+                    Color(*ACCENT)
                     rect = Rectangle(pos=tile.pos, size=tile.size)
                 # Capture rect and tile per-iteration to avoid late binding bug
                 tile.bind(

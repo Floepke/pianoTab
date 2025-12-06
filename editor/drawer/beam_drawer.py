@@ -5,7 +5,7 @@ Handles drawing beam events on the piano roll canvas.
 '''
 from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, Literal
-from gui.colors import ACCENT_COLOR_HEX
+from gui.colors import ACCENT_HEX
 
 if TYPE_CHECKING:
     from file.SCORE import SCORE, Beam
@@ -61,10 +61,10 @@ class BeamDrawerMixin:
         
         # Determine color
         if draw_mode in ('cursor', 'edit', 'selected'):
-            color = ACCENT_COLOR_HEX
+            color = ACCENT_HEX
         else:
             # Use beam's color if set, otherwise use a default
-            color = beam.color if hasattr(beam, 'color') and beam.color else ACCENT_COLOR_HEX
+            color = beam.color if hasattr(beam, 'color') and beam.color else ACCENT_HEX
         
         time = beam.time
         duration = beam.duration

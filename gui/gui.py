@@ -43,6 +43,8 @@ from gui.split_view import SplitView
 from gui.callbacks import create_menu_config, create_default_toolbar_config, create_contextual_toolbar_config  # toolbar configurations
 from utils.canvas import Canvas
 from gui.property_tree_editor import PropertyTreeEditor
+from gui.keyboard_panel import KeyboardPanel
+from gui.keyboard_overlay import KeyboardCursorOverlay
 
 # Fixed UI dimensions (pixels)
 SIDE_PANEL_WIDTH_PX = 350
@@ -148,10 +150,41 @@ class Editor(BoxLayout):
             scale_to_width=True,
             enable_keyboard=True  # Enable keyboard for editor canvas
         )
+        # Editor canvas sits above; keyboard panel overlays at bottom in same container
         self.add_widget(self.canvas_view)
+        self.keyboard_panel = KeyboardPanel(size_hint_y=None, height=100)
+        self.add_widget(self.keyboard_panel)
+        # Overlay that draws cursor above the keyboard panel
+        self.keyboard_overlay = KeyboardCursorOverlay(size_hint_y=None, height=0)
+        self.add_widget(self.keyboard_overlay)
+
+        # Attach panel to the actual piano roll editor once available
+        def _attach_if_ready(_dt):
+            try:
+                ed = getattr(self.canvas_view, 'piano_roll_editor', None)
+                if ed is not None:
+                    self.keyboard_panel.attach_editor(ed)
+                    # Bind panel refresh to canvas layout updates
+                    self.canvas_view.bind(on_resize=lambda *args: self.keyboard_panel.refresh())
+                    # Also refresh after redraws to follow scroll/zoom
+                    self.canvas_view.bind(on_redraw=lambda *args: self.keyboard_panel.refresh())
+                    # Attach overlay reference to editor for cursor updates
+                    try:
+                        ed.gui.keyboard_overlay = self.keyboard_overlay
+                    except Exception:
+                        pass
+                    return  # stop scheduling once attached
+            except Exception:
+                pass
+            Clock.schedule_once(_attach_if_ready, 0.2)
+
+        Clock.schedule_once(_attach_if_ready, 0.2)
 
     def get_canvas(self) -> Canvas:
         return self.canvas_view
+
+    def get_keyboard_panel(self) -> KeyboardPanel:
+        return getattr(self, 'keyboard_panel', None)
 
 
 class PrintView(BoxLayout):
@@ -161,14 +194,14 @@ class PrintView(BoxLayout):
     def __init__(self, **kwargs):
         super().__init__(orientation='vertical', **kwargs)
         with self.canvas.before:
-            Color(*DARK)
+            Color(*LIGHT_DARKER)
             self._bg = Rectangle(pos=self.pos, size=self.size)
         self.bind(pos=lambda *_: setattr(self._bg, 'pos', self.pos),
                   size=lambda *_: setattr(self._bg, 'size', self.size))
 
         self.canvas_view = Canvas(
             width_mm=210.0, height_mm=297.0,
-            background_color=(1, 1, 1, 1),
+            background_color=LIGHT_DARKER,
             border_color=LIGHT_DARKER,
             border_width_px=1.0,
             keep_aspect=True,
@@ -403,6 +436,27 @@ class GUI(BoxLayout):
         """Exit the application with unsaved changes check."""
         # Use file manager's exit_app which guards against unsaved changes
         self.file_manager.exit_app()
+
+    def on_restart(self):
+        """Restart the application in-place."""
+        try:
+            from kivy.app import App
+            app = App.get_running_app()
+        except Exception:
+            app = None
+        # Prefer app's restart implementation if present
+        if app and hasattr(app, 'restart_app') and callable(app.restart_app):
+            try:
+                app.restart_app()
+                return
+            except Exception:
+                pass
+        # Fallback: exec the current Python interpreter with same args
+        try:
+            import os, sys
+            os.execl(sys.executable, sys.executable, *sys.argv)
+        except Exception as e:
+            print(f'Failed to restart: {e}')
 
     def on_cut(self):
         """Cut selected elements (Ctrl+X)."""

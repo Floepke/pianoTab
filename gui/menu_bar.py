@@ -12,7 +12,7 @@ from kivy.graphics import Color, Rectangle, Line
 from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.metrics import dp
-from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER, ACCENT_COLOR
+from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER, ACCENT
 
 
 class MenuBar(BoxLayout):
@@ -220,7 +220,7 @@ class MenuBar(BoxLayout):
         return button
 
     def _add_hover_effect(self, btn, normal_bg, normal_fg):
-        '''Add hover effect to button that highlights with ACCENT_COLOR.'''
+        '''Add hover effect to button that highlights with ACCENT.'''
         # Store original colors
         btn._normal_bg = normal_bg
         btn._normal_fg = normal_fg
@@ -229,9 +229,9 @@ class MenuBar(BoxLayout):
             '''Check if mouse is over button and update colors.'''
             if btn.get_root_window():  # Only if button is still attached
                 if btn.collide_point(*btn.to_widget(*pos)):
-                    # Mouse over - highlight with ACCENT_COLOR
-                    btn.background_color = ACCENT_COLOR
-                    btn.color = LIGHT
+                    # Mouse over - highlight with ACCENT
+                    btn.background_color = ACCENT
+                    btn.color = (0, 0, 0, 1)
                 else:
                     # Mouse not over - restore normal colors
                     btn.background_color = normal_bg

@@ -121,7 +121,7 @@ class NoteTool(BaseTool):
             duration = self.editor.grid_selector.get_grid_step()
             
             # Clamp time to valid range
-            score_length = self.editor.get_score_length_in_ticks()
+            score_length = self.editor._get_score_length_in_ticks()
             if time + duration > score_length:
                 time = score_length - duration
             if time < 0:
@@ -139,7 +139,7 @@ class NoteTool(BaseTool):
             duration = self.editor.grid_selector.get_grid_step()
             
             # Clamp time to valid range
-            score_length = self.editor.get_score_length_in_ticks()
+            score_length = self.editor._get_score_length_in_ticks()
             if time + duration > score_length:
                 time = score_length - duration
             if time < 0:
@@ -155,7 +155,7 @@ class NoteTool(BaseTool):
             duration = self.editor.grid_selector.get_grid_step()
             
             # Clamp time to valid range
-            score_length = self.editor.get_score_length_in_ticks()
+            score_length = self.editor._get_score_length_in_ticks()
             if time + duration > score_length:
                 time = score_length - duration
             if time < 0:
@@ -182,23 +182,13 @@ class NoteTool(BaseTool):
         duration = self.editor.grid_selector.get_grid_step()
         
         # Clamp time to valid range
-        score_length = self.editor.get_score_length_in_ticks()
+        score_length = self.editor._get_score_length_in_ticks()
         if time + duration > score_length:
             time = score_length - duration
         if time < 0:
             time = 0
 
-        # # mouse gesture for note switching:
-        # # if mouse is outside the stave area
-        # # the note hand switches to the left
-        # # or right hand respectively.
-        # if pitch == 1:
-        #     self.hand_cursor = '<'
-        # elif pitch == 88:
-        #     self.hand_cursor = '>'
-
         # accidental tracking
-        print(self.accidental_value)
         if self.accidental_switch != 0:
             if self.last_pitch is not None:
                 if pitch < self.last_pitch:
@@ -259,7 +249,7 @@ class NoteTool(BaseTool):
         pitch, time = self.get_pitch_and_time(x, y)
         
         # Boundary check: Clamp time to valid range
-        score_length = self.editor.get_score_length_in_ticks()
+        score_length = self.editor._get_score_length_in_ticks()
         duration = self.editor.grid_selector.get_grid_step()
         
         # Clamp time to valid range (0 to score_length - duration)
@@ -306,7 +296,7 @@ class NoteTool(BaseTool):
         pitch, time = self.get_pitch_and_time(x, y)
         
         # Boundary check: Prevent dragging note outside valid time range
-        score_length = self.editor.get_score_length_in_ticks()
+        score_length = self.editor._get_score_length_in_ticks()
         
         # Calculate proposed duration
         proposed_duration = max(self.editor.grid_selector.get_grid_step(), time - self.edit_note.time)

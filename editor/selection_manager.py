@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, List, Dict, Any, Tuple
 from kivy.core.window import Window
 from kivy.clock import Clock
-from gui.colors import ACCENT_COLOR_HEX
+from gui.colors import ACCENT_HEX
 from utils import clipboard  # Musical element clipboard
 from utils.keyboard import matches_shortcut  # Cross-platform key matching
 from utils.CONSTANTS import OPERATOR_TRESHOLD
@@ -255,9 +255,9 @@ class SelectionManager:
                 x2_mm=x2,
                 y2_mm=y2,
                 fill=True,
-                fill_color=ACCENT_COLOR_HEX + "40",  # Light blue transparent
+                fill_color=ACCENT_HEX + "40",  # Light blue transparent
                 outline=True,
-                outline_color=ACCENT_COLOR_HEX,  # Blue outline (solid, fully opaque)
+                outline_color=ACCENT_HEX,  # Blue outline (solid, fully opaque)
                 outline_width_mm=0.25,  # Thicker so it's visible
                 tags={'selectionrect'}
             )
@@ -620,7 +620,7 @@ class SelectionManager:
         # Check if moving forward would exceed score length
         if time_offset > 0:
             # Get total score length from all baseGrids
-            score_length = self.editor.get_score_length_in_ticks()
+            score_length = self.editor._get_score_length_in_ticks()
             if self._time_op.greater(new_max_time_end, score_length):
                 print(f"SelectionManager: Cannot move selection - would exceed score length ({score_length} ticks)")
                 return False

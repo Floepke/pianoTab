@@ -10,8 +10,8 @@ from kivy.graphics.scissor_instructions import ScissorPush, ScissorPop
 from kivy.clock import Clock
 from kivy.core.window import Window
 from .embedded_font import get_embedded_monospace_font
-from gui.colors import LIGHT, LIGHT_DARKER, DARK_LIGHTER, DARK, ACCENT_COLOR
-from utils.CONSTANTS import DEFAULT_GRID_STEP_TICKS
+from gui.colors import LIGHT, LIGHT_DARKER, DARK_LIGHTER, DARK, ACCENT
+from utils.CONSTANTS import DEFAULT_GRID_STEP_TICKS, PIANOTICK_QUARTER
 
 
 class CustomScrollbar(Widget):
@@ -31,8 +31,8 @@ class CustomScrollbar(Widget):
         self.thumb_min_height = 20
         
         # Colors using system theme - logical color mapping
-        self.track_color = LIGHT_DARKER       # Track: lighter version of light theme
-        self.thumb_color = ACCENT_COLOR       # Thumb: accent color for better visibility
+        self.track_color = DARK_LIGHTER       # Track: lighter version of light theme
+        self.thumb_color = DARK       # Thumb: accent color for better visibility
         self.thumb_hover_color = DARK         # Hover: full dark theme color
         self.thumb_drag_color = DARK          # Drag: same as hover for consistency
         
@@ -286,24 +286,59 @@ class Canvas(Widget):
         **kwargs
     ):
         super().__init__(**kwargs)
-
-        # Public attributes
-        self.width_mm: float = float(width_mm)
-        self.height_mm: float = float(height_mm)
-        self.background_color: Tuple[float, float, float, float] = background_color
-        self.border_color: Tuple[float, float, float, float] = border_color
-        self.border_width_px: float = border_width_px
-        self.keep_aspect: bool = keep_aspect
-        self.scale_to_width: bool = scale_to_width
-
-        # Viewport (in device px) where the mm-canvas is rendered
-        self._view_x: int = 0
-        self._view_y: int = 0
-        self._view_w: int = 0
-        self._view_h: int = 0
-
-        # Scaling (px per mm)
-        self._px_per_mm: float = 1.0
+        self._keyboard = None
+        self._keyboard_enabled = enable_keyboard
+        self._keyboard_listeners = []
+        self._keyboard_pressed_keys = set()
+        self._ctrl_down = False
+        self._shift_down = False
+        self._alt_down = False
+        self._mouse_x = 0.0
+        self._mouse_y = 0.0
+        self._mouse_px = 0.0
+        self._mouse_py = 0.0
+        self._mouse_down = False
+        self._mouse_drag = False
+        self._mouse_drag_start_x = 0.0
+        self._mouse_drag_start_y = 0.0
+        self._mouse_drag_start_px = 0.0
+        self._mouse_drag_start_py = 0.0
+        self._mouse_drag_last_x = 0.0
+        self._mouse_drag_last_y = 0.0
+        self._mouse_drag_last_px = 0.0
+        self._mouse_drag_last_py = 0.0
+        self.width_mm = width_mm
+        self.height_mm = height_mm
+        self.background_color = background_color
+        self.border_color = border_color
+        self.border_width_px = border_width_px
+        self.keep_aspect = keep_aspect
+        self.scale_to_width = scale_to_width
+        self._view_x = 0.0
+        self._view_y = 0.0
+        self._view_w = 0.0
+        self._view_h = 0.0
+        self._px_per_mm = 1.0
+        self._scroll_px = 0.0
+        self._items = {}  # {handle: item}
+        self._tags = {}  # {tag: set(handle)}
+        self._next_handle = 1
+        self._redraw_all()
+        self.bind(size=self._on_size)
+        self.bind(pos=self._on_pos)
+        # Do not bind touch handlers; Kivy dispatches them automatically
+        # Bind on_scroll to support wheel events in some platforms
+        self.bind(on_scroll=self.on_scroll)
+        # Ensure size/pos handlers exist
+        try:
+            self.bind(size=self._on_size)
+        except Exception:
+            pass
+        try:
+            self.bind(pos=self._on_pos)
+        except Exception:
+            pass
+        # Remove erroneous zoom handling during __init__
 
         # Vertical scroll (in px) when content height exceeds widget height in scale_to_width mode
         self._scroll_px: float = 0.0
@@ -339,6 +374,9 @@ class Canvas(Widget):
         # These are added to canvas in z-order, so layer 0 is behind layer 1, etc.
         self._layer_groups: Dict[int, InstructionGroup] = {}
         self._initialize_layer_groups()
+        # Debug/diagnostic: allow temporarily disabling viewport culling
+        # Set to True to force redraw of all items regardless of visibility
+        self.disable_culling: bool = False
 
         # Close clipping after all layer groups (pop at the very end)
         self._scissor_pop = ScissorPop()
@@ -362,6 +400,8 @@ class Canvas(Widget):
         # Keyboard handling (only for editor canvas, not print preview)
         self._keyboard = None
         self._enable_keyboard = enable_keyboard  # Store flag for re-requesting keyboard
+        # Track Ctrl modifier state for zoom gestures
+        self._ctrl_down: bool = False
         if enable_keyboard:
             self._keyboard = Window.request_keyboard(self._keyboard_closed, self)
             if self._keyboard:
@@ -551,6 +591,10 @@ class Canvas(Widget):
         key_name = keycode[1] if isinstance(keycode, tuple) else str(keycode)
         
         print(f"Canvas._on_keyboard_down: key={key_name}, modifiers={modifiers}")
+
+        # Track ctrl key press
+        if key_name == 'ctrl' or ('ctrl' in (modifiers or [])):
+            self._ctrl_down = True
         
         # Handle shift key for universal selection
         if key_name == 'shift':
@@ -595,6 +639,10 @@ class Canvas(Widget):
             if editor is not None and hasattr(editor, 'selection_manager'):
                 editor.selection_manager.on_shift_release()
                 return True  # Handled
+
+        # Track ctrl key release
+        if key_name == 'ctrl':
+            self._ctrl_down = False
         
         return False
 
@@ -644,7 +692,7 @@ class Canvas(Widget):
             # Get values from score
             if hasattr(self.piano_roll_editor, 'score') and self.piano_roll_editor.score:
                 score = self.piano_roll_editor.score
-                quarter_note_length = score.fileSettings.quarterNoteUnit
+                quarter_note_length = PIANOTICK_QUARTER
 
         # Calculate current grid step spacing in mm based on the canvas' content scale
         grid_step_ticks = self._get_grid_step_ticks()
@@ -690,7 +738,7 @@ class Canvas(Widget):
         return snapped_scroll_px
 
     def update_scroll_step(self):
-        '''Update scroll step calculation when score data changes (e.g., fileSettings.quarterNoteUnit).'''
+        '''Update scroll step calculation when score data changes.'''
         if hasattr(self, 'custom_scrollbar') and self.custom_scrollbar:
             self.custom_scrollbar.update_layout()
             grid_step = self._get_grid_step_ticks()
@@ -1427,6 +1475,20 @@ class Canvas(Widget):
         '''Default handler (no-op). Bind to this event to handle clicks.'''
         pass
 
+    def _on_size(self, *args):
+        '''Handle widget size changes by updating layout and redraw.'''
+        try:
+            self._schedule_layout()
+        except Exception:
+            self._update_layout_and_redraw()
+
+    def _on_pos(self, *args):
+        '''Handle widget position changes by updating layout and redraw.'''
+        try:
+            self._schedule_layout()
+        except Exception:
+            self._update_layout_and_redraw()
+
     def on_touch_down(self, touch):
         # Reclaim keyboard focus when canvas is clicked
         if self._enable_keyboard and not self._keyboard:
@@ -1478,6 +1540,7 @@ class Canvas(Widget):
                 self._update_border()
                 # Update scrollbar to reflect new position
                 self.custom_scrollbar.update_layout()
+                # Removed legacy overlay/drawer sync call during scroll
                 
                 # Notify editor's selection manager about scroll (after redraw, so coordinates are updated)
                 mm_after = self._px_to_mm(*touch.pos)
@@ -1522,6 +1585,59 @@ class Canvas(Widget):
         if self.custom_scrollbar.on_touch_up(touch):
             return True
         return super().on_touch_up(touch)
+
+    def on_scroll(self, *args):
+        """Handle mouse wheel events across platforms.
+
+        Extract the touch event from args and apply the same scroll logic
+        used in on_touch_down without delegating, to avoid signature issues.
+        """
+        # Extract touch (commonly last arg)
+        touch = args[-1] if args else None
+        if touch is None:
+            return False
+
+        # Only handle if inside our widget
+        if not hasattr(touch, 'pos') or not self.collide_point(*touch.pos):
+            return False
+
+        # Let custom scrollbar handle first
+        if self.custom_scrollbar.on_touch_down(touch):
+            return True
+
+        # Only continue with canvas logic if within the view area (excluding scrollbar)
+        if not self._point_in_view_px(*touch.pos):
+            return False
+
+        # Wheel scroll buttons
+        if self.scale_to_width and hasattr(touch, 'button') and touch.button in ('scrollup', 'scrolldown'):
+            content_h = self._content_height_px()
+            if content_h > self._view_h:
+                grid_step_px = self._calculate_grid_step_pixels()
+                step = max(1, int(round(grid_step_px)))
+                max_scroll = max(0.0, content_h - self._view_h)
+                scroll_delta = step if touch.button == 'scrollup' else -step
+
+                if touch.button == 'scrollup':
+                    new_scroll = min(max_scroll, self._scroll_px + step)
+                    self._scroll_px = self._snap_scroll_to_grid(new_scroll)
+                else:
+                    new_scroll = max(0.0, self._scroll_px - step)
+                    self._scroll_px = self._snap_scroll_to_grid(new_scroll)
+
+                self._scroll_px = max(0.0, min(max_scroll, self._scroll_px))
+                self._redraw_all()
+                self._update_border()
+                self.custom_scrollbar.update_layout()
+
+                # Notify selection manager
+                mm_after = self._px_to_mm(*touch.pos)
+                editor = getattr(self, 'piano_roll_editor', None)
+                if editor is not None and hasattr(editor, 'selection_manager'):
+                    editor.selection_manager.on_scroll(mm_after[0], mm_after[1], 0.0, scroll_delta)
+            return True
+
+        return False
 
     def on_mouse_motion(self, window, pos):
         '''Handle mouse motion - set cursor for non-editor canvases and forward to editor.'''
@@ -1704,8 +1820,12 @@ class Canvas(Widget):
             for item_id, item_data in self._items.items():
                 # Always draw active UI elements like selection rectangle and cursor
                 tags = item_data.get('tags', set())
-                is_active_ui = 'selectionrect' in tags or 'cursor_line' in tags
-                
+                # Always draw active UI elements like selection rectangle and cursor
+                is_active_ui = (
+                    'selectionrect' in tags or
+                    'cursor_line' in tags
+                )
+
                 if is_active_ui or self._item_in_y_range(item_id, cull_y_min_mm, cull_y_max_mm):
                     self._redraw_item(item_id)
                     visible_count += 1
@@ -1714,7 +1834,6 @@ class Canvas(Widget):
                     if 'group' in item_data:
                         item_data['group'].clear()
         else:
-            # No culling when not in scale_to_width mode or viewport not ready
             for item_id in self._items:
                 self._redraw_item(item_id)
 
@@ -2224,12 +2343,9 @@ class Canvas(Widget):
         quarters = time_position_mm / mm_per_quarter
         # Get quarter note length from score if available
         quarter_note_length = 100.0
-        if hasattr(self, 'piano_roll_editor') and self.piano_roll_editor and self.piano_roll_editor.score:
-            ql = self.piano_roll_editor.score.fileSettings.quarterNoteUnit
-            if isinstance(ql, (int, float)) and ql > 0:
-                quarter_note_length = float(ql)
+        ql = PIANOTICK_QUARTER
         
-        # Convert quarters to ticks using the score's quarterNoteUnit
+        # Convert quarters to ticks using the score's model
         ticks = quarters * quarter_note_length
 
         # DEBUG: Print what's happening with detailed grid step info
@@ -2275,7 +2391,7 @@ class Canvas(Widget):
         self._cursor_line_instr = InstructionGroup()
         
         # Set cursor color (accent color with transparency)
-        cursor_color = (*ACCENT_COLOR[:3], 0.7)  # Add transparency
+        cursor_color = (*ACCENT[:3], 0.7)  # Add transparency
         self._cursor_line_instr.add(Color(*cursor_color))
         
         # Draw dashed vertical line
@@ -2318,7 +2434,7 @@ class Canvas(Widget):
         if hasattr(self, 'piano_roll_editor') and self.piano_roll_editor and hasattr(self.piano_roll_editor, 'score'):
             score = self.piano_roll_editor.score
             if score:
-                quarter_note_length = score.fileSettings.quarterNoteUnit
+                quarter_note_length = PIANOTICK_QUARTER
 
         # Calculate how many quarter notes this grid step represents using editor grid selector when available
         grid_step_ticks = self._get_grid_step_ticks()

@@ -10,7 +10,8 @@ from kivy.uix.label import Label
 from kivy.uix.image import Image
 from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.properties import StringProperty, ObjectProperty, ListProperty
-from gui.colors import DARK, DARK_LIGHTER, LIGHT, ACCENT_COLOR
+from gui.colors import DARK, DARK_LIGHTER, LIGHT, ACCENT
+from gui.property_tree_editor import BLACK
 from icons.icon import load_icon
 
 
@@ -89,8 +90,8 @@ class ToolButton(BoxLayout):
     def _update_style(self):
         if self.is_selected:
             # Highlighted look with accent color
-            self.bg_color.rgba = ACCENT_COLOR
-            self.label.color = LIGHT
+            self.bg_color.rgba = ACCENT
+            self.label.color = BLACK
             self.label.bold = True
         else:
             # Normal look
@@ -111,19 +112,13 @@ class ToolSelector(BoxLayout):
     current_tool = StringProperty('Note')
     callback = ObjectProperty(None, allownone=True)
     tools = ListProperty([
-        'Note', 'Grace-note', 'Beam', 'Line-break',
-        'Count-line', 'Text', 'Slur', 'Tempo'
+        'Note', 'Tempo', 'Grace-note'
     ])
     # Map tool names to icon names (without .png extension)
     tool_icons = {
         'Note': 'note',
+        'Tempo': 'tempo',
         'Grace-note': 'gracenote',
-        'Beam': 'beam',
-        'Line-break': 'linebreak',
-        'Count-line': 'countline',
-        'Text': 'text',
-        'Slur': 'slur',
-        'Tempo': 'tempo'
     }
 
     def __init__(self, callback=None, **kwargs):
@@ -175,7 +170,8 @@ class ToolSelector(BoxLayout):
         self.list_container.bind(pos=self._update_scroll_bg, size=self._update_scroll_bg)
 
         # Vertical BoxLayout for buttons (expands height to show all)
-        self.button_column = BoxLayout(orientation='vertical', size_hint_y=None, padding=(4, 6), spacing=6)
+        # Reduce top padding slightly to shift content up for symmetry
+        self.button_column = BoxLayout(orientation='vertical', size_hint_y=None, padding=(4, 12), spacing=6)
         self.button_column.bind(minimum_height=self._sync_minimum_height)
 
         self.list_container.add_widget(self.button_column)

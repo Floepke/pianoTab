@@ -46,7 +46,7 @@ class LineBreakTool(BaseTool):
         pitch, time = self.get_pitch_and_time(x, y)
         
         # Clamp time to valid range
-        score_length = self.editor.get_score_length_in_ticks()
+        score_length = self.editor._get_score_length_in_ticks()
         if time > score_length:
             time = score_length
         if time < 0:
@@ -93,7 +93,7 @@ class LineBreakTool(BaseTool):
             pitch, time = self.get_pitch_and_time(x, y)
             
             # Clamp time to valid range
-            score_length = self.editor.get_score_length_in_ticks()
+            score_length = self.editor._get_score_length_in_ticks()
             if time > score_length:
                 time = score_length
             if time < 0:
@@ -118,7 +118,7 @@ class LineBreakTool(BaseTool):
         pitch, time = self.get_pitch_and_time(x, y)
         
         # Clamp time to valid range
-        score_length = self.editor.get_score_length_in_ticks()
+        score_length = self.editor._get_score_length_in_ticks()
         if time > score_length:
             time = score_length
         if time < 0:
@@ -141,7 +141,7 @@ class LineBreakTool(BaseTool):
         pitch, time = self.get_pitch_and_time(x, y)
         
         # Clamp time to valid range
-        score_length = self.editor.get_score_length_in_ticks()
+        score_length = self.editor._get_score_length_in_ticks()
         if time > score_length:
             time = score_length
         if time < 0:

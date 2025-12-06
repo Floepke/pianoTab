@@ -15,7 +15,7 @@ class IconLoader:
     '''Loads icons from base64 data with optional accent color tinting.'''
     
     _icons_data = None
-    # Icons that should be automatically tinted with ACCENT_COLOR
+    # Icons that should be automatically tinted with ACCENT
     _accent_tinted_icons = {'noteLeft', 'noteRight'}
     
     @classmethod
@@ -95,7 +95,7 @@ class IconLoader:
         Args:
             icon_name: Name of the icon (without .png extension)
             tint_color: Optional RGBA tuple (0-1 range) to tint black pixels.
-                       If None and icon_name is in _accent_tinted_icons, ACCENT_COLOR is used.
+                       If None and icon_name is in _accent_tinted_icons, ACCENT is used.
         
         Returns:
             CoreImage object or None if icon not found
@@ -110,11 +110,11 @@ class IconLoader:
         base64_data = icons[icon_name]
         image_data = base64.b64decode(base64_data)
         
-        # Auto-apply ACCENT_COLOR tint for specific icons
+        # Auto-apply ACCENT tint for specific icons
         if tint_color is None and icon_name in cls._accent_tinted_icons:
             try:
-                from gui.colors import ACCENT_COLOR
-                tint_color = ACCENT_COLOR
+                from gui.colors import ACCENT
+                tint_color = ACCENT
             except ImportError:
                 pass
         
@@ -143,10 +143,10 @@ def load_icon(icon_name: str, tint_color: Optional[Tuple[float, float, float, fl
         icon = load_icon('note')
         
         # Load with custom tint
-        from gui.colors import ACCENT_COLOR
-        icon = load_icon('myicon', tint_color=ACCENT_COLOR)
+        from gui.colors import ACCENT
+        icon = load_icon('myicon', tint_color=ACCENT)
         
-        # noteLeft and noteRight are auto-tinted with ACCENT_COLOR
+        # noteLeft and noteRight are auto-tinted with ACCENT
         icon = load_icon('noteLeft')  # Automatically tinted
     '''
     return IconLoader.load_icon(icon_name, tint_color)

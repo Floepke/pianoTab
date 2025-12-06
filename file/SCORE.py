@@ -191,15 +191,15 @@ class SCORE:
     def new_basegrid(self, 
                      numerator: int = 4,
                      denominator: int = 4,
-                     gridTimes: List[float] = None,
+                     gridCountsEnabled: List[int] = None,
                      measureAmount: int = 8,
                      timeSignatureIndicatorVisible: int = 1) -> None:
         '''Add a new baseGrid to the score.'''
-        if gridTimes is None:
-            gridTimes = [100.0, 512.0, 768.0]
+        if gridCountsEnabled is None:
+            gridCountsEnabled = [1, 2, 3, 4]
         basegrid = BaseGrid(numerator=numerator,
                             denominator=denominator,
-                            gridTimes=gridTimes,
+                            gridCountsEnabled=gridCountsEnabled,
                             measureAmount=measureAmount,
                             timeSignatureIndicatorVisible=timeSignatureIndicatorVisible)
         self.baseGrid.append(basegrid)

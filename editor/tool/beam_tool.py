@@ -108,7 +108,7 @@ class BeamTool(BaseTool):
             hand = '>'
         
         # Clamp time to valid range
-        score_length = self.editor.get_score_length_in_ticks()
+        score_length = self.editor._get_score_length_in_ticks()
         if time + duration > score_length:
             time = score_length - duration
         if time < 0:
@@ -163,7 +163,7 @@ class BeamTool(BaseTool):
             hand = '>'
         
         # Boundary check: Clamp time to valid range
-        score_length = self.editor.get_score_length_in_ticks()
+        score_length = self.editor._get_score_length_in_ticks()
         duration = 0
         
         # Clamp time to valid range (0 to score_length - duration)
@@ -287,7 +287,7 @@ class BeamTool(BaseTool):
         pitch, time = self.get_pitch_and_time(x, y)
         
         # Boundary check: Prevent dragging beam outside valid time range
-        score_length = self.editor.get_score_length_in_ticks()
+        score_length = self.editor._get_score_length_in_ticks()
         
         # Calculate proposed duration (dragging down extends the beam)
         proposed_duration = max(0, time - self.edit_beam.time)

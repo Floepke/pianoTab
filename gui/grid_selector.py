@@ -10,9 +10,9 @@ from kivy.uix.label import Label
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.properties import NumericProperty, ObjectProperty
-from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER, ACCENT_COLOR
+from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER, ACCENT
 from utils.CONSTANTS import (
-    DEFAULT_GRID_NAME, DEFAULT_GRID_STEP_TICKS, GRID_LENGTHS, QUARTER_NOTE_TICKS
+    DEFAULT_GRID_NAME, DEFAULT_GRID_STEP_TICKS, GRID_LENGTHS, PIANOTICK_QUARTER
 )
 
 class SpinBox(BoxLayout):
@@ -82,7 +82,7 @@ class SpinBox(BoxLayout):
         # Bind for mouse wheel support
         self.bind(on_touch_down=self.on_spinbox_touch)
 
-    def _bind_press_highlight(self, btn, normal_color=DARK_LIGHTER, pressed_color=ACCENT_COLOR):
+    def _bind_press_highlight(self, btn, normal_color=DARK_LIGHTER, pressed_color=ACCENT):
         '''Bind button to show pressed highlight color and restore on release.'''
         def _on_state(instance, state):
             if state == 'down':
@@ -153,8 +153,8 @@ class GridButton(Button):
     def update_style(self):
         '''Update button appearance based on selection state.'''
         if self.is_selected:
-            self.background_color = ACCENT_COLOR
-            self.color = LIGHT
+            self.background_color = ACCENT
+            self.color = (0,0,0,1)
             self.bold = True
         else:
             self.background_color = DARK_LIGHTER
@@ -170,7 +170,7 @@ class GridButton(Button):
         # Temporarily show press highlight; restore style on release
         if value == 'down':
             self._saved_bg = getattr(self, '_saved_bg', self.background_color)
-            self.background_color = ACCENT_COLOR
+            self.background_color = ACCENT
         else:
             # Restore to selected/non-selected style
             self.update_style()
@@ -205,7 +205,7 @@ class GridSelector(BoxLayout):
     - Callback when grid changes
     '''
     
-    quarter_note_ticks = NumericProperty(QUARTER_NOTE_TICKS)
+    quarter_note_ticks = NumericProperty(PIANOTICK_QUARTER)
     current_grid_step = NumericProperty(DEFAULT_GRID_STEP_TICKS)
     callback = ObjectProperty(None, allownone=True)
     
@@ -220,11 +220,11 @@ class GridSelector(BoxLayout):
         self.widget_height = 55  # Button height - half of standard 96px
         
         self.callback = callback
-        self.score = score  # Reference to SCORE for accessing quarterNoteUnit
+        self.score = score
         self.current_grid_name = DEFAULT_GRID_NAME
         self.subdivision = 1
         
-        # Grid lengths will be calculated dynamically based on quarterNoteUnit
+        # Grid lengths will be calculated dynamically
         self.grid_lengths = self._calculate_grid_lengths()
         
         # Background
@@ -251,26 +251,20 @@ class GridSelector(BoxLayout):
             self.callback(self.current_grid_step)
 
     def _get_grid_lengths(self):
-        '''Calculates the right grid lengths based on the file model's quarterNoteUnit value.'''
+        '''Calculates the right grid lengths based on the file model's value.'''
         return self._calculate_grid_lengths()
     
     def _calculate_grid_lengths(self):
-        '''Calculate grid lengths dynamically based on score's quarterNoteUnit.'''
-        # Get quarter note unit from score
-        quarter_note_unit = QUARTER_NOTE_TICKS  # Fallback default
-        if self.score:
-            quarter_note_unit = self.score.fileSettings.quarterNoteUnit
+        '''Calculate grid lengths dynamically based on score's model.'''
         
         # Calculate all grid lengths from quarter note
         return [
-            ('1 - Whole', quarter_note_unit * 4),
-            ('2 - Half', quarter_note_unit * 2),
-            ('4 - Quarter', quarter_note_unit),
-            ('8 - Eighth', quarter_note_unit / 2),
-            ('16 - Sixteenth', quarter_note_unit / 4),
-            ('32 - 32nd', quarter_note_unit / 8),
-            ('64 - 64th', quarter_note_unit / 16),
-            ('128 - 128th', quarter_note_unit / 32),
+            ('1 - Whole', PIANOTICK_QUARTER * 4),
+            ('2 - Half', PIANOTICK_QUARTER * 2),
+            ('4 - Quarter', PIANOTICK_QUARTER),
+            ('8 - Eighth', PIANOTICK_QUARTER / 2),
+            ('16 - Sixteenth', PIANOTICK_QUARTER / 4),
+            ('32 - 32nd', PIANOTICK_QUARTER / 8),
         ]
     
     def update_graphics(self, *args):
@@ -283,7 +277,7 @@ class GridSelector(BoxLayout):
         
         # Grid step display label
         self.grid_label = Label(
-            text='Grid Snap: 100.0',
+            text='Grid Snap',
             size_hint_y=None,
             height=self.widget_height,
             font_size='16sp',
@@ -297,7 +291,8 @@ class GridSelector(BoxLayout):
         self.add_widget(self.grid_label)
         
         # Non-scroll list of grid length buttons
-        gridlist_container = BoxLayout(orientation='vertical', size_hint_y=None, padding=(0, 0), spacing=4)
+        # Reduce top padding slightly to shift content up for symmetry
+        gridlist_container = BoxLayout(orientation='vertical', size_hint_y=None, padding=(0, 6), spacing=12)
         
         # Background for grid list
         with gridlist_container.canvas.before:
@@ -314,7 +309,8 @@ class GridSelector(BoxLayout):
             orientation='vertical',
             spacing=6,
             size_hint_y=None,
-            padding=[4, 6]
+            # Reduce top padding to minimize upper indent
+            padding=[4, 12]
         )
         self.button_layout.bind(minimum_height=self.button_layout.setter('height'))
         
@@ -372,7 +368,7 @@ class GridSelector(BoxLayout):
         )
         dec_btn.bind(on_press=lambda *_: self.decrease_subdivision())
         # Highlight on press tied to accent color
-        dec_btn.bind(state=lambda inst, s: setattr(inst, 'background_color', ACCENT_COLOR if s == 'down' else DARK))
+        dec_btn.bind(state=lambda inst, s: setattr(inst, 'background_color', ACCENT if s == 'down' else DARK))
         left_vbox.add_widget(dec_btn)
         left_vbox.add_widget(_W(size_hint_y=1))
         subdiv_container.add_widget(left_vbox)
@@ -439,7 +435,7 @@ class GridSelector(BoxLayout):
         )
         inc_btn.bind(on_press=lambda *_: self.increase_subdivision())
         # Highlight on press tied to accent color
-        inc_btn.bind(state=lambda inst, s: setattr(inst, 'background_color', ACCENT_COLOR if s == 'down' else DARK))
+        inc_btn.bind(state=lambda inst, s: setattr(inst, 'background_color', ACCENT if s == 'down' else DARK))
         right_vbox.add_widget(inc_btn)
         right_vbox.add_widget(_W(size_hint_y=1))
         subdiv_container.add_widget(right_vbox)
@@ -508,14 +504,12 @@ class GridSelector(BoxLayout):
         if '.' not in grid_text:
             grid_text += '.0'
         
-        self.grid_label.text = f'Grid Snap: {grid_text}'
+        #self.grid_label.text = f'Grid Snap: {grid_text}'
     
     def get_grid_step(self):
         '''Calculate and return current grid step value in piano ticks.'''
         # Get quarter note unit from score
-        quarter_note_unit = QUARTER_NOTE_TICKS  # Fallback default
-        if self.score:
-            quarter_note_unit = self.score.fileSettings.quarterNoteUnit
+        quarter_note_unit = PIANOTICK_QUARTER  # Fallback default
         
         # Calculate grid ticks based on selected grid name
         grid_ticks = quarter_note_unit  # Default to quarter note
@@ -548,9 +542,9 @@ class GridSelector(BoxLayout):
         return self.subdivision
     
     def refresh_from_score(self):
-        '''Refresh grid lengths and display when score properties change (e.g., quarterNoteUnit).'''
+        '''Refresh grid lengths and display when score properties change.'''
         print('GridSelector.refresh_from_score() called')
-        # Recalculate grid lengths based on current quarterNoteUnit
+        # Recalculate grid lengths based on current
         self.grid_lengths = self._calculate_grid_lengths()
         # Update the display and trigger callback
         self.update_grid_step_label()
@@ -609,3 +603,4 @@ class GridSelector(BoxLayout):
 
 # Export
 __all__ = ['GridSelector', 'SpinBox', 'GridButton']
+

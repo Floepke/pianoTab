@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, Tuple
 from abc import ABC, abstractmethod
 
-from gui.colors import ACCENT_COLOR_HEX
+from gui.colors import ACCENT_HEX, DARK_HEX
 from utils.CONSTANTS import BLACK_KEYS
 
 if TYPE_CHECKING:
@@ -184,6 +184,53 @@ class BaseTool(ABC):
         Returns:
             True if event was handled, False otherwise
         """
+        # Keep time cursor updating during drag
+        try:
+            self._update_time_cursor(y)
+        except Exception:
+            pass
+
+        # Update keyboard cursor overlay to match note cursor position
+        try:
+            gui = getattr(self.editor, 'gui', None)
+            overlay = getattr(gui, 'keyboard_overlay', None) if gui else None
+            cv = getattr(self.editor, 'canvas', None)
+            if overlay and cv:
+                # Prefer edit_note pitch if available (note stays at chosen pitch during edit)
+                pitch = None
+                if hasattr(self, 'edit_note') and getattr(self, 'edit_note', None) is not None:
+                    try:
+                        pitch = int(getattr(self, 'edit_note').pitch)
+                    except Exception:
+                        pitch = None
+                if pitch is None and hasattr(self.editor, 'x_to_pitch'):
+                    try:
+                        pitch = int(self.editor.x_to_pitch(x))
+                    except Exception:
+                        pitch = None
+                if pitch is not None:
+                    # Store for consistency with other paths
+                    self.editor.cursor_pitch = pitch
+                    x_mm = self.editor.pitch_to_x(pitch)
+                    px_per_mm = float(getattr(cv, '_px_per_mm', 0.0) or 0.0)
+                    semitone_w_mm = float(getattr(self.editor, 'semitone_width', 3.0))
+                    key_w_px = (semitone_w_mm * px_per_mm if px_per_mm > 0 else 12.0)
+                    diameter_px = key_w_px
+                    key_h_px = int(80 * (2.0 / 3.0))
+                    bottom_margin_px = 80 - key_h_px
+                    x_px, _ = cv._mm_to_px_point(x_mm, 0.0)
+                    try:
+                        from utils.CONSTANTS import BLACK_KEYS
+                        is_black = int(pitch) in BLACK_KEYS
+                    except Exception:
+                        is_black = False
+                    base_y = gui.editor.keyboard_panel.y if hasattr(gui, 'editor') else 0
+                    y_px = base_y + (bottom_margin_px if is_black else 0)
+                    x_circle = float(x_px) - (diameter_px / 2.0)
+                    overlay.set_cursor_circle(x_circle, y_px + 5, diameter_px)
+        except Exception:
+            pass
+
         return False
     
     def on_drag_end(self, x: float, y: float) -> bool:
@@ -212,6 +259,12 @@ class BaseTool(ABC):
         """
         # Fix drawing order after finalizing note
         self.editor.canvas._redraw_all()
+        # Restore overlay if present
+        try:
+            if hasattr(self.editor, 'keyboard_overlay') and self.editor.keyboard_overlay:
+                self.editor.keyboard_overlay.redraw()
+        except Exception:
+            pass
     
     def on_mouse_move(self, x: float, y: float) -> bool:
         """
@@ -227,11 +280,64 @@ class BaseTool(ABC):
         # Update and draw the horizontal time cursor
         self._update_time_cursor(y)
 
-        # Check if we should start a drag
+        # Forward to keyboard panel for highlight update
+        try:
+            gui = getattr(self.editor, 'gui', None)
+            kp = getattr(gui, 'keyboard_panel', None) if gui else None
+            # Update time cursor on move
+            try:
+                self._update_time_cursor(y)
+            except Exception:
+                pass
+
+            # Trigger keyboard cursor overlay update (drawn above keyboard panel)
+            try:
+                gui = getattr(self.editor, 'gui', None)
+                # Update editor's cursor_pitch from current x for keyboard highlight
+                if hasattr(self.editor, 'x_to_pitch'):
+                    try:
+                        self.editor.cursor_pitch = int(self.editor.x_to_pitch(x))
+                    except Exception:
+                        pass
+                # If overlay exists, compute position and update circle
+                overlay = getattr(gui, 'keyboard_overlay', None) if gui else None
+                cv = getattr(self.editor, 'canvas', None)
+                if overlay and cv:
+                    try:
+                        pitch = getattr(self.editor, 'cursor_pitch', None)
+                        if pitch is not None:
+                            x_mm = self.editor.pitch_to_x(pitch)
+                            px_per_mm = float(getattr(cv, '_px_per_mm', 0.0) or 0.0)
+                            semitone_w_mm = float(getattr(self.editor, 'semitone_width', 3.0))
+                            key_w_px = (semitone_w_mm * px_per_mm if px_per_mm > 0 else 12.0)
+                            # Circle diameter relative to key width
+                            diameter_px = key_w_px
+                            key_h_px = int(80 * (2.0 / 3.0))
+                            bottom_margin_px = 80 - key_h_px
+                            x_px, _ = cv._mm_to_px_point(x_mm, 0.0)
+                            # Position circle at bottom of black key if black, else bottom of keyboard panel
+                            try:
+                                from utils.CONSTANTS import BLACK_KEYS
+                                is_black = int(pitch) in BLACK_KEYS
+                            except Exception:
+                                is_black = False
+                            base_y = gui.editor.keyboard_panel.y if hasattr(gui, 'editor') else 0
+                            y_px = base_y + (bottom_margin_px if is_black else 0)
+                            # Center circle horizontally on key
+                            x_circle = float(x_px) - (diameter_px / 2.0)
+                            overlay.set_cursor_circle(x_circle, y_px + 15, diameter_px)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+                kp._update_cursor(x, y)  # or kp._update_cursor() if it reads editor state
+        except Exception as e:
+            print(f'KB_PANEL: _update_cursor failed: {e}')
+
+        # Drag detection (unchanged)
         if self._mouse_down_pos is not None:
             start_x, start_y = self._mouse_down_pos
             distance = ((x - start_x)**2 + (y - start_y)**2) ** 0.5
-
             if distance > self._drag_threshold and not self._is_dragging:
                 self._is_dragging = True
                 return self.on_drag_start(x, y, start_x, start_y)
@@ -595,19 +701,49 @@ class BaseTool(ABC):
         """
         import math
         try:
-            # Convert Y to ticks with grid snapping
-            raw_ticks = self.editor.y_to_time(float(y_mm))
-            step = max(1e-6, self.editor.get_grid_step_ticks())
+            ed = getattr(self, 'editor', None)
+            if ed is None:
+                return
+
+            # Ensure conversion functions exist
+            if not hasattr(ed, 'y_to_time') or not callable(ed.y_to_time):
+                return
+
+            raw_y = float(y_mm)
+            raw_ticks = float(ed.y_to_time(raw_y))
+
+            # Read grid step robustly
+            step = None
+            if hasattr(ed, 'get_grid_step_ticks') and callable(ed.get_grid_step_ticks):
+                try:
+                    step = float(ed.get_grid_step_ticks())
+                except Exception:
+                    step = None
+            if step is None or step <= 0:
+                step = 1.0  # sensible fallback
+
+            # Snap down to grid
             snapped = math.floor(raw_ticks / step) * step
-            
-            # Clamp within score bounds
-            snapped = max(0.0, snapped)
-            total = float(self.editor.get_score_length_in_ticks())
-            snapped = min(total, snapped)
-            
-            # Update cursor position
+
+            # Clamp within score bounds (fallbacks if unavailable)
+            total = None
+            if hasattr(ed, '_get_score_length_in_ticks') and callable(ed._get_score_length_in_ticks):
+                try:
+                    total = float(ed._get_score_length_in_ticks())
+                except Exception:
+                    total = None
+            if total is None:
+                # Try derive from score if available
+                total = float(getattr(getattr(ed, 'score', None), 'metaInfo', None).totalLengthTicks) if (
+                    hasattr(getattr(ed, 'score', None), 'metaInfo') and
+                    hasattr(getattr(ed.score, 'metaInfo'), 'totalLengthTicks')
+                ) else float(max(0.0, snapped))
+
+            snapped = max(0.0, min(total, snapped))
+
+            # Update cursor position and draw time cursor
             self._cursor_time = snapped
-            self._draw_dash_cursor()
+            self._draw_time_cursor()
         except Exception as e:
             print(f'CURSOR: update failed: {e}')
     
@@ -617,7 +753,7 @@ class BaseTool(ABC):
         # Delete all cursor lines by tag
         self.canvas.delete_by_tag('cursor_line')
     
-    def _draw_dash_cursor(self):
+    def _draw_time_cursor(self):
         """Draw or update the horizontal dashed cursor line at the current time.
         
         Draws two separate lines:
@@ -657,9 +793,9 @@ class BaseTool(ABC):
                 y1_mm=y_mm,
                 x2_mm=left_x2,
                 y2_mm=y_mm,
-                color=ACCENT_COLOR_HEX,
-                width_mm=0.25,
-                dash=True,
+                color=DARK_HEX,
+                width_mm=self.editor.score.properties.globalBasegrid.barlineWidthMm,
+                dash=False,
                 dash_pattern_mm=(2.0, 2.0),
                 tags=['cursor_line']
             )
@@ -671,9 +807,9 @@ class BaseTool(ABC):
                 y1_mm=y_mm,
                 x2_mm=right_x2,
                 y2_mm=y_mm,
-                color=ACCENT_COLOR_HEX,
-                width_mm=0.25,
-                dash=True,
+                color=DARK_HEX,
+                width_mm=self.editor.score.properties.globalBasegrid.barlineWidthMm,
+                dash=False,
                 dash_pattern_mm=(2.0, 2.0),
                 tags=['cursor_line']
             )

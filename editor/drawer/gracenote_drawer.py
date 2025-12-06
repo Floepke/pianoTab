@@ -51,7 +51,7 @@ class GraceNoteDrawerMixin:
                 - 'edit': draw as edit grace note (accent color)
                 - 'selected': draw as selected grace note (accent color)
         '''
-        from gui.colors import ACCENT_COLOR_HEX
+        from gui.colors import ACCENT_HEX
         from utils.CONSTANTS import BLACK_KEYS
         
         # Guard against startup race condition
@@ -71,7 +71,7 @@ class GraceNoteDrawerMixin:
         
         # Determine color
         if draw_mode in ('cursor', 'edit', 'selected'):
-            color = ACCENT_COLOR_HEX
+            color = ACCENT_HEX
         else:
             color = gracenote.color
         

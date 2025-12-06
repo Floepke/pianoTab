@@ -46,6 +46,7 @@ class AppCallbacks(Protocol):
     def on_save_as(self) -> None: ...
     def on_export_pdf(self) -> None: ...
     def on_exit(self) -> None: ...
+    def on_restart(self) -> None: ...
 
     # Edit menu
     def on_cut(self) -> None: ...
@@ -92,6 +93,8 @@ def create_menu_config(app_instance: AppCallbacks) -> MenuConfig:
             '---1': None,  # Separator (unique key)
             'Export to PDF': partial(callback_export_pdf, app_instance),
             '---2': None,  # Separator (unique key)
+            'Restart pianoTAB': partial(callback_restart, app_instance),
+            '---3': None,  # Separator (unique key)
             'Exit': partial(callback_exit, app_instance),
         },
         'Edit': {
@@ -221,6 +224,29 @@ def callback_export_pdf(app: AppCallbacks) -> None:
 
 def callback_exit(app: AppCallbacks) -> None:
     _invoke(app, ('on_exit',), lambda _a: _not_implemented('Exit')())
+
+
+def callback_restart(app: AppCallbacks) -> None:
+    """Restart the application process.
+
+    Tries app-provided methods first, then falls back to an in-place exec.
+    """
+    # Prefer an app-implemented restart handler
+    # Try multiple common method names to keep compatibility
+    for name in ('on_restart', 'restart_app', 'restart'):
+        fn = getattr(app, name, None)
+        if callable(fn):
+            try:
+                fn()
+                return
+            except Exception:
+                pass
+    # Fallback: exec the current Python process with same args
+    try:
+        import os, sys
+        os.execl(sys.executable, sys.executable, *sys.argv)
+    except Exception:
+        _not_implemented('Restart')()
 
 
 def callback_cut(app: AppCallbacks) -> None:

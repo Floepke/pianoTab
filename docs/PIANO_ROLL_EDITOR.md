@@ -7,7 +7,7 @@ The `PianoRollEditor` is a comprehensive vertical piano roll editor for the pian
 ## Features
 
 ### Visual Layout
-- **Piano Keys Panel (Left)**: Interactive piano keyboard showing white and black keys
+- **Piano Keys Panel (Bottom)**: Interactive piano keyboard showing the black keys
 - **Note Area (Main)**: Grid area where notes are displayed as rectangles
 - **Vertical Time Flow**: Time progresses from top to bottom (like a waterfall)
 - **Horizontal Pitch**: MIDI pitches from low (left) to high (right)

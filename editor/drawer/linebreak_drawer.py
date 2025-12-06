@@ -5,7 +5,7 @@ Handles drawing line break indicators on the piano roll canvas.
 '''
 from __future__ import annotations
 from typing import TYPE_CHECKING
-from gui.colors import ACCENT_COLOR_HEX
+from gui.colors import ACCENT_HEX
 
 if TYPE_CHECKING:
     from file.SCORE import SCORE, LineBreak
@@ -63,7 +63,7 @@ class LineBreakDrawerMixin:
         
         # Determine color
         if draw_mode in ('cursor', 'edit', 'selected'):
-            color = ACCENT_COLOR_HEX
+            color = ACCENT_HEX
         else:
             color = linebreak.color if hasattr(linebreak, 'color') else '#000000'
         

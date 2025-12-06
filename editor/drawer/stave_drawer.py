@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from utils.canvas import Canvas
 
 from utils.CONSTANTS import PIANO_KEY_COUNT, PIANOTICK_QUARTER
-from gui.colors import rgba_to_hex, LIGHT_DARKER
+from gui.colors import DARK, LIGHT, rgba_to_hex, LIGHT_DARKER
 
 
 class StaveDrawerMixin:
@@ -33,17 +33,17 @@ class StaveDrawerMixin:
         clef_dash_pattern: list
         
         def pitch_to_x(self, key_number: int) -> float: ...
-        def get_score_length_in_ticks(self) -> float: ...
+        def _get_score_length_in_ticks(self) -> float: ...
     
     def _draw_stave(self):
         '''Draw the 88-key stave with your specific line patterns.'''
-        total_ticks = self.get_score_length_in_ticks()
+        total_ticks = self._get_score_length_in_ticks()
         mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
         if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
             px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
             mm_per_quarter = (self.pixels_per_quarter) / max(1e-6, px_per_mm)
         # Stave height independent of scroll offset
-        ql = self.score.fileSettings.quarterNoteUnit if (self.score and hasattr(self.score, 'fileSettings')) else PIANOTICK_QUARTER
+        ql = PIANOTICK_QUARTER
         stave_height = (total_ticks / max(1e-6, ql)) * mm_per_quarter
         
         # Set stave boundaries (useful for cursor and other tools)
@@ -67,15 +67,15 @@ class StaveDrawerMixin:
                 category_tag = None
                 if is_clef_line:
                     # Central C# and D# lines (clef lines) - always dashed
-                    color = self.stave_clef_color
+                    color = LIGHT
                     width = self.stave_clef_width
                     category_tag = 'staveclefline'
                 elif key_ in [2, 10, 0]:  # Three-line (F#, G#, A#)
-                    color = self.stave_three_color
+                    color = LIGHT
                     width = self.stave_three_width
                     category_tag = 'stavethreeline'
                 else:  # key_ in [5, 7] - Two-line (C#, D#) but not central
-                    color = self.stave_two_color
+                    color = LIGHT
                     width = self.stave_two_width
                     category_tag = 'stavetwoline'
                 

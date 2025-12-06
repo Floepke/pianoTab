@@ -38,27 +38,23 @@ MIDI_PITCH_MIN = 21
 MIDI_PITCH_MAX = 108
 '''Maximum MIDI pitch number (key 88).'''
 
-# Grid system defaults (single source of truth)
-QUARTER_NOTE_TICKS = 100.0
-'''Standard quarter note length in ticks (same as PIANOTICK_QUARTER).'''
-
 # Calculate all grid lengths from quarter note for consistency
 GRID_LENGTHS = [
-    ('1 - Whole', QUARTER_NOTE_TICKS * 4),      # 1024.0
-    ('2 - Half', QUARTER_NOTE_TICKS * 2),       # 512.0
-    ('4 - Quarter', QUARTER_NOTE_TICKS),        # 100.0
-    ('8 - Eighth', QUARTER_NOTE_TICKS / 2),     # 128.0
-    ('16 - Sixteenth', QUARTER_NOTE_TICKS / 4), # 64.0
-    ('32 - 32nd', QUARTER_NOTE_TICKS / 8),      # 32.0
-    ('64 - 64th', QUARTER_NOTE_TICKS / 16),     # 16.0
-    ('128 - 128th', QUARTER_NOTE_TICKS / 32),   # 8.0
+    ('1 - Whole', PIANOTICK_QUARTER * 4),      # 1024.0
+    ('2 - Half', PIANOTICK_QUARTER * 2),       # 512.0
+    ('4 - Quarter', PIANOTICK_QUARTER),        # 100.0
+    ('8 - Eighth', PIANOTICK_QUARTER / 2),     # 128.0
+    ('16 - Sixteenth', PIANOTICK_QUARTER / 4), # 64.0
+    ('32 - 32nd', PIANOTICK_QUARTER / 8),      # 32.0
+    ('64 - 64th', PIANOTICK_QUARTER / 16),     # 16.0
+    ('128 - 128th', PIANOTICK_QUARTER / 32),   # 8.0
 ]
 '''Available grid lengths with their tick values.'''
 
 DEFAULT_GRID_NAME = '8 - Eighth'
 '''Initial grid selection on application startup.'''
 
-DEFAULT_GRID_STEP_TICKS = QUARTER_NOTE_TICKS / 2  # 128.0 (eighth note)
+DEFAULT_GRID_STEP_TICKS = PIANOTICK_QUARTER / 2  # 128.0 (eighth note)
 '''Default grid step in ticks when grid selector is not available (fallback).'''
 
 # Key layout calculation constants
@@ -107,6 +103,7 @@ DRAWING_LAYERS = [
     'notehead_white',
     'notehead_black',      
     'left_dot',
+    'cursor_line',      # Time cursor line
     'stem',
 
     # grace_note          
@@ -122,12 +119,14 @@ DRAWING_LAYERS = [
     'slur',
     'text',
     'tempo',
-        'line_break',
-        'count_line',
+    'line_break',
+    'count_line',
     
     # UI elements (top layers)
-    'cursor_line',      # Time cursor line
     'selection_rect',  # Selection rectangle
+    'keyboard_overlay_bg',     # Piano keyboard overlay background
+    'keyboard_overlay_keys',   # Piano keyboard overlay keys
+    'cursor',            # Always on top
 ]
 
 # Create a lookup dict for quick tag->layer mapping
