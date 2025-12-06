@@ -115,6 +115,8 @@ class pianoTAB(App):
         # App-wide settings available from anywhere via App.get_running_app().settings
         self.settings: SettingsManager = SettingsManager()
         self.settings.load()
+        # Track fullscreen state
+        self._is_fullscreen: bool = False
     
     def build(self):
         '''Build and return the root widget - UI construction only.'''
@@ -262,12 +264,22 @@ class pianoTAB(App):
         Binds the following keys:
         - '=' or '+' -> zoom in
         - '-' or '_' -> zoom out
+        - F11        -> toggle fullscreen (Windows/Linux)
         '''
         try:
             # Normalize codepoint; fall back to ASCII from key if needed
             ch = codepoint or ''
             # Some layouts may not provide codepoint; ignore in that case
             if not ch:
+                # Handle non-character keys (e.g., F11) via scancode/key
+                # Kivy provides key string in 'key' parameter sometimes
+                try:
+                    # Common Kivy key name for F11
+                    if key == 293 or str(key).lower() == 'f11':
+                        self.toggle_fullscreen()
+                        return True
+                except Exception:
+                    pass
                 return False
             if ch in ('=', '+'):
                 if self.editor is not None:
@@ -277,9 +289,36 @@ class pianoTAB(App):
                 if self.editor is not None:
                     self.editor.zoom_out(factor=1.2)
                     return True
+            # Also allow F11 when codepoint is provided as 'f'
+            # but avoid hijacking normal 'f' typing; prefer key/scancode path above
         except Exception:
             pass
         return False
+
+    def toggle_fullscreen(self):
+        """Toggle fullscreen mode in a cross-platform way.
+
+        - Windows/Linux: use Kivy's Window.toggle_fullscreen()
+        - macOS: already handled separately via native attempt; fallback to toggle here
+        """
+        try:
+            Window.toggle_fullscreen()
+            # Flip state flag (best effort; Kivy does not expose direct state)
+            self._is_fullscreen = not self._is_fullscreen
+            Logger.info(f'pianoTAB: Fullscreen toggled -> {self._is_fullscreen}')
+        except Exception as e:
+            Logger.warning(f'pianoTAB: Failed to toggle fullscreen: {e}')
+            # Fallback: maximize on toggle-on, restore size on toggle-off
+            try:
+                if not self._is_fullscreen:
+                    Window.maximize()
+                    self._is_fullscreen = True
+                else:
+                    # Restore to reasonable size
+                    Window.size = (1280, 800)
+                    self._is_fullscreen = False
+            except Exception as e2:
+                Logger.warning(f'pianoTAB: Fallback fullscreen handling failed: {e2}')
 
     def _test_scroll_sequence(self, dt):
         '''Test: scroll to time 0 now, then to 1024.0 two seconds later.'''
