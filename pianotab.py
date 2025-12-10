@@ -42,10 +42,12 @@ except Exception:
 from kivy.config import Config
 
 # Configure Kivy before importing other Kivy modules
-Config.set('graphics', 'width', '1920')
-Config.set('graphics', 'height', '1080')
-Config.set('graphics', 'minimum_width', '800')
-Config.set('graphics', 'minimum_height', '600')
+scr_width = int(1920*1.5)
+scr_height = int(1080*1.5)
+Config.set('graphics', 'width', str(scr_width))
+Config.set('graphics', 'height', str(scr_height))
+Config.set('graphics', 'minimum_width', '600')
+Config.set('graphics', 'minimum_height', '400')
 Config.set('graphics', 'resizable', True)
 Config.set('graphics', 'gl_version', '1')
 # Config.set('graphics', 'multisamples', '2')  # Disable multisampling to avoid graphics issues
@@ -53,8 +55,7 @@ Config.set('graphics', 'gl_version', '1')
 Config.set('kivy', 'keyboard_mode', '')
 # Disable vsync
 Config.set('graphics', 'vsync', '0')
-Config.set('graphics', 'maxfps', '40')
-#Config.set('graphics', 'fullscreen', '1')  # Start in fullscreen mode; user can toggle fullscreen
+Config.set('graphics', 'maxfps', '60')
 
 # Configure double-tap detection to be less sensitive
 # Default is 250ms - increase to 400ms to avoid accidental double-tap detection
@@ -160,15 +161,15 @@ class pianoTAB(App):
         '''Called after build() - Initialize business logic here.'''
         Logger.info('pianoTAB: Application started')
         
-        # Platform-specific window maximization for Linux
-        from kivy.utils import platform
-        if platform == 'linux':
-            try:
-                # Use immediate maximization
-                Clock.schedule_once(self._safe_maximize_linux, 0)
-                Logger.info('pianoTAB: Scheduled window maximization for Linux')
-            except Exception as e:
-                Logger.warning(f'pianoTAB: Could not schedule window maximization: {e}')
+        # # Platform-specific window maximization for Linux
+        # from kivy.utils import platform
+        # if platform == 'linux':
+        #     try:
+        #         # Use immediate maximization
+        #         Clock.schedule_once(self._safe_maximize_linux, 0)
+        #         Logger.info('pianoTAB: Scheduled window maximization for Linux')
+        #     except Exception as e:
+        #         Logger.warning(f'pianoTAB: Could not schedule window maximization: {e}')
         
         # Initialize Editor (which owns the SCORE model)
         self.editor = Editor(self.gui.get_editor_widget(), gui=self.gui)
@@ -285,53 +286,45 @@ class pianoTAB(App):
         - F11        -> toggle fullscreen (Windows/Linux)
         - SPACE      -> toggle MIDI play/stop from cursor
         '''
-        try:
-            # Normalize codepoint; fall back to ASCII from key if needed
-            ch = codepoint or ''
-            # Some layouts may not provide codepoint; ignore in that case
-            if not ch:
-                # Handle non-character keys (e.g., F11) via scancode/key
-                # Kivy provides key string in 'key' parameter sometimes
-                try:
-                    # Common Kivy key name for F11
-                    if key == 293 or str(key).lower() == 'f11':
-                        self.toggle_fullscreen()
-                        print('pianoTAB: Toggled fullscreen via F11')
-                        return True
-                except Exception:
-                    pass
-                return False
-            if ch in (' '):
-                # Toggle MIDI playback
-                try:
-                    from midi.player import is_playing, stop_playback
-                except Exception:
-                    # Fallback to GUI method directly
-                    pass
-                else:
-                    if is_playing():
-                        stop_playback()
-                        print('MIDI: stopped')
-                        return True
+        # Normalize codepoint; fall back to ASCII from key if needed
+        ch = codepoint or ''
+        key_str = str(key).lower() if key is not None else ''
+
+        # Handle SPACE regardless of whether codepoint is provided
+        if (ch == ' ') or (key_str in ('spacebar', 'space')):
+            # Toggle MIDI playback
+            from midi.player import is_playing, stop_playback
+            if is_playing():
+                stop_playback()
+                print('MIDI: stopped')
+                return True
+            else:
                 # If not playing, trigger play from cursor via GUI
-                try:
-                    if hasattr(self.gui, 'on_play_from_cursor'):
-                        self.gui.on_play_from_cursor()
-                        return True
-                except Exception:
-                    pass
-            if ch in ('i'):
-                if self.editor is not None:
-                    self.editor.zoom_in(factor=1.02)
+                self.gui.on_play_from_cursor()
+                return True
+
+        # Some layouts may not provide codepoint; handle non-character keys via key/scancode
+        if not ch:
+            try:
+                # Common Kivy key name for F11
+                if key == 293 or key_str == 'f11':
+                    self.toggle_fullscreen()
+                    print('pianoTAB: Toggled fullscreen via F11')
                     return True
-            elif ch in ('o'):
-                if self.editor is not None:
-                    self.editor.zoom_out(factor=1.02)
-                    return True
-            # Also allow F11 when codepoint is provided as 'f'
-            # but avoid hijacking normal 'f' typing; prefer key/scancode path above
-        except Exception:
-            pass
+            except Exception:
+                pass
+            # No other non-character keys handled globally
+            return False
+        if ch in ('i'):
+            if self.editor is not None:
+                self.editor.zoom_in(factor=1.2)
+                return True
+        elif ch in ('o'):
+            if self.editor is not None:
+                self.editor.zoom_out(factor=1.2)
+                return True
+        # Also allow F11 when codepoint is provided as 'f'
+        # but avoid hijacking normal 'f' typing; prefer key/scancode path above
         return False
 
     def toggle_fullscreen(self):

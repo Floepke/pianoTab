@@ -130,6 +130,7 @@ class NoteTool(BaseTool):
                 time = 0
             
             cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_value)
+            cursor.score = self.editor.score  # attach score for property inheritance
             self._draw_cursor(cursor, type='cursor')
             return True  # We handled this key
         
@@ -148,6 +149,7 @@ class NoteTool(BaseTool):
                 time = 0
             
             cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_value)
+            cursor.score = self.editor.score  # attach score for property inheritance
             self._draw_cursor(cursor, type='cursor')
             return True  # We handled this key
         elif key == '.' or key == 'period':
@@ -164,6 +166,7 @@ class NoteTool(BaseTool):
                 time = 0
             
             cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_value)
+            cursor.score = self.editor.score  # attach score for property inheritance
             self._draw_cursor(cursor, type='cursor')
             return True  # We handled this key
         
@@ -210,9 +213,13 @@ class NoteTool(BaseTool):
                 self.accidental_value = 0
         
         cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_value)
+        cursor.score = self.editor.score  # attach score for property inheritance
         
         # redraw cursor
         self._draw_cursor(cursor, type='cursor')
+
+        # update mouse cursor
+        self.editor.mouse_time_cursor = time
         
         return True
     

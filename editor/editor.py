@@ -50,6 +50,7 @@ class Editor(
         self.canvas: Canvas = editor_canvas
         self.score: SCORE = None  # Will be initialized via new_score() or load_score()
         self.gui = gui
+        self.mouse_time_cursor = None
         
         # Initialize dimensions from canvas
         # Zoom: single source of truth is SCORE.fileSettings.zoomPixelsQuarter (px per quarter)

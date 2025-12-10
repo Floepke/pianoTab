@@ -23,7 +23,7 @@ class ToolButton(BoxLayout):
         super().__init__(
             orientation='horizontal',
             size_hint_y=None,
-            height=96,
+            height=60,
             spacing=8,
             padding=[8, 0, 8, 0],
             **kwargs
@@ -46,7 +46,7 @@ class ToolButton(BoxLayout):
                 self.icon_widget = Image(
                     texture=icon_texture.texture,
                     size_hint=(None, None),
-                    size=(96, 96),
+                    size=(60, 60),
                     fit_mode='contain'
                 )
                 self.add_widget(self.icon_widget)
@@ -113,21 +113,19 @@ class ToolSelector(BoxLayout):
     callback = ObjectProperty(None, allownone=True)
     tools = ListProperty([
         'Note', 
-        'Grace-note', 
         'Tempo'
     ])
     # Map tool names to icon names (without .png extension)
     tool_icons = {
         'Note': 'note',
         'Tempo': 'tempo',
-        'Grace-note': 'gracenote',
     }
 
     def __init__(self, callback=None, **kwargs):
         # Set up as vertical BoxLayout with sizing
         kwargs['orientation'] = 'vertical'
-        kwargs['padding'] = 8
-        kwargs['spacing'] = 8
+        kwargs['padding'] = (7.5,0)
+        kwargs['spacing'] = 0
         kwargs['size_hint_y'] = None
         super().__init__(**kwargs)
         

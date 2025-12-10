@@ -9,6 +9,7 @@ from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.switch import Switch
 from kivy.uix.behaviors import ButtonBehavior
+from gui.switch import MySwitch
 from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.properties import NumericProperty, ObjectProperty
 from gui.colors import DARK, DARK_LIGHTER, LIGHT, LIGHT_DARKER, ACCENT
@@ -124,6 +125,20 @@ class SpinBox(BoxLayout):
 class ClickableLabel(ButtonBehavior, Label):
     '''Label that can receive click/tap events (via ButtonBehavior).'''
     pass
+
+
+class ToggleSwitch(Switch):
+    '''A switch that toggles on any tap, ignoring drag semantics.
+    Prevents the double-click edge-case by flipping state on touch_down. '''
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            # Toggle immediately on tap
+            try:
+                self.active = not self.active
+            except Exception:
+                pass
+            return True
+        return super().on_touch_down(touch)
 
 
 class GridButton(Button):
@@ -279,9 +294,9 @@ class GridSelector(BoxLayout):
         
         # Grid step display label
         # Header: Grid Snap label + on/off switch
-        header = BoxLayout(orientation='horizontal', size_hint_y=None, height=self.widget_height, padding=(8,0,8,0), spacing=8)
+        header = BoxLayout(orientation='horizontal', size_hint_y=None, height=self.widget_height, padding=0, spacing=0)
         self.grid_label = Label(
-            text='Grid Snap',
+            text='Grid Snap:',
             font_size='16sp',
             bold=True,
             color=LIGHT,
@@ -290,17 +305,19 @@ class GridSelector(BoxLayout):
         )
         self.grid_label.bind(size=self.grid_label.setter('text_size'))
         header.add_widget(self.grid_label)
-        header.add_widget(BoxLayout(size_hint_x=None, width=8))
-        self.snap_switch = Switch(active=bool(self.snap_enabled), size_hint_x=None, width=64)
-        def _on_switch(inst, val):
+        header.add_widget(BoxLayout(size_hint_x=None, width=0))
+        self.snap_switch = MySwitch()
+        # Initialize to current state
+        self.snap_switch.active = bool(self.snap_enabled)
+        def _on_switch(val):
             self.snap_enabled = 1 if val else 0
             # Fire callback so editor can react
             if self.callback:
                 self.callback(self.current_grid_step if self.snap_enabled else 0.0)
-        self.snap_switch.bind(active=_on_switch)
+        self.snap_switch.on_change = _on_switch
         header.add_widget(self.snap_switch)
         # Right spacer to nudge switch left from the edge
-        header.add_widget(BoxLayout(size_hint_x=None, width=16))
+        header.add_widget(BoxLayout(size_hint_x=None, width=0))
         self.add_widget(header)
         
         # Non-scroll list of grid length buttons

@@ -44,7 +44,7 @@ class MenuBar(BoxLayout):
     def __init__(self, menu_config=None, **kwargs):
         kwargs['orientation'] = 'horizontal'
         kwargs['size_hint_y'] = None
-        kwargs['height'] = 32
+        kwargs['height'] = 40
         kwargs['spacing'] = 0
         super().__init__(**kwargs)
 

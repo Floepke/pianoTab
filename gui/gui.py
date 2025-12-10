@@ -45,6 +45,7 @@ from utils.canvas import Canvas
 from gui.property_tree_editor import PropertyTreeEditor
 from gui.keyboard_panel import KeyboardPanel
 from gui.keyboard_overlay import KeyboardCursorOverlay
+from gui.base_grid_editor import BaseGridEditor
 
 # Fixed UI dimensions (pixels)
 SIDE_PANEL_WIDTH_PX = 350
@@ -72,7 +73,7 @@ class SidePanel(ScrollView):
             size_hint=(1, 1),
             do_scroll_x=False,
             do_scroll_y=True,
-            bar_width=8,
+            bar_width=0,
             bar_color=DARK,
             bar_inactive_color=DARK,
             scroll_type=['bars', 'content'],
@@ -92,19 +93,49 @@ class SidePanel(ScrollView):
         # Content layout
         self.layout = BoxLayout(
             orientation='vertical',
-            padding=10,
-            spacing=12,
+            padding=0,
+            spacing=0,
             size_hint_y=None
         )
         self.layout.bind(minimum_height=self.layout.setter('height'))
         self.add_widget(self.layout)
 
+        # Widgets:
         self.tool_selector = ToolSelector(callback=self._on_tool_selected)
         self.layout.add_widget(self.tool_selector)
 
-        # Widgets
         self.grid_selector = GridSelector(callback=self._on_grid_changed)
         self.layout.add_widget(self.grid_selector)
+        
+        # self.base_grid_editor = BaseGridEditor()
+        # # Hook changes to update SCORE.baseGrid and refresh editor/canvas
+        # def _on_basegrid_change(new_grids):
+        #     try:
+        #         app = self._get_app()
+        #         score = getattr(app, 'score', None) if app else None
+        #         if score is None and hasattr(self, 'file_manager') and self.file_manager:
+        #             score = getattr(self.file_manager, 'score', None)
+        #         if score is not None:
+        #             score.baseGrid = list(new_grids)
+        #             canvas = self.parent.parent.children[0].get_canvas() if hasattr(self, 'parent') else None
+        #             # Prefer known editor reference
+        #             canvas = self.get_root_window() and getattr(self.parent.parent, 'editor', None).get_canvas() if hasattr(self.parent.parent, 'editor') else canvas
+        #             if self.parent and hasattr(self.parent.parent, 'editor'):
+        #                 canvas = self.parent.parent.editor.get_canvas()
+        #             if canvas is not None:
+        #                 try:
+        #                     canvas.canvas.ask_update()
+        #                     if hasattr(canvas, 'custom_scrollbar'):
+        #                         canvas.custom_scrollbar.update_layout()
+        #                     ed = getattr(canvas, 'piano_roll_editor', None)
+        #                     if ed and hasattr(ed, 'redraw'):
+        #                         ed.redraw()
+        #                 except Exception:
+        #                     pass
+        #     except Exception:
+        #         pass
+        # self.base_grid_editor.on_change = _on_basegrid_change
+        # self.layout.add_widget(self.base_grid_editor)
         
         # Cursor management - set arrow cursor when over side panel
         Window.bind(mouse_pos=self._update_cursor_on_hover)
@@ -284,7 +315,7 @@ class GUI(BoxLayout):
         # CENTER-VERTICAL: Editor (top) + Tree (bottom) via a vertical split (80px sash for tooltips)
         self.center_split = SplitView(
             orientation='vertical',
-            sash_width=80,
+            sash_width=30,
             split_ratio=0.75,
             sash_color=DARK,
             min_left_size=80,
@@ -298,144 +329,28 @@ class GUI(BoxLayout):
         
         # Connect property tree to sash for tooltip display
         self.property_tree.tooltip_sash = self.center_split.sash
-
-        # RIGHT: PrintView
-        self.print_view = PrintView()
-
-        # MID-RIGHT horizontal split: [center_split | sash(80) | print_view]
-        self.mid_right_split = SplitView(
-            orientation='horizontal',
-            sash_width=80,
-            split_ratio=0.6,
-            sash_color=DARK,
-            min_left_size=40,
-            min_right_size=0
-        )
-        # Tighten snap threshold for right-panel snap-to-fit
-        self.mid_right_split.snap_threshold = 80
-        self.mid_right_split.set_left(self.center_split)
-        self.mid_right_split.set_right(self.print_view)
-
-        # Cross-link the 40px sashes for combined X/Y deltas while dragging
+        # Provide the editor canvas to the property tree so it can suppress tooltips when hovering the editor
         try:
-            self.mid_right_split.sash.set_linked_split(self.center_split)
-            self.center_split.sash.set_linked_split(self.mid_right_split)
+            self.property_tree.editor_widget = self.editor.get_canvas()
         except Exception:
-            pass
-        
-        # Initialize default toolbar for vertical sash (always visible buttons with tooltips)
-        try:
-            # Create minimal toolbar config with tooltips (callbacks will be set later)
-            default_toolbar = {
-                'previous': (None, 'Previous page'),
-                'next': (None, 'Next page'),
-            }
-            #self.mid_right_split.sash.set_configs(default_toolbar=default_toolbar)
-        except Exception as e:
-            print(f"Error initializing default toolbar: {e}")
+            self.property_tree.editor_widget = None
 
-        # Attach to OUTER BoxLayout
+        # Attach to OUTER BoxLayout: remove PrintView and ToolSash; keep only center split
         self.outer_layout.add_widget(self.side_panel)       # fixed width left panel
-        self.outer_layout.add_widget(self.mid_right_split)  # fills remaining space to the right
+        self.outer_layout.add_widget(self.center_split)     # editor + tree view only
 
         # Add to GUI root
         self.add_widget(self.outer_layout)
 
-        # Setup right-panel snap-to-fit for A4 aspect on the mid-right split and keep updated
-        Clock.schedule_once(self._setup_preview_snap_ratio, 0)
-        self.mid_right_split.bind(size=lambda *_: self._setup_preview_snap_ratio())
-
-    # ----- Callbacks for SidePanel -----
-    def _on_tool_selected(self, tool_name: str):
-        # no-op here, but available for hooking (e.g., contextual toolbars)
-        pass
-
-    def _on_grid_step_changed(self, grid_step: float):
-        # No action needed - Canvas reads grid step directly from editor.grid_selector
-        pass
-
-    # ----- Contextual Toolbar Management -----
-    def set_contextual_toolbar(self, buttons_config: dict):
-        """Update the vertical sash's contextual toolbar with tool-specific buttons.
-        Args:
-            buttons_config: Dictionary mapping icon names to (callback, tooltip) tuples.
-                           Example: {'noteLeft': (callback_fn, 'Move to left hand')}
-        """
-        try:
-            if self.mid_right_split and hasattr(self.mid_right_split, 'sash'):
-                contextual_config = {'active': buttons_config}
-                self.mid_right_split.sash.set_configs(contextual_toolbar=contextual_config)
-                self.mid_right_split.sash.set_context_key('active')
-        except Exception as e:
-            print(f"Error updating contextual toolbar: {e}")
-
-    # ----- Properties tree wiring hooks -----
-    def set_properties_score(self, score):
-        try:
-            if self.property_tree:
-                self.property_tree.set_score(score)
-        except Exception:
-            pass
-
-    def bind_properties_change(self, cb):
-        try:
-            if self.property_tree:
-                self.property_tree.on_change = cb
-        except Exception:
-            pass
+        # No right panel; remove preview snap setup
 
     def _simulate_snap_drag(self, *_):
-        '''Simulate dragging the sash to the snap position programmatically.'''
-        sp = getattr(self, 'mid_right_split', None)
-        if not sp or not hasattr(sp, 'snap_ratio') or sp.snap_ratio is None:
-            return
-        
-        # Calculate the target position based on snap_ratio
-        if sp.orientation == 'horizontal':
-            # For horizontal split, snap_ratio determines X position
-            target_x = sp.x + (sp.snap_ratio * sp.width)
-            target_pos = (target_x, sp.center_y)
-        else:
-            # For vertical split, snap_ratio determines Y position
-            target_y = sp.y + ((1.0 - sp.snap_ratio) * sp.height)
-            target_pos = (sp.center_x, target_y)
-        
-        # Call update_split directly as if user dragged to this position
-        sp.update_split(target_pos)
+        # Removed: no mid-right split / print view
+        return
 
     def _setup_preview_snap_ratio(self, *_):
-        '''
-        Calculate and set the snap ratio on the mid-right split so the right panel
-        (print preview) snaps to the exact width where an A4 page fits fully:
-          right_width == right_height / (height_mm / width_mm).
-        Uses a snap threshold of 40 px on the vertical sash.
-        '''
-        sp = getattr(self, 'mid_right_split', None)
-        if not sp:
-            return
-        # Wait until sizes are ready
-        if sp.width <= 0 or sp.height <= 0:
-            Clock.schedule_once(self._setup_preview_snap_ratio, 0)
-            return
-
-        # Determine A4 aspect ratio from the print view canvas
-        try:
-            cv = self.print_view.get_canvas() if self.print_view else None
-        except Exception:
-            cv = None
-        page_w_mm = getattr(cv, 'width_mm', 210.0) if cv else 210.0
-        page_h_mm = getattr(cv, 'height_mm', 297.0) if cv else 297.0
-        aspect_ratio = (page_h_mm / page_w_mm) if page_w_mm else (297.0 / 210.0)
-
-        # Ensure the desired snap threshold and compute snap ratio
-        try:
-            sp.snap_threshold = 80
-        except Exception:
-            pass
-        sp.set_snap_ratio_from_aspect(aspect_ratio)
-        
-        # Actually snap to the calculated position
-        Clock.schedule_once(self._simulate_snap_drag, 0.1)
+        # Removed: no print preview panel
+        return
 
     # ----- Compatibility API expected by App and menu callbacks -----
 
@@ -498,17 +413,55 @@ class GUI(BoxLayout):
             print(f'Failed to restart: {e}')
 
     def on_set_midi_port(self):
-        """Open a dialog to choose a MIDI output port and save to settings.
-        Delegates to midi.ports_ui to keep GUI lean.
-        """
+        """Open a dialog to choose a MIDI output port and save to settings."""
         try:
-            from midi.ports_ui import open_midi_port_dialog
+            from kivy.uix.popup import Popup
+            from kivy.uix.boxlayout import BoxLayout
+            from kivy.uix.button import Button
+            from kivy.uix.label import Label
+            from kivy.uix.scrollview import ScrollView
+            from midi.player import list_output_ports
         except Exception as e:
             print(f'Failed to open MIDI port dialog: {e}')
             return
-        app = self._get_app()
-        settings = getattr(app, 'settings', None) if app else None
-        open_midi_port_dialog(settings)
+
+        ports = []
+        try:
+            ports = list_output_ports()
+        except Exception:
+            ports = []
+
+        layout = BoxLayout(orientation='vertical', spacing=8, padding=8)
+        layout.add_widget(Label(text='Select MIDI Output Port', size_hint_y=None, height=28))
+
+        sv = ScrollView(size_hint=(1, 1))
+        inner = BoxLayout(orientation='vertical', size_hint_y=None, spacing=6)
+        inner.bind(minimum_height=inner.setter('height'))
+        sv.add_widget(inner)
+
+        if not ports:
+            inner.add_widget(Label(text='No MIDI ports found', size_hint_y=None, height=28))
+        else:
+            for p in ports:
+                btn = Button(text=p, size_hint_y=None, height=32)
+                def _on_select(instance, port_name=p):
+                    try:
+                        # Save to settings manager
+                        app = self._get_app()
+                        if app and hasattr(app, 'settings'):
+                            app.settings.set('midi_port', port_name)
+                            app.settings.save()
+                        print(f'Selected MIDI port: {port_name}')
+                    except Exception:
+                        pass
+                    popup.dismiss()
+                btn.bind(on_release=_on_select)
+                inner.add_widget(btn)
+
+        layout.add_widget(sv)
+
+        popup = Popup(title='Settings', content=layout, size_hint=(None, None), size=(500, 400))
+        popup.open()
 
     def _get_app(self):
         try:
@@ -517,7 +470,45 @@ class GUI(BoxLayout):
         except Exception:
             return None
 
-    
+    def on_play_from_cursor(self):
+        """Render a short MIDI from current cursor and send to selected port."""
+        try:
+            from midi.player import build_midi_file, play_file_via_port, get_selected_port
+        except Exception as e:
+            print(f'MIDI playback unavailable: {e}')
+            return
+
+        # Get score and the actual piano-roll editor (not the GUI wrapper)
+        try:
+            canvas = self.editor.get_canvas() if self.editor else None
+            piano_roll_editor = getattr(canvas, 'piano_roll_editor', None) if canvas else None
+            score = piano_roll_editor.score if piano_roll_editor else None
+        except Exception:
+            piano_roll_editor = None
+            score = None
+
+        if score is None:
+            print('Play: No score available')
+            return
+
+        # Get selected port from settings
+        app = self._get_app()
+        settings = getattr(app, 'settings', None) if app else None
+        port_name = get_selected_port(settings) if settings else None
+        if not port_name:
+            print('Play: No MIDI port selected. Use Settings → Set MIDI port.')
+            return
+
+        # Render and play using the actual piano-roll editor for cursor
+        if piano_roll_editor is None:
+            print('Play: No piano-roll editor attached to canvas')
+            return
+        midi_path = build_midi_file(score, piano_roll_editor)
+        if not midi_path:
+            print('Play: Failed to render play.mid')
+            return
+        ok = play_file_via_port(midi_path, port_name)
+        print('Play: sent to port' if ok else 'Play: failed sending to port')
 
     def on_cut(self):
         """Cut selected elements (Ctrl+X)."""
@@ -560,36 +551,6 @@ class GUI(BoxLayout):
 
     def on_about(self):
         ...
-    
-    def on_test_score_generation(self):
-        """Run the test score generation script."""
-        try:
-            import importlib
-            import manipulate_score
-            
-            # Reload the module to pick up any changes during development
-            importlib.reload(manipulate_score)
-            
-            # Get the piano roll editor from the canvas
-            canvas = self.editor.get_canvas() if self.editor else None
-            piano_roll_editor = getattr(canvas, 'piano_roll_editor', None) if canvas else None
-            
-            # Get the score from the piano roll editor
-            score = piano_roll_editor.score if piano_roll_editor else None
-            
-            if score is None:
-                print("ERROR: No score available for test generation")
-                return
-            
-            # Run the test script
-            print("\n=== Running Test Score Generation ===")
-            manipulate_score.run_test(score, piano_roll_editor)
-            print("=== Test Complete ===\n")
-            
-        except Exception as e:
-            print(f"ERROR: Test score generation failed: {e}")
-            import traceback
-            traceback.print_exc()
 
     # Getters to match existing App expectations
     def get_editor_widget(self):
@@ -607,14 +568,62 @@ class GUI(BoxLayout):
     def get_side_panel(self):
         return self.side_panel
 
-    def on_play_from_cursor(self):
-        """Delegate play-from-cursor to midi.player to keep GUI thin."""
+    def get_properties_widget(self):
+        return self.property_tree
+
+    # Properties tree wiring hooks
+    def set_properties_score(self, score):
         try:
-            from midi.player import play_from_cursor
+            if self.property_tree:
+                self.property_tree.set_score(score)
+            if self.side_panel and hasattr(self.side_panel, 'base_grid_editor') and self.side_panel.base_grid_editor:
+                try:
+                    self.side_panel.base_grid_editor.set_grids(getattr(score, 'baseGrid', []))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def bind_properties_change(self, cb: Callable):
+        try:
+            if self.property_tree:
+                self.property_tree.on_change = cb
+        except Exception:
+            pass
+
+    # ----- Callbacks for SidePanel -----
+    def _on_tool_selected(self, tool_name: str):
+        # no-op here, but available for hooking (e.g., contextual toolbars)
+        pass
+
+    def _on_grid_step_changed(self, grid_step: float):
+        # No action needed - Canvas reads grid step directly from editor.grid_selector
+        pass
+    
+    # ----- Contextual Toolbar Management -----
+    def set_contextual_toolbar(self, buttons_config: dict):
+        """Update the vertical sash's contextual toolbar with tool-specific buttons.
+        
+        Args:
+            buttons_config: Dictionary mapping icon names to (callback, tooltip) tuples.
+                           Example: {'noteLeft': (callback_fn, 'Move to left hand')}
+        """
+        try:
+            if self.mid_right_split and hasattr(self.mid_right_split, 'sash'):
+                # Convert buttons_config into the format expected by ToolSash
+                # ToolSash expects contextual_toolbar = {'context_key': {icon: (cb, tip)}}
+                # We'll use 'active' as the context key
+                contextual_config = {'active': buttons_config}
+                self.mid_right_split.sash.set_configs(contextual_toolbar=contextual_config)
+                self.mid_right_split.sash.set_context_key('active')
         except Exception as e:
-            print(f'MIDI playback unavailable: {e}')
-            return
-        app = self._get_app()
-        settings = getattr(app, 'settings', None) if app else None
-        ok = play_from_cursor(self.editor, settings)
-        print('Play: sent to port' if ok else 'Play: failed (no port/score/cursor)')
+            print(f"Error updating contextual toolbar: {e}")
+
+__all__ = [
+    'GUI',
+    'MainMenu',
+    'SidePanel',
+    'Editor',
+    'PrintView',
+    'TreeViewEditor',
+]

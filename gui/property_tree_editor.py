@@ -349,6 +349,8 @@ class PropertyTreeEditor(BoxLayout):
         
         # Tooltip system - sash will be set externally by GUI
         self.tooltip_sash = None
+        # Reference to the editor widget/canvas to suppress tooltips when hovering editor
+        self.editor_widget: Optional[Widget] = None
         self._tooltip_rows: dict[Widget, str] = {}  # row_widget -> tooltip_text
         Window.bind(mouse_pos=self._on_mouse_move)
         
@@ -412,6 +414,22 @@ class PropertyTreeEditor(BoxLayout):
         """Update tooltip label when mouse moves over rows."""
         if not self.tooltip_sash:
             return
+        # If mouse is over the editor widget, suppress tooltips entirely
+        try:
+            ew = self.editor_widget
+            if ew is not None:
+                # Prefer precise viewport check if available
+                if hasattr(ew, '_point_in_view_px') and callable(getattr(ew, '_point_in_view_px')):
+                    if ew._point_in_view_px(*pos):
+                        self.tooltip_sash.tooltip_label.text = ''
+                        return
+                else:
+                    if ew.collide_point(*pos):
+                        self.tooltip_sash.tooltip_label.text = ''
+                        return
+        except Exception:
+            # Fail-safe: don't block tooltip updates due to errors
+            pass
         
         # Check which row the mouse is over
         for row_widget, tooltip_text in self._tooltip_rows.items():
