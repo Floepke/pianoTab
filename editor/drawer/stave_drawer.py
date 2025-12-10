@@ -10,8 +10,8 @@ if TYPE_CHECKING:
     from file.SCORE import SCORE
     from utils.canvas import Canvas
 
-from utils.CONSTANTS import PIANO_KEY_COUNT, PIANOTICK_QUARTER
-from gui.colors import DARK, LIGHT, rgba_to_hex, LIGHT_DARKER
+from utils.CONSTANTS import PIANO_KEY_AMOUNT, PIANOTICK_QUARTER
+from gui.colors import DARK_HEX, LIGHT_HEX, rgba_to_hex, LIGHT_DARKER
 
 
 class StaveDrawerMixin:
@@ -37,20 +37,21 @@ class StaveDrawerMixin:
     
     def _draw_stave(self):
         '''Draw the 88-key stave with your specific line patterns.'''
+        # Calculate total stave height based on score length
         total_ticks = self._get_score_length_in_ticks()
+
+        # calculate stave_height in mm
         mm_per_quarter = getattr(self.canvas, '_quarter_note_spacing_mm', None)
         if not isinstance(mm_per_quarter, (int, float)) or mm_per_quarter <= 0:
             px_per_mm = getattr(self.canvas, '_px_per_mm', 3.7795)
             mm_per_quarter = (self.pixels_per_quarter) / max(1e-6, px_per_mm)
-        # Stave height independent of scroll offset
-        ql = PIANOTICK_QUARTER
-        stave_height = (total_ticks / max(1e-6, ql)) * mm_per_quarter
+        stave_height_mm = (total_ticks / max(1e-6, PIANOTICK_QUARTER)) * mm_per_quarter
         
         # Set stave boundaries (useful for cursor and other tools)
         self.stave_left = self.editor_margin
         self.stave_right = self.editor_margin + self.stave_width
 
-        for key in range(1, PIANO_KEY_COUNT):
+        for key in range(1, PIANO_KEY_AMOUNT):
             x_pos = self.pitch_to_x(key)
             
             # Determine if we need to draw a line for the current key
@@ -61,36 +62,37 @@ class StaveDrawerMixin:
             
             # Skip drawing lines for the last key position to avoid extra line
             # Include clef positions (6, 8) in the pattern check for k=41, 43
-            if (key_ in [2, 5, 7, 10, 0] or is_clef_line) and key < PIANO_KEY_COUNT:
+            if (key_ in [2, 5, 7, 10, 0] or is_clef_line) and key < PIANO_KEY_AMOUNT:
                 
                 # Set color, width, dash pattern, and category tag according to your pattern
                 category_tag = None
                 if is_clef_line:
                     # Central C# and D# lines (clef lines) - always dashed
-                    color = LIGHT
-                    width = self.stave_clef_width
+                    color = DARK_HEX
+                    width = self.semitone_width / 16
                     category_tag = 'staveclefline'
+                    dash_pattern = self.clef_dash_pattern
                 elif key_ in [2, 10, 0]:  # Three-line (F#, G#, A#)
-                    color = LIGHT
-                    width = self.stave_three_width
+                    color = DARK_HEX
+                    width = self.semitone_width / 6
                     category_tag = 'stavethreeline'
+                    dash_pattern = None
                 else:  # key_ in [5, 7] - Two-line (C#, D#) but not central
-                    color = LIGHT
-                    width = self.stave_two_width
+                    color = DARK_HEX
+                    width = self.semitone_width / 16
                     category_tag = 'stavetwoline'
+                    dash_pattern = None
                 
                 # Draw the line with correct dash pattern from SCORE model
                 y1 = self.editor_margin
-                y2 = self.editor_margin + stave_height
-                if is_clef_line and not hasattr(self, '_clef_debug_printed'):
-                    self._clef_debug_printed = True
+                y2 = self.editor_margin + stave_height_mm
                 self.canvas.add_line(
                     x1_mm=x_pos, y1_mm=y1,
                     x2_mm=x_pos, y2_mm=y2,
                     color=color,
                     width_mm=width,
                     dash=is_clef_line,  # Only clef lines are dashed
-                    dash_pattern_mm=tuple(self.clef_dash_pattern) if is_clef_line else (2.0, 2.0),
+                    dash_pattern_mm=dash_pattern,
                     tags=[category_tag]
                 )
 

@@ -112,7 +112,9 @@ class ToolSelector(BoxLayout):
     current_tool = StringProperty('Note')
     callback = ObjectProperty(None, allownone=True)
     tools = ListProperty([
-        'Note', 'Tempo', 'Grace-note'
+        'Note', 
+        'Grace-note', 
+        'Tempo'
     ])
     # Map tool names to icon names (without .png extension)
     tool_icons = {

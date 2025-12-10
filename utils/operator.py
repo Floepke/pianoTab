@@ -6,7 +6,7 @@ considered equal for practical purposes (e.g., MIDI timing precision).
 """
 
 
-class OperatorThreshold:
+class Operator:
     """
     Comparison operators with a threshold for treating nearly-equal values as equal.
     
@@ -31,7 +31,7 @@ class OperatorThreshold:
         """
         self.threshold = abs(threshold)  # Ensure positive
     
-    def equal(self, a: float, b: float) -> bool:
+    def equal(self, a: float, b: float, threshold: float = None) -> bool:
         """
         Check if two values are equal within the threshold.
         
@@ -42,7 +42,7 @@ class OperatorThreshold:
         Returns:
             True if |a - b| <= threshold
         """
-        return abs(a - b) <= self.threshold
+        return abs(a - b) <= self.threshold if threshold is None else abs(a - b) <= abs(threshold)
     
     def not_equal(self, a: float, b: float) -> bool:
         """
@@ -57,7 +57,7 @@ class OperatorThreshold:
         """
         return abs(a - b) > self.threshold
     
-    def greater(self, a: float, b: float) -> bool:
+    def greater(self, a: float, b: float, threshold: float = None) -> bool:
         """
         Check if a is significantly greater than b.
         
@@ -71,9 +71,9 @@ class OperatorThreshold:
         Returns:
             True if a - b > threshold
         """
-        return a - b > self.threshold
+        return a - b > self.threshold if threshold is None else a - b > abs(threshold)
     
-    def less(self, a: float, b: float) -> bool:
+    def less(self, a: float, b: float, threshold: float = None) -> bool:
         """
         Check if a is significantly less than b.
         
@@ -87,9 +87,9 @@ class OperatorThreshold:
         Returns:
             True if b - a > threshold
         """
-        return b - a > self.threshold
+        return b - a > self.threshold if threshold is None else b - a > abs(threshold)
     
-    def greater_or_equal(self, a: float, b: float) -> bool:
+    def greater_or_equal(self, a: float, b: float, threshold: float = None) -> bool:
         """
         Check if a is greater than or equal to b (within threshold).
         
@@ -102,9 +102,9 @@ class OperatorThreshold:
         Returns:
             True if a >= b - threshold
         """
-        return a >= b - self.threshold
+        return a >= b - self.threshold if threshold is None else a >= b - abs(threshold)
     
-    def less_or_equal(self, a: float, b: float) -> bool:
+    def less_or_equal(self, a: float, b: float, threshold: float = None) -> bool:
         """
         Check if a is less than or equal to b (within threshold).
         
@@ -117,7 +117,7 @@ class OperatorThreshold:
         Returns:
             True if a <= b + threshold
         """
-        return a <= b + self.threshold
+        return a <= b + self.threshold if threshold is None else a <= b + abs(threshold)
     
     # Alias methods for convenience
     def eq(self, a: float, b: float) -> bool:

@@ -7,6 +7,7 @@ Allows selecting note length grid and subdivision for cursor snapping.
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
+from kivy.uix.switch import Switch
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.graphics import Color, Rectangle, RoundedRectangle
 from kivy.properties import NumericProperty, ObjectProperty
@@ -223,6 +224,7 @@ class GridSelector(BoxLayout):
         self.score = score
         self.current_grid_name = DEFAULT_GRID_NAME
         self.subdivision = 1
+        self.snap_enabled = NumericProperty(1)  # 1=enabled, 0=disabled
         
         # Grid lengths will be calculated dynamically
         self.grid_lengths = self._calculate_grid_lengths()
@@ -276,19 +278,30 @@ class GridSelector(BoxLayout):
         '''Create all UI components.'''
         
         # Grid step display label
+        # Header: Grid Snap label + on/off switch
+        header = BoxLayout(orientation='horizontal', size_hint_y=None, height=self.widget_height, padding=(8,0,8,0), spacing=8)
         self.grid_label = Label(
             text='Grid Snap',
-            size_hint_y=None,
-            height=self.widget_height,
             font_size='16sp',
             bold=True,
             color=LIGHT,
             halign='left',
-            valign='middle',
-            padding=(8, 0)
+            valign='middle'
         )
         self.grid_label.bind(size=self.grid_label.setter('text_size'))
-        self.add_widget(self.grid_label)
+        header.add_widget(self.grid_label)
+        header.add_widget(BoxLayout(size_hint_x=None, width=8))
+        self.snap_switch = Switch(active=bool(self.snap_enabled), size_hint_x=None, width=64)
+        def _on_switch(inst, val):
+            self.snap_enabled = 1 if val else 0
+            # Fire callback so editor can react
+            if self.callback:
+                self.callback(self.current_grid_step if self.snap_enabled else 0.0)
+        self.snap_switch.bind(active=_on_switch)
+        header.add_widget(self.snap_switch)
+        # Right spacer to nudge switch left from the edge
+        header.add_widget(BoxLayout(size_hint_x=None, width=16))
+        self.add_widget(header)
         
         # Non-scroll list of grid length buttons
         # Reduce top padding slightly to shift content up for symmetry
@@ -504,7 +517,7 @@ class GridSelector(BoxLayout):
         if '.' not in grid_text:
             grid_text += '.0'
         
-        #self.grid_label.text = f'Grid Snap: {grid_text}'
+        self.grid_label.text = f'Grid Snap:'
     
     def get_grid_step(self):
         '''Calculate and return current grid step value in piano ticks.'''
@@ -532,6 +545,10 @@ class GridSelector(BoxLayout):
         # Calculate grid step (piano ticks divided by subdivision)
         grid_step = grid_ticks / self.subdivision
         return grid_step
+
+    def is_snap_enabled(self):
+        '''Return True if grid snap is enabled.'''
+        return bool(self.snap_enabled)
     
     def get_current_grid(self):
         '''Get the currently selected grid length name.'''

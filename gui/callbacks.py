@@ -47,6 +47,8 @@ class AppCallbacks(Protocol):
     def on_export_pdf(self) -> None: ...
     def on_exit(self) -> None: ...
     def on_restart(self) -> None: ...
+    def on_set_midi_port(self) -> None: ...
+    def on_play_from_cursor(self) -> None: ...
 
     # Edit menu
     def on_cut(self) -> None: ...
@@ -94,8 +96,12 @@ def create_menu_config(app_instance: AppCallbacks) -> MenuConfig:
             'Export to PDF': partial(callback_export_pdf, app_instance),
             '---2': None,  # Separator (unique key)
             'Restart pianoTAB': partial(callback_restart, app_instance),
+            'Play from cursor': partial(callback_play_from_cursor, app_instance),
             '---3': None,  # Separator (unique key)
             'Exit': partial(callback_exit, app_instance),
+        },
+        'Settings': {
+            'Set MIDI port': partial(callback_set_midi_port, app_instance),
         },
         'Edit': {
             'Undo': None,  # TODO: Implement
@@ -247,6 +253,13 @@ def callback_restart(app: AppCallbacks) -> None:
         os.execl(sys.executable, sys.executable, *sys.argv)
     except Exception:
         _not_implemented('Restart')()
+
+
+def callback_set_midi_port(app: AppCallbacks) -> None:
+    _invoke(app, ('on_set_midi_port',), lambda _a: _not_implemented('Set MIDI port')())
+
+def callback_play_from_cursor(app: AppCallbacks) -> None:
+    _invoke(app, ('on_play_from_cursor',), lambda _a: _not_implemented('Play from cursor')())
 
 
 def callback_cut(app: AppCallbacks) -> None:

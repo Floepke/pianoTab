@@ -9,9 +9,8 @@ from file.SCORE import SCORE
 from file.note import Note
 from utils.canvas import Canvas
 from utils.CONSTANTS import (
-    PHYSICAL_SEMITONE_POSITIONS, BE_GAPS, BLACK_KEYS, PIANOTICK_QUARTER,
-    MIDI_KEY_OFFSET, PIANO_KEY_COUNT,
-    get_visual_semitone_positions
+    BE_KEYS, BLACK_KEYS, PIANOTICK_QUARTER,
+    MIDI_KEY_OFFSET, PIANO_KEY_AMOUNT
 )
 from editor.tool_manager import ToolManager
 from editor.selection_manager import SelectionManager
@@ -40,7 +39,7 @@ class Editor(
     
     Layout follows your specific design patterns:
     - 88 piano keys with 103 physical semitone positions meaning that 
-        some key positions (BE_GAPS) are skipped (are no valid positions)
+        some key positions (BE_KEYS) are skipped (are no valid positions)
     - BE gaps for visual spacing between key groups
     - Specific line patterns (two-line, three-line, clef-line)
     - Time flows vertically (top to bottom)
@@ -201,13 +200,12 @@ class Editor(
             print(f'Editor: _calculate_layout() skipped - canvas not sized yet (w={self.canvas.width}px, h={self.canvas.height}px)')
             return
             
-        self.editor_margin = self.canvas.width_mm / 6  # Your margin calculation
+        self.editor_margin = self.canvas.width_mm / 10  # Your margin calculation
         
         # Calculate stave dimensions using shared constants
         # The stave should span the full visual width
-        visual_semitone_positions = get_visual_semitone_positions()  # Returns 98
         total_width = self.canvas.width_mm - (2 * self.editor_margin)
-        self.semitone_width = total_width / visual_semitone_positions
+        self.semitone_width = total_width / (PIANO_KEY_AMOUNT - 4)
         # Stave width spans the full width (no reduction)
         self.stave_width = total_width
         
@@ -235,46 +233,15 @@ class Editor(
         return self.canvas.height_mm
     
     def pitch_to_x(self, key_number: int) -> float:
-        '''Convert piano key number (1-88) to X position using your spacing algorithm.'''
-        # Build x_positions list exactly like x_to_pitch does (must match!)
-        x_pos = self.editor_margin - self.semitone_width
-        x_positions = [x_pos]  # Start with initial position at index 0
+        '''Convert piano key number (1-128) to X position.'''
+        if not isinstance(key_number, int) or key_number < 1 or key_number > PIANO_KEY_AMOUNT:
+            raise ValueError(f'Invalid key number: {key_number}')
         
-        for n in range(1, PIANO_KEY_COUNT + 1):
-            # Add extra space at BE gaps (your specific spacing)
-            if n in BE_GAPS:
-                x_pos += self.semitone_width
-            x_pos += self.semitone_width
-            x_positions.append(x_pos)
-        
-        # x_to_pitch returns (index + 1), so to reverse it:
-        # If x_to_pitch found x_positions[index] and returned (index + 1) as the key,
-        # then pitch_to_x should return x_positions[key_number - 1]
-        if 1 <= key_number <= PIANO_KEY_COUNT:
-            return x_positions[key_number - 1]
-        return self.editor_margin
+        return self.editor_margin - (self.semitone_width) + (key_number - 1) * self.semitone_width
     
     def x_to_pitch(self, x_mm: float) -> int:
         '''Convert X coordinate to piano key number (1-88) using your algorithm.'''
-        # Recreate the x_positions list from your Tkinter code
-        x_pos = self.editor_margin - self.semitone_width
-        x_positions = [x_pos]
-        
-        # create center positions for all 88 keys
-        for n in range(1, PIANO_KEY_COUNT + 1):
-            if n in BE_GAPS:
-                x_pos += self.semitone_width
-            x_pos += self.semitone_width
-            x_positions.append(x_pos)
-
-        # Find the closest center position
-        if x_positions:
-            closest_x = min(x_positions, key=lambda y: abs(y - x_mm))
-            closest_x_index = x_positions.index(closest_x)
-            return closest_x_index + 1
-        
-        # Default to key 1 if no positions found
-        return 1
+        return int((x_mm + (self.semitone_width/2) - self.editor_margin) // self.semitone_width) + 2
     
     def time_to_y(self, time_ticks: float) -> float:
         '''Convert time in ticks to Y coordinate in millimeters (top-left origin).'''
@@ -824,7 +791,12 @@ class Editor(
         try:
             gs = getattr(self, 'grid_selector', None)
             if gs is not None and hasattr(gs, 'get_grid_step'):
-                val = gs.get_grid_step()
+                # Respect snap switch: return 0 when disabled
+                try:
+                    enabled = bool(gs.is_snap_enabled()) if hasattr(gs, 'is_snap_enabled') else True
+                except Exception:
+                    enabled = True
+                val = gs.get_grid_step() if enabled else 0.0
                 if isinstance(val, (int, float)) and val > 0:
                     return float(val)
         except Exception:

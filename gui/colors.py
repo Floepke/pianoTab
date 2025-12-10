@@ -54,6 +54,14 @@ def hex_to_rgba(hex_str, alpha=1.0):
         return (r, g, b, a)
     else:
         raise ValueError("Hex string must be in format RRGGBB or RRGGBBAA")
+    
+def make_darker_hex(hex_str, amount=0.2) -> str:
+    rgba = hex_to_rgba(hex_str)
+    r, g, b, a = rgba
+    r = max(0, r * (1 - amount))
+    g = max(0, g * (1 - amount))
+    b = max(0, b * (1 - amount))
+    return rgba_to_hex((r, g, b, a))
 
 # theme presets (name -> Theme kwargs)
 THEMES = {
@@ -71,7 +79,7 @@ THEMES = {
         val_light=0.75,
         val_dark=0.04,
         contrast=0.30,
-        accent_rgba=hex_to_rgba("#d55c11"),  # brighter orange accent
+        accent_rgba=hex_to_rgba("#d13f3f"),  # brighter orange accent
     ),
 }
 

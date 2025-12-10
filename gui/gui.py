@@ -99,12 +99,12 @@ class SidePanel(ScrollView):
         self.layout.bind(minimum_height=self.layout.setter('height'))
         self.add_widget(self.layout)
 
+        self.tool_selector = ToolSelector(callback=self._on_tool_selected)
+        self.layout.add_widget(self.tool_selector)
+
         # Widgets
         self.grid_selector = GridSelector(callback=self._on_grid_changed)
         self.layout.add_widget(self.grid_selector)
-
-        self.tool_selector = ToolSelector(callback=self._on_tool_selected)
-        self.layout.add_widget(self.tool_selector)
         
         # Cursor management - set arrow cursor when over side panel
         Window.bind(mouse_pos=self._update_cursor_on_hover)
@@ -345,6 +345,45 @@ class GUI(BoxLayout):
         Clock.schedule_once(self._setup_preview_snap_ratio, 0)
         self.mid_right_split.bind(size=lambda *_: self._setup_preview_snap_ratio())
 
+    # ----- Callbacks for SidePanel -----
+    def _on_tool_selected(self, tool_name: str):
+        # no-op here, but available for hooking (e.g., contextual toolbars)
+        pass
+
+    def _on_grid_step_changed(self, grid_step: float):
+        # No action needed - Canvas reads grid step directly from editor.grid_selector
+        pass
+
+    # ----- Contextual Toolbar Management -----
+    def set_contextual_toolbar(self, buttons_config: dict):
+        """Update the vertical sash's contextual toolbar with tool-specific buttons.
+        Args:
+            buttons_config: Dictionary mapping icon names to (callback, tooltip) tuples.
+                           Example: {'noteLeft': (callback_fn, 'Move to left hand')}
+        """
+        try:
+            if self.mid_right_split and hasattr(self.mid_right_split, 'sash'):
+                contextual_config = {'active': buttons_config}
+                self.mid_right_split.sash.set_configs(contextual_toolbar=contextual_config)
+                self.mid_right_split.sash.set_context_key('active')
+        except Exception as e:
+            print(f"Error updating contextual toolbar: {e}")
+
+    # ----- Properties tree wiring hooks -----
+    def set_properties_score(self, score):
+        try:
+            if self.property_tree:
+                self.property_tree.set_score(score)
+        except Exception:
+            pass
+
+    def bind_properties_change(self, cb):
+        try:
+            if self.property_tree:
+                self.property_tree.on_change = cb
+        except Exception:
+            pass
+
     def _simulate_snap_drag(self, *_):
         '''Simulate dragging the sash to the snap position programmatically.'''
         sp = getattr(self, 'mid_right_split', None)
@@ -458,6 +497,28 @@ class GUI(BoxLayout):
         except Exception as e:
             print(f'Failed to restart: {e}')
 
+    def on_set_midi_port(self):
+        """Open a dialog to choose a MIDI output port and save to settings.
+        Delegates to midi.ports_ui to keep GUI lean.
+        """
+        try:
+            from midi.ports_ui import open_midi_port_dialog
+        except Exception as e:
+            print(f'Failed to open MIDI port dialog: {e}')
+            return
+        app = self._get_app()
+        settings = getattr(app, 'settings', None) if app else None
+        open_midi_port_dialog(settings)
+
+    def _get_app(self):
+        try:
+            from kivy.app import App
+            return App.get_running_app()
+        except Exception:
+            return None
+
+    
+
     def on_cut(self):
         """Cut selected elements (Ctrl+X)."""
         from kivy.uix.popup import Popup
@@ -546,57 +607,14 @@ class GUI(BoxLayout):
     def get_side_panel(self):
         return self.side_panel
 
-    def get_properties_widget(self):
-        return self.property_tree
-
-    # Properties tree wiring hooks
-    def set_properties_score(self, score):
+    def on_play_from_cursor(self):
+        """Delegate play-from-cursor to midi.player to keep GUI thin."""
         try:
-            if self.property_tree:
-                self.property_tree.set_score(score)
-        except Exception:
-            pass
-
-    def bind_properties_change(self, cb: Callable):
-        try:
-            if self.property_tree:
-                self.property_tree.on_change = cb
-        except Exception:
-            pass
-
-    # ----- Callbacks for SidePanel -----
-    def _on_tool_selected(self, tool_name: str):
-        # no-op here, but available for hooking (e.g., contextual toolbars)
-        pass
-
-    def _on_grid_step_changed(self, grid_step: float):
-        # No action needed - Canvas reads grid step directly from editor.grid_selector
-        pass
-    
-    # ----- Contextual Toolbar Management -----
-    def set_contextual_toolbar(self, buttons_config: dict):
-        """Update the vertical sash's contextual toolbar with tool-specific buttons.
-        
-        Args:
-            buttons_config: Dictionary mapping icon names to (callback, tooltip) tuples.
-                           Example: {'noteLeft': (callback_fn, 'Move to left hand')}
-        """
-        try:
-            if self.mid_right_split and hasattr(self.mid_right_split, 'sash'):
-                # Convert buttons_config into the format expected by ToolSash
-                # ToolSash expects contextual_toolbar = {'context_key': {icon: (cb, tip)}}
-                # We'll use 'active' as the context key
-                contextual_config = {'active': buttons_config}
-                self.mid_right_split.sash.set_configs(contextual_toolbar=contextual_config)
-                self.mid_right_split.sash.set_context_key('active')
+            from midi.player import play_from_cursor
         except Exception as e:
-            print(f"Error updating contextual toolbar: {e}")
-
-__all__ = [
-    'GUI',
-    'MainMenu',
-    'SidePanel',
-    'Editor',
-    'PrintView',
-    'TreeViewEditor',
-]
+            print(f'MIDI playback unavailable: {e}')
+            return
+        app = self._get_app()
+        settings = getattr(app, 'settings', None) if app else None
+        ok = play_from_cursor(self.editor, settings)
+        print('Play: sent to port' if ok else 'Play: failed (no port/score/cursor)')

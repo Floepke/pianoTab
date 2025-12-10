@@ -8,47 +8,33 @@ throughout the application for both editor display and final output.
 '''
 
 # Piano keyboard layout constants
-PHYSICAL_SEMITONE_POSITIONS = 103
-'''Total number of physical semitone positions in the piano layout.'''
-
-# BE gaps - positions where extra visual spacing is added between key groups
-BE_GAPS = [3, 8, 15, 20, 27, 32, 39, 44, 51, 56, 63, 68, 75, 80, 87]
-CF_GAPS = [1, 6, 13, 18, 25, 30, 37, 42, 49, 54, 61, 66, 73, 78, 85]
-'''Key positions where extra spacing (BE gaps) should be added for visual grouping.'''
-
-# Black key positions in the 88-key layout
-BLACK_KEYS = [2, 5, 7, 10, 12, 14, 17, 19, 22, 24, 26, 29, 31, 34, 36, 38, 41, 43, 46,
+PIANO_KEY_AMOUNT: int = 88
+'''Total number of piano keys (1-88).'''
+BE_KEYS: list[int] = [3, 8, 15, 20, 27, 32, 39, 44, 51, 56, 63, 68, 75, 80, 87]
+CF_KEYS: list[int] = [4, 9, 16, 21, 28, 33, 40, 45, 52, 57, 64, 69, 76, 81, 88]
+ADG_KEYS: list[int] = [1, 6, 11, 13, 18, 23, 25, 30, 35, 42, 47, 49, 54, 59, 61, 66, 71, 73, 78, 83, 85]
+BLACK_KEYS: list[int] = [2, 5, 7, 10, 12, 14, 17, 19, 22, 24, 26, 29, 31, 34, 36, 38, 41, 43, 46,
               48, 50, 53, 55, 58, 60, 62, 65, 67, 70, 72, 74, 77, 79, 82, 84, 86]
-'''Positions of black keys in the 88-key piano layout.'''
+WHITE_KEYS: list[int] = [k for k in range(1, PIANO_KEY_AMOUNT + 1) if k not in BLACK_KEYS]
+'''Lists of key numbers for each key color group.'''
 
-# MIDI and timing constants
-PIANOTICK_QUARTER = 100.0
-'''Number of ticks per quarter note in the pianoTAB timing system.'''
-
-MIDI_KEY_OFFSET = 20
+MIDI_KEY_OFFSET: int = 20
 '''Offset to convert between MIDI pitch numbers (21-108) and key numbers (1-88).'''
 
-# Piano key range
-PIANO_KEY_COUNT = 88
-'''Total number of piano keys (1-88).'''
+# timing constants
+PIANOTICK_QUARTER: float = 100.0
+'''Number of ticks per quarter note in the pianoTAB timing system.'''
 
-MIDI_PITCH_MIN = 21
-'''Minimum MIDI pitch number (key 1).'''
-
-MIDI_PITCH_MAX = 108
-'''Maximum MIDI pitch number (key 88).'''
-
-# Calculate all grid lengths from quarter note for consistency
-GRID_LENGTHS = [
-    ('1 - Whole', PIANOTICK_QUARTER * 4),      # 1024.0
-    ('2 - Half', PIANOTICK_QUARTER * 2),       # 512.0
-    ('4 - Quarter', PIANOTICK_QUARTER),        # 100.0
-    ('8 - Eighth', PIANOTICK_QUARTER / 2),     # 128.0
-    ('16 - Sixteenth', PIANOTICK_QUARTER / 4), # 64.0
-    ('32 - 32nd', PIANOTICK_QUARTER / 8),      # 32.0
-    ('64 - 64th', PIANOTICK_QUARTER / 16),     # 16.0
-    ('128 - 128th', PIANOTICK_QUARTER / 32),   # 8.0
-]
+GRID_LENGTHS: dict[str, float] = {
+    '1 - Whole': PIANOTICK_QUARTER * 4,      # 1024.0
+    '2 - Half': PIANOTICK_QUARTER * 2,       # 512.0
+    '4 - Quarter': PIANOTICK_QUARTER,        # 100.0
+    '8 - Eighth': PIANOTICK_QUARTER / 2,     # 128.0
+    '16 - Sixteenth': PIANOTICK_QUARTER / 4, # 64.0
+    '32 - 32nd': PIANOTICK_QUARTER / 8,      # 32.0
+    '64 - 64th': PIANOTICK_QUARTER / 16,     # 16.0
+    '128 - 128th': PIANOTICK_QUARTER / 32,   # 8.0
+}
 '''Available grid lengths with their tick values.'''
 
 DEFAULT_GRID_NAME = '8 - Eighth'
@@ -60,10 +46,6 @@ DEFAULT_GRID_STEP_TICKS = PIANOTICK_QUARTER / 2  # 128.0 (eighth note)
 # Key layout calculation constants
 VISUAL_SEMITONE_POSITIONS_OFFSET = 5
 '''Number of semitone positions outside the editor margins (not visible).'''
-
-def get_visual_semitone_positions():
-    '''Get the number of visible semitone positions in the editor.'''
-    return PHYSICAL_SEMITONE_POSITIONS - VISUAL_SEMITONE_POSITIONS_OFFSET
 
 '''
     Canvas Drawing Layer Order
@@ -89,27 +71,27 @@ DRAWING_LAYERS = [
     
     # stave elements
     'chord_guide',
-    'note_guide',
-    'gridline',        
+    'gridline',
     'barline',
     'stem_white_space',
-    'stavethreeline',  
-    'stavetwoline',    
-    'staveclefline',   
+    'stavethreeline',
+    'stavetwoline',
+    'staveclefline',
     
     # note elements
     'stop_sign',
     'accidental',
     'notehead_white',
-    'notehead_black',      
+    'notehead_black',
     'left_dot',
     'cursor_line',      # Time cursor line
     'stem',
+    'chord_connect',
 
-    # grace_note          
+    # grace_note
     'grace_note',
 
-    # beam elements      
+    # beam elements
     'beam',
     'beam_stem',
 

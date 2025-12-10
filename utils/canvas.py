@@ -1056,7 +1056,7 @@ class Canvas(Widget):
             'smooth': False,
             'close': False,
             'dash': bool(dash),
-            'dash_mm': (float(dash_pattern_mm[0]), float(dash_pattern_mm[1])),
+            'dash_mm': (float(dash_pattern_mm[0]), float(dash_pattern_mm[1])) if dash else (0, 0),
             'cap': str(cap).lower(),
             'tags': set(tags or id or []),
             'z_index': final_z_index,

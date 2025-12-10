@@ -13,7 +13,7 @@ from gui.colors import ACCENT_HEX
 from utils import clipboard  # Musical element clipboard
 from utils.keyboard import matches_shortcut  # Cross-platform key matching
 from utils.CONSTANTS import OPERATOR_TRESHOLD
-from utils.operator import OperatorThreshold
+from utils.operator import Operator
 
 if TYPE_CHECKING:
     from editor.editor import Editor
@@ -30,7 +30,7 @@ class SelectionManager:
         self.editor = editor
         
         # Threshold-based comparison operator for time values
-        self._time_op = OperatorThreshold(threshold=OPERATOR_TRESHOLD)
+        self._time_op = Operator(threshold=OPERATOR_TRESHOLD)
         
         # Selection state
         self.selected_elements: List[Dict[str, Any]] = []

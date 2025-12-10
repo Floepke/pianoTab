@@ -6,6 +6,8 @@ from editor.tool.base_tool import BaseTool
 from file.note import Note
 from typing import Optional, Literal
 
+from utils.CONSTANTS import BLACK_KEYS
+
 
 class NoteTool(BaseTool):
     """Tool for adding and editing notes."""
@@ -166,7 +168,7 @@ class NoteTool(BaseTool):
             return True  # We handled this key
         
         return False  # We didn't handle this key
-    
+
     def on_mouse_move(self, x: float, y: float) -> bool:
         """Handle mouse movement (hover, no buttons pressed)."""
         # Guard against startup race condition (mouse moves before file loaded)
@@ -179,7 +181,13 @@ class NoteTool(BaseTool):
         
         # draw note cursor using current hand setting
         pitch, time = self.get_pitch_and_time(x, y)
-        duration = self.editor.grid_selector.get_grid_step()
+        # duration = self.editor.grid_selector.get_grid_step()
+
+        # correct duration if the grid snap function is disabled
+        if not self.editor.grid_selector.snap_enabled:
+            duration = self.editor.grid_selector.get_grid_step()
+        else:
+            duration = self.editor.get_grid_step()
         
         # Clamp time to valid range
         score_length = self.editor._get_score_length_in_ticks()
@@ -196,6 +204,10 @@ class NoteTool(BaseTool):
                 elif pitch > self.last_pitch:
                     self.accidental_value = -self.accidental_switch
             self.last_pitch = pitch
+            
+            # ensure valid accidental
+            if pitch + self.accidental_value in BLACK_KEYS:
+                self.accidental_value = 0
         
         cursor = Note(time=time, pitch=pitch, duration=duration, hand=self.hand_cursor, accidental=self.accidental_value)
         
@@ -299,7 +311,10 @@ class NoteTool(BaseTool):
         score_length = self.editor._get_score_length_in_ticks()
         
         # Calculate proposed duration
-        proposed_duration = max(self.editor.grid_selector.get_grid_step(), time - self.edit_note.time)
+        if self.editor.grid_selector.snap_enabled == True:
+            proposed_duration = max(self.editor.grid_selector.get_grid_step(), time - self.edit_note.time)
+        else:
+            proposed_duration = time - self.edit_note.time
         
         # Check if dragging up (changing pitch)
         if time < self.edit_note.time or y < self.editor.editor_margin:

@@ -53,7 +53,8 @@ Config.set('graphics', 'gl_version', '1')
 Config.set('kivy', 'keyboard_mode', '')
 # Disable vsync
 Config.set('graphics', 'vsync', '0')
-Config.set('graphics', 'maxfps', '60')
+Config.set('graphics', 'maxfps', '40')
+#Config.set('graphics', 'fullscreen', '1')  # Start in fullscreen mode; user can toggle fullscreen
 
 # Configure double-tap detection to be less sensitive
 # Default is 250ms - increase to 400ms to avoid accidental double-tap detection
@@ -276,12 +277,13 @@ class pianoTAB(App):
             Logger.warning(f'pianoTAB: Failed to handle property change: {e}')
 
     def _on_key_down(self, window, key, scancode, codepoint, modifiers):
-        '''Handle global key presses for zooming.
+        '''Handle global key presses for zooming and playback.
 
         Binds the following keys:
         - '=' or '+' -> zoom in
         - '-' or '_' -> zoom out
         - F11        -> toggle fullscreen (Windows/Linux)
+        - SPACE      -> toggle MIDI play/stop from cursor
         '''
         try:
             # Normalize codepoint; fall back to ASCII from key if needed
@@ -299,6 +301,25 @@ class pianoTAB(App):
                 except Exception:
                     pass
                 return False
+            if ch in (' '):
+                # Toggle MIDI playback
+                try:
+                    from midi.player import is_playing, stop_playback
+                except Exception:
+                    # Fallback to GUI method directly
+                    pass
+                else:
+                    if is_playing():
+                        stop_playback()
+                        print('MIDI: stopped')
+                        return True
+                # If not playing, trigger play from cursor via GUI
+                try:
+                    if hasattr(self.gui, 'on_play_from_cursor'):
+                        self.gui.on_play_from_cursor()
+                        return True
+                except Exception:
+                    pass
             if ch in ('i'):
                 if self.editor is not None:
                     self.editor.zoom_in(factor=1.02)

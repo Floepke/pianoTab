@@ -7,7 +7,7 @@ Handles drawing barlines, measure numbers, and gridlines.
 from kivy.metrics import sp
 from gui.colors import DARK_LIGHTER_HEX, LIGHT_DARKER_HEX, LIGHT_HEX, rgba_to_hex
 from utils.CONSTANTS import PIANOTICK_QUARTER
-from utils.operator import OperatorThreshold
+from utils.operator import Operator
 
 
 class GridDrawerMixin:
@@ -125,7 +125,7 @@ class GridDrawerMixin:
                 grid_step_cursor = 0.0
                 color = self._color_lighter_hex(LIGHT_DARKER_HEX)
                 is_color = True
-                while OperatorThreshold().less(grid_step_cursor, meas_length):
+                while Operator().less(grid_step_cursor, meas_length):
                     start_tick = grid_step_cursor
                     end_tick = grid_step_cursor + beat_count
 

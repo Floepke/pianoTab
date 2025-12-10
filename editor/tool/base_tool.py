@@ -890,6 +890,14 @@ class BaseTool(ABC):
         """
         pitch = self.x_to_pitch(x_mm)
         
+        # Respect GridSelector switch if available; overrides parameter
+        try:
+            gs = getattr(self.editor, 'grid_selector', None)
+            if gs is not None and hasattr(gs, 'is_snap_enabled'):
+                snap_to_grid = bool(gs.is_snap_enabled())
+        except Exception:
+            pass
+
         if snap_to_grid:
             time_ticks = self.get_snapped_time_from_y(y_mm)
         else:
