@@ -85,7 +85,7 @@ class NoteDrawerMixin:
         self._draw_stem(note, base_tag, color)
         self._draw_stem_whitespace(note, base_tag)
         self._draw_velocity_indicator(note, base_tag)
-        #self._draw_note_continuation_dot(stave_idx, note, draw_mode=draw_mode)
+        self._draw_note_continuation_dot(stave_idx, note, draw_mode=draw_mode)
         #self._draw_centered_dashed_guide(stave_idx, note, base_tag=base_tag, color=color)
         #self._draw_left_dot(note, base_tag, color)
     
@@ -395,7 +395,7 @@ class NoteDrawerMixin:
         # Draw the accidental line
         self.canvas.add_line(
             x1_mm=x_from,
-            y1_mm=y_from + self.semitone_width * 3,
+            y1_mm=y_from + self.semitone_width * 2,
             x2_mm=x_note,
             y2_mm=y_note + self.semitone_width,
             width_mm=self.score.properties.globalNote.stemWidthMm,
