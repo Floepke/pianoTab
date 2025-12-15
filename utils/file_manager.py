@@ -459,7 +459,7 @@ class LoadDialog(BoxLayout):
 class SaveDialog(BoxLayout):
     '''Save file dialog with file management features.'''
     
-    def __init__(self, start_path: str, suggested_name: str, save_callback: Callable, cancel_callback: Callable, **kwargs):
+    def __init__(self, start_path: str, suggested_name: str, save_callback: Callable, cancel_callback: Callable, *, filters: list[str] | None = None, **kwargs):
         super().__init__(**kwargs)
         self.orientation = 'vertical'
         self.spacing = 8
@@ -483,9 +483,11 @@ class SaveDialog(BoxLayout):
         self.add_widget(self.path_label)
         
         # File chooser
+        # Allow caller to override visible file filters (e.g., ['*.mid'] for MIDI)
+        _filters = filters if filters is not None else FILE_FILTERS
         self.file_chooser = IconFileChooserListView(
             path=start_path,
-            filters=FILE_FILTERS,
+            filters=_filters,
             dirselect=True,  # Allow folder selection
             size_hint=(1, 1)
         )
@@ -1054,7 +1056,8 @@ class FileManager:
             start_path=self._last_dir,
             suggested_name=suggested,
             save_callback=_do_save,
-            cancel_callback=self._dismiss_popup
+            cancel_callback=self._dismiss_popup,
+            filters=FILE_FILTERS
         )
         # Size capped for very large screens while remaining responsive
         target_w = min(int(Window.width * 0.9), LOAD_SAVE_MAX_WIDTH)
@@ -1118,6 +1121,87 @@ class FileManager:
                 pass
         except Exception as e:
             self._error(f'Failed to save file:\n{e}')
+
+    def save_midi(self):
+        '''Generate play.mid via midi.player.build_midi_file() and copy it to user-selected path.'''
+        try:
+            # Get the active piano roll editor and score
+            canvas = self.gui.editor.get_canvas() if hasattr(self.gui, 'editor') and self.gui.editor else None
+            piano_roll_editor = getattr(canvas, 'piano_roll_editor', None) if canvas else None
+            if piano_roll_editor is None:
+                raise RuntimeError('No piano-roll editor attached')
+            score = getattr(piano_roll_editor, 'score', None)
+            if score is None:
+                raise RuntimeError('No score available')
+
+            # Build the temporary MIDI file (play.mid) starting at time 0
+            from midi.player import build_midi_file
+            play_mid_path = build_midi_file(score, piano_roll_editor, export=True)
+            if not play_mid_path:
+                raise RuntimeError('Failed to render play.mid')
+
+            # Suggested output filename based on current document
+            base_name = 'Untitled'
+            if self.current_path:
+                base_name = os.path.splitext(os.path.basename(self.current_path))[0] or 'Untitled'
+            suggested_name = base_name + '.mid'
+
+            def _do_save_midi(dest_path: str):
+                root, ext = os.path.splitext(dest_path)
+                if not ext:
+                    dest_path = root + '.mid'
+                elif ext.lower() not in ('.mid', '.midi'):
+                    dest_path = dest_path + '.mid'
+
+                def _copy_and_finish():
+                    import shutil
+                    os.makedirs(os.path.dirname(dest_path) or '.', exist_ok=True)
+                    shutil.copy2(play_mid_path, dest_path)
+                    self._dismiss_popup()
+                    # No additional message; silently finish after copying
+
+                if os.path.exists(dest_path):
+                    save_dialog_popup = self._popup
+                    def on_yes_wrapper():
+                        if save_dialog_popup:
+                            save_dialog_popup.dismiss()
+                        self._popup = None
+                        _copy_and_finish()
+                    self._confirm_yes_no(
+                        title='File Exists',
+                        message=f'"{os.path.basename(dest_path)}" already exists.\nDo you want to replace it?',
+                        on_yes=on_yes_wrapper,
+                        on_no=lambda: None
+                    )
+                else:
+                    _copy_and_finish()
+
+            # Show Save dialog to choose destination
+            content = SaveDialog(
+                start_path=self._last_dir,
+                suggested_name=suggested_name,
+                save_callback=_do_save_midi,
+                cancel_callback=self._dismiss_popup,
+                filters=['*.mid']
+            )
+            target_w = min(int(Window.width * 0.9), LOAD_SAVE_MAX_WIDTH)
+            target_h = min(int(Window.height * 0.9), LOAD_SAVE_MAX_HEIGHT)
+
+            title_bar = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(40), padding=[dp(10), dp(5)])
+            title_label = Label(text='Save MIDI As', color=LIGHT, font_name=FONT_NAME, halign='left', valign='middle')
+            title_label.bind(size=lambda *args: setattr(title_label, 'text_size', (title_label.width, None)))
+            title_bar.add_widget(title_label)
+
+            main_box = BoxLayout(orientation='vertical', spacing=0)
+            main_box.add_widget(title_bar)
+            main_box.add_widget(content)
+
+            self._popup = ModalView(size_hint=(None, None), size=(target_w, target_h), auto_dismiss=False)
+            self._popup.add_widget(main_box)
+            self._popup.bind(on_dismiss=lambda *args: self._reclaim_keyboard())
+            self._popup.open()
+        except Exception as e:
+            self._error(f'Failed to prepare MIDI export:\n{e}')
 
     def _suggest_name(self) -> str:
         '''Generate a default filename.'''
@@ -1210,7 +1294,8 @@ class FileManager:
                     start_path=self._last_dir,
                     suggested_name=suggested,
                     save_callback=_do_save,
-                    cancel_callback=self._dismiss_popup
+                    cancel_callback=self._dismiss_popup,
+                    filters=FILE_FILTERS
                 )
                 # Size capped for very large screens while remaining responsive
                 target_w = min(int(Window.width * 0.9), LOAD_SAVE_MAX_WIDTH)

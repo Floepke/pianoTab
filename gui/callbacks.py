@@ -45,6 +45,7 @@ class AppCallbacks(Protocol):
     def on_save(self) -> None: ...
     def on_save_as(self) -> None: ...
     def on_export_pdf(self) -> None: ...
+    def on_save_midi(self) -> None: ...
     def on_exit(self) -> None: ...
     def on_restart(self) -> None: ...
     def on_set_midi_port(self) -> None: ...
@@ -93,6 +94,7 @@ def create_menu_config(app_instance: AppCallbacks) -> MenuConfig:
             'Save': partial(callback_save, app_instance),
             'Save as': partial(callback_save_as, app_instance),
             '---1': None,  # Separator (unique key)
+            'Save MIDI': partial(callback_save_midi, app_instance),
             'Export to PDF': partial(callback_export_pdf, app_instance),
             '---2': None,  # Separator (unique key)
             'Restart pianoTAB': partial(callback_restart, app_instance),
@@ -226,6 +228,10 @@ def callback_save_as(app: AppCallbacks) -> None:
 def callback_export_pdf(app: AppCallbacks) -> None:
     # Prefer app's implementation; otherwise print the local test message
     _invoke(app, ('on_export_pdf',), lambda _a: print('Export pdf triggered'))
+
+
+def callback_save_midi(app: AppCallbacks) -> None:
+    _invoke(app, ('on_save_midi',), lambda _a: _not_implemented('Save MIDI')())
 
 
 def callback_exit(app: AppCallbacks) -> None:

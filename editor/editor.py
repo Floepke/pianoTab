@@ -490,7 +490,7 @@ class Editor(
         self._draw_texts()
         self._draw_tempos()
         self._draw_count_lines()
-        self._draw_line_breaks()
+        #self._draw_line_breaks()
 
         # Force canvas redraw with culling now that all items are added
         self.canvas._redraw_all()

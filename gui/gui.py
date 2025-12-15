@@ -386,6 +386,14 @@ class GUI(BoxLayout):
             except Exception:
                 pass
 
+    def on_save_midi(self):
+        """Export the current score to a MIDI file via FileManager."""
+        if self.file_manager:
+            try:
+                self.file_manager.save_midi()
+            except Exception:
+                pass
+
     def on_exit(self):
         """Exit the application with unsaved changes check."""
         # Use file manager's exit_app which guards against unsaved changes

@@ -12,6 +12,7 @@ import threading
 import time
 
 from editor.editor import Editor
+from file import SCORE
 from utils.CONSTANTS import MIDI_KEY_OFFSET, PIANOTICK_QUARTER
 from utils.operator import Operator
 
@@ -26,10 +27,16 @@ def _init_mido_backend():
     if mido is None:
         return
     try:
+        # Prefer RtMidi backend if the module is actually installed; otherwise keep default
+        import importlib.util
         current = getattr(mido, 'backend', None)
-        if not current or 'rtmidi' not in str(current).lower():
-            # Prefer RtMidi backend if installed
-            mido.set_backend('mido.backends.rtmidi')
+        have_rtmidi = importlib.util.find_spec('rtmidi') is not None
+        if have_rtmidi and (not current or 'rtmidi' not in str(current).lower()):
+            try:
+                mido.set_backend('mido.backends.rtmidi')
+            except Exception:
+                # If backend selection fails, continue with default backend
+                pass
     except Exception:
         # Silently ignore; mido will fall back to default/backend-less operations
         pass
@@ -155,7 +162,7 @@ def set_selected_port(settings_manager, port_name: str) -> None:
         pass
 
 
-def build_midi_file(score, editor: Editor) -> Optional[str]:
+def build_midi_file(score, editor: Editor, export: bool = False) -> Optional[str]:
     """Render a short MIDI file from the score starting at start_time_ticks (score units, 100.0 == quarter)."""
     ensure_app_data_dir()
     if mido is None:
@@ -175,18 +182,49 @@ def build_midi_file(score, editor: Editor) -> Optional[str]:
     track = mido.MidiTrack()
     mid.tracks.append(track)
 
-    # Tempo from score (default 120 BPM)
-    bpm = float(getattr(getattr(score, 'fileSettings', object()), 'tempoBPM', 120.0))
-    track.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(bpm), time=0))
+    # Tempo markers from score (default: one marker at time 0 with 120 BPM)
+    # Use the same stave as notes (stave 0) to keep behavior consistent
+    stave = score.stave[0] if getattr(score, 'stave', None) else None
+    tempos = []
+    if stave and hasattr(getattr(stave, 'event', None), 'tempo'):
+        try:
+            tempos = list(stave.event.tempo)
+            tempos.sort(key=lambda t: float(getattr(t, 'time', 0.0)))
+        except Exception:
+            tempos = []
+
+    # get mouse cursor position
+    mouse_cursor = float(editor.mouse_time_cursor)
+
+    if export:
+        # For export, always start at time 0
+        mouse_cursor = 0.0
+
+    # Determine effective tempo at cursor time
+    op = Operator()
+    effective_bpm = 120
+    for t in tempos:
+        t_time = float(getattr(t, 'time', 0.0))
+        if op.less_or_equal(t_time, mouse_cursor):
+            effective_bpm = int(getattr(t, 'bpm', 120))
+        else:
+            break
+
+    # Build tempo events: initial at cursor, then all subsequent changes >= cursor
+    events = []  # will contain both meta tempo and note events
+    cursor_tick = to_ticks(mouse_cursor)
+    # Add initial tempo at cursor (so timing conversion is correct)
+    events.append((cursor_tick, -1, 'meta_tempo', effective_bpm, 0))
+
+    for t in tempos:
+        t_time = float(getattr(t, 'time', 0.0))
+        if op.less_or_equal(mouse_cursor, t_time):
+            abs_tick = to_ticks(t_time)
+            bpm_val = int(getattr(t, 'bpm', 120))
+            events.append((abs_tick, -1, 'meta_tempo', bpm_val, 0))
 
     # Collect notes (simple: first stave)
-    stave = score.stave[0] if getattr(score, 'stave', None) else None
     notes = getattr(getattr(stave, 'event', None), 'note', []) if stave else []
-    
-    # get mouse cursor position
-    print('MIDI: building from cursor position')
-    mouse_cursor = float(editor.mouse_time_cursor)
-    print('Building MIDI from cursor position')
 
     # Note chasing:
     # - include notes starting at/after cursor unchanged
@@ -217,8 +255,7 @@ def build_midi_file(score, editor: Editor) -> Optional[str]:
     # Sort by adjusted start time
     note_items.sort(key=lambda item: item[0])
 
-    # Build timeline events with ABSOLUTE times in TICKS
-    events = []
+    # Build timeline events with ABSOLUTE times in TICKS (append to existing tempo events)
     for adj_start, adj_dur, pitch, velocity in note_items:
         start_tick = to_ticks(adj_start)
         end_tick = start_tick + max(0, to_ticks(adj_dur))
@@ -228,9 +265,13 @@ def build_midi_file(score, editor: Editor) -> Optional[str]:
     # Sort by absolute tick time then by order, then emit deltas
     events.sort(key=lambda e: (e[0], e[1]))
     last_tick = to_ticks(mouse_cursor)
-    for abs_tick, _order, typ, pitch, vel in events:
+    for abs_tick, _order, typ, a, b in events:
         delta = max(0, abs_tick - last_tick)
-        track.append(mido.Message(typ, note=pitch, velocity=vel, time=delta))
+        if typ == 'meta_tempo':
+            track.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(int(a)), time=delta))
+        else:
+            # note message
+            track.append(mido.Message(typ, note=int(a), velocity=int(b), time=delta))
         last_tick = abs_tick
 
     # End of track at last_tick (no extra wait)
@@ -257,4 +298,3 @@ def stop_playback() -> None:
 
 def is_playing() -> bool:
     return _PLAYBACK.is_playing()
-
