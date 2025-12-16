@@ -79,7 +79,7 @@ THEMES = {
         val_light=0.75,
         val_dark=0.04,
         contrast=0.30,
-        accent_rgba=hex_to_rgba("#d13f3f"),  # brighter orange accent
+        accent_rgba=hex_to_rgba("#d1773f"),  # brighter orange accent
     ),
 }
 

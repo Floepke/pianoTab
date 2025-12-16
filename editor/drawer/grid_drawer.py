@@ -5,7 +5,7 @@ Handles drawing barlines, measure numbers, and gridlines.
 '''
 
 from kivy.metrics import sp
-from gui.colors import DARK_LIGHTER_HEX, LIGHT_DARKER_HEX, LIGHT_HEX, rgba_to_hex
+from gui.colors import DARK_LIGHTER_HEX, LIGHT_DARKER_HEX, LIGHT_HEX, rgba_to_hex, DARK_HEX
 from utils.CONSTANTS import PIANOTICK_QUARTER
 from utils.operator import Operator
 
@@ -82,7 +82,7 @@ class GridDrawerMixin:
                             y1_mm=barline_y,
                             x2_mm=self.editor_margin + self.stave_width,
                             y2_mm=barline_y,
-                            color=self.barline_color,
+                            color=DARK_HEX,#self.score.properties.globalBasegrid.barlineColor,
                             width_mm=self.score.properties.globalBasegrid.barlineWidthMm,
                             tags=['barline', f'barline_{int(time)}']
                         )
@@ -113,7 +113,7 @@ class GridDrawerMixin:
                                 y1_mm=y1,
                                 x2_mm=self.editor_margin + self.stave_width,
                                 y2_mm=y1,
-                                color=self.score.properties.globalBasegrid.gridlineColor,
+                                color=DARK_HEX,#self.score.properties.globalBasegrid.gridlineColor,
                                 width_mm=self.score.properties.globalBasegrid.gridlineWidthMm,
                                 dash=True,
                                 dash_pattern_mm=self.score.properties.globalBasegrid.gridlineDashPatternMm,
@@ -178,7 +178,7 @@ class GridDrawerMixin:
                 y1_mm=final_y_pos,
                 x2_mm=self.editor_margin + self.stave_width, 
                 y2_mm=final_y_pos,
-                color=self.barline_color,
+                color=DARK_HEX,#self.score.properties.globalBasegrid.barlineColor,
                 width_mm=self.score.properties.globalBasegrid.barlineWidthMm * 2,  # Double thickness
                 tags=['barline', 'endBarline']
             )

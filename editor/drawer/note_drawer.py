@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal, Optional
 
 from file import note
-from gui.colors import ACCENT_HEX, LIGHT_DARKER_HEX, LIGHT_HEX, make_darker_hex
+from gui.colors import ACCENT_HEX, DARK_HEX, LIGHT_DARKER_HEX, LIGHT_HEX, make_darker_hex
 from utils.CONSTANTS import BLACK_KEYS, CF_KEYS, OPERATOR_TRESHOLD, BE_KEYS
 from utils.operator import Operator
 
@@ -80,7 +80,7 @@ class NoteDrawerMixin:
         self._draw_notestop(stave_idx, note, base_tag, color)
         self._draw_notehead(note, base_tag, color)
         self._draw_accidental(note, base_tag, color)
-        self._draw_solid_guide(note, base_tag, color)
+        #self._draw_solid_guide(note, base_tag, color)
         #self._draw_connect_stem(stave_idx, note, base_tag, color)
         #self._draw_stem(note, base_tag, color)
         #self._draw_stem_whitespace(note, base_tag)
@@ -228,7 +228,7 @@ class NoteDrawerMixin:
         tag = 'notehead_black' if note.pitch in BLACK_KEYS else 'notehead_white'
 
         # notehead width
-        '''Design 1'''
+        '''Design 1: best design to my opinion'''
         if note.pitch in BE_KEYS:
             # Trim right side (E/B sit to the left of a white gap)
             x1 = x - self.semitone_width
@@ -256,34 +256,6 @@ class NoteDrawerMixin:
             y -= self.semitone_width * 1.5
         elif note.blackNoteDirection == '^' and note.pitch in BLACK_KEYS:
             y -= self.semitone_width * 1.5
-        '''Design 2'''
-        # if note.pitch in BE_KEYS:
-        #     # Trim right side (E/B sit to the left of a white gap)
-        #     x1 = x - self.semitone_width * .5
-        #     x2 = x + self.semitone_width * .5
-        # elif note.pitch in CF_KEYS:
-        #     # Trim left side (C/F sit to the right of a white gap) - opposite of BE_GAPS
-        #     x1 = x - self.semitone_width * .5
-        #     x2 = x + self.semitone_width * .5
-        # elif note.pitch in BLACK_KEYS:
-        #     # Black keys are narrower
-        #     x1 = x - self.semitone_width * .5
-        #     x2 = x + self.semitone_width * .5
-        # else:
-        #     # Regular width
-        #     x1 = x - self.semitone_width * .5
-        #     x2 = x + self.semitone_width * .5
-        # # notehead length
-        # if note.pitch in BLACK_KEYS:
-        #     notehead_length = self.semitone_width
-        # else:
-        #     notehead_length = self.semitone_width
-        
-        # # Adjust y position for black notes above stem
-        # if base_tag == 'cursor' and note.pitch in BLACK_KEYS and self.score.properties.globalNote.blackNoteDirection == '^':
-        #     y -= notehead_length
-        # elif note.blackNoteDirection == '^' and note.pitch in BLACK_KEYS:
-        #     y -= notehead_length
 
         # Draw the notehead
         self.canvas.add_oval(
@@ -296,6 +268,53 @@ class NoteDrawerMixin:
             outline=True,
             outline_width_mm=self.score.properties.globalNote.stemWidthMm,
             outline_color=color,
+            tags=[tag, base_tag]
+        )
+
+        # '''Design 2: pure rectangle widths and triangle handles'''
+        # x1 = x - self.semitone_width * .5
+        # x2 = x + self.semitone_width * .5
+        # notehead_length = self.semitone_width
+        
+        # if note.pitch in BLACK_KEYS:
+        #     self.canvas.add_polygon(
+        #         points_mm=[
+        #             x1, y,
+        #             x2, y,
+        #             x, y + notehead_length
+        #         ],
+        #         fill=True,
+        #         fill_color=DARK_HEX,
+        #         outline=False,
+        #         tags=[tag, base_tag]
+        #     )
+        # else:
+        #     outline_w = .1
+        #     self.canvas.add_polygon(
+        #         points_mm=[
+        #             x1+outline_w, y,
+        #             x2-outline_w, y,
+        #             x, y + notehead_length - outline_w
+        #         ],
+        #         fill=True,
+        #         fill_color=LIGHT_HEX,
+        #         outline=True,
+        #         outline_width_mm=.1,
+        #         outline_color=DARK_HEX,
+        #         tags=[tag, base_tag]
+        #     )
+
+        '''Design 3: start line'''
+        x1 = x - self.semitone_width * .5
+        x2 = x + self.semitone_width * .5
+
+        self.canvas.add_line(
+            x1_mm=x1,
+            y1_mm=y,
+            x2_mm=x2,
+            y2_mm=y,
+            width_mm=self.score.properties.globalNote.stemWidthMm,
+            color=color,
             tags=[tag, base_tag]
         )
     

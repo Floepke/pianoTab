@@ -1086,7 +1086,12 @@ class PropertyTreeEditor(BoxLayout):
                 self._build_list_object_row(display_label, value, path, level, 
                                            icon_name=tree_icon, tooltip=tree_tooltip)
             else:
-                if self._list_is_numeric(value):
+                # Prefer numeric list editor for lists annotated as List[int] or List[float],
+                # even when empty (e.g., BaseGrid.gridCountsEnabled should show [] not an Add button).
+                annotated_item_type = self._field_list_item_type(parent, attr_name)
+                is_numeric_annot = annotated_item_type in (int, float)
+                should_numeric = self._list_is_numeric(value) or (len(value) == 0 and is_numeric_annot)
+                if should_numeric:
                     self._build_number_list_row(display_label, value, path, level, 
                                                icon_name=tree_icon, tooltip=tree_tooltip)
                 else:
@@ -1809,6 +1814,26 @@ class PropertyTreeEditor(BoxLayout):
                         if all(isinstance(a, str) for a in args):
                             return args
                     # Some environments stringify Literal annotations; try parsing best-effort
+        except Exception:
+            return None
+        return None
+
+    def _field_list_item_type(self, parent_obj: Any, attr_name: Union[str, int]):
+        '''Return the annotated item type for a List[...] field on a dataclass, or None.'''
+        if not is_dataclass(parent_obj) or not isinstance(attr_name, str):
+            return None
+        try:
+            for f in fields(parent_obj):
+                if f.name == attr_name:
+                    t = getattr(f, 'type', None)
+                    if t is None:
+                        return None
+                    origin = get_origin(t)
+                    if origin is list or (hasattr(origin, '__name__') and origin.__name__ == 'list'):
+                        args = get_args(t)
+                        if args and len(args) > 0:
+                            return args[0]
+                    return None
         except Exception:
             return None
         return None

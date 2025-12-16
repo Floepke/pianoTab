@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from utils.canvas import Canvas
 
 from utils.CONSTANTS import PIANO_KEY_AMOUNT, PIANOTICK_QUARTER
-from gui.colors import DARK_HEX, LIGHT_HEX, rgba_to_hex, LIGHT_DARKER
+from gui.colors import DARK_HEX, DARK_LIGHTER_HEX, LIGHT_HEX, rgba_to_hex, LIGHT_DARKER, LIGHT_DARKER_HEX, ACCENT_HEX, make_darker_hex
 
 
 class StaveDrawerMixin:
@@ -66,22 +66,22 @@ class StaveDrawerMixin:
                 
                 # Set color, width, dash pattern, and category tag according to your pattern
                 category_tag = None
-                if is_clef_line:
-                    # Central C# and D# lines (clef lines) - always dashed
+                if key_ in [2, 10, 0]:  # Three-line (F#, G#, A#)
                     color = DARK_HEX
                     width = self.semitone_width / 16
-                    category_tag = 'staveclefline'
-                    dash_pattern = self.clef_dash_pattern
-                elif key_ in [2, 10, 0]:  # Three-line (F#, G#, A#)
-                    color = DARK_HEX
-                    width = self.semitone_width / 6
                     category_tag = 'stavethreeline'
                     dash_pattern = None
-                else:  # key_ in [5, 7] - Two-line (C#, D#) but not central
+                elif is_clef_line:  # Clef lines (C# and D#)
+                    color = DARK_HEX
+                    width = self.semitone_width / 6
+                    category_tag = 'staveclefline'
+                    dash_pattern = [0, 2]
+                else:
+                    # two-line
                     color = DARK_HEX
                     width = self.semitone_width / 16
                     category_tag = 'stavetwoline'
-                    dash_pattern = None
+                    dash_pattern = [2, 2]
                 
                 # Draw the line with correct dash pattern from SCORE model
                 y1 = self.editor_margin
@@ -91,7 +91,7 @@ class StaveDrawerMixin:
                     x2_mm=x_pos, y2_mm=y2,
                     color=color,
                     width_mm=width,
-                    dash=is_clef_line,  # Only clef lines are dashed
+                    dash=True if dash_pattern else False,  # Only clef lines are dashed
                     dash_pattern_mm=dash_pattern,
                     tags=[category_tag]
                 )

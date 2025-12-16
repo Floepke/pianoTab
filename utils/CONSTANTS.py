@@ -72,11 +72,11 @@ DRAWING_LAYERS = [
     # stave elements
     'chord_guide',
     'gridline',
-    'barline',
     'stem_white_space',
     'stavethreeline',
     'stavetwoline',
     'staveclefline',
+    'barline',
     
     # note elements
     'stop_sign',
