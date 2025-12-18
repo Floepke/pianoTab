@@ -34,6 +34,8 @@ DEFAULTS: Dict[str, Any] = {
     # Use a clean key name in file; accept legacy verbose key when loading
     'auto_save_interval_in_seconds': 30,  # 0 = instant autosave; >0 = interval in seconds
     'recent_files': [],
+    # Editor view orientation (False=vertical, True=horizontal/rotated)
+    'horizontal_view': False,
 }
 
 

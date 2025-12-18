@@ -104,6 +104,12 @@ def create_menu_config(app_instance: AppCallbacks) -> MenuConfig:
         },
         'Settings': {
             'Set MIDI port': partial(callback_set_midi_port, app_instance),
+            '---1': None,
+            'Orientation': {
+                'Vertical': partial(callback_set_vertical_view, app_instance),
+                'Horizontal': partial(callback_set_horizontal_view, app_instance),
+                'Toggle Horizontal View': partial(callback_toggle_horizontal_view, app_instance),
+            },
         },
         'Edit': {
             'Undo': None,  # TODO: Implement
@@ -263,6 +269,15 @@ def callback_restart(app: AppCallbacks) -> None:
 
 def callback_set_midi_port(app: AppCallbacks) -> None:
     _invoke(app, ('on_set_midi_port',), lambda _a: _not_implemented('Set MIDI port')())
+
+def callback_set_horizontal_view(app: AppCallbacks) -> None:
+    _invoke(app, ('on_set_horizontal_view',), lambda _a: _not_implemented('Horizontal View')())
+
+def callback_set_vertical_view(app: AppCallbacks) -> None:
+    _invoke(app, ('on_set_vertical_view',), lambda _a: _not_implemented('Vertical View')())
+
+def callback_toggle_horizontal_view(app: AppCallbacks) -> None:
+    _invoke(app, ('on_toggle_horizontal_view',), lambda _a: _not_implemented('Toggle Horizontal View')())
 
 def callback_play_from_cursor(app: AppCallbacks) -> None:
     _invoke(app, ('on_play_from_cursor',), lambda _a: _not_implemented('Play from cursor')())

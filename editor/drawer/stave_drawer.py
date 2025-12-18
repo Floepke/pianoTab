@@ -81,7 +81,7 @@ class StaveDrawerMixin:
                     color = DARK_HEX
                     width = self.semitone_width / 16
                     category_tag = 'stavetwoline'
-                    dash_pattern = [2, 2]
+                    dash_pattern = [2, 1]
                 
                 # Draw the line with correct dash pattern from SCORE model
                 y1 = self.editor_margin

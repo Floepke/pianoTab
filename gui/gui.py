@@ -560,6 +560,56 @@ class GUI(BoxLayout):
     def on_about(self):
         ...
 
+    # ----- Orientation settings -----
+    def on_set_horizontal_view(self):
+        """Rotate editor view 90° CCW and persist to settings."""
+        try:
+            canvas = self.editor.get_canvas() if self.editor else None
+            if canvas:
+                canvas.set_view_rotation(90)
+            app = self._get_app()
+            if app and hasattr(app, 'settings'):
+                app.settings.set('horizontal_view', True)
+        except Exception:
+            pass
+
+    def on_set_vertical_view(self):
+        """Restore vertical view and persist to settings."""
+        try:
+            canvas = self.editor.get_canvas() if self.editor else None
+            if canvas:
+                canvas.set_view_rotation(0)
+            app = self._get_app()
+            if app and hasattr(app, 'settings'):
+                app.settings.set('horizontal_view', False)
+        except Exception:
+            pass
+
+    def on_toggle_horizontal_view(self):
+        """Toggle orientation between vertical and horizontal (persist)."""
+        try:
+            canvas = self.editor.get_canvas() if self.editor else None
+            if not canvas:
+                return
+            current = getattr(canvas, 'view_rotation_deg', 0)
+            new_deg = 0 if int(current) % 360 != 0 else 90
+            canvas.set_view_rotation(new_deg)
+            app = self._get_app()
+            if app and hasattr(app, 'settings'):
+                app.settings.set('horizontal_view', new_deg == 90)
+        except Exception:
+            pass
+        # Apply orientation from settings
+        try:
+            app = self._get_app()
+            settings = getattr(app, 'settings', None) if app else None
+            hv = bool(settings.get('horizontal_view', False)) if settings else False
+            canvas = self.editor.get_canvas() if self.editor else None
+            if canvas:
+                canvas.set_view_rotation(90 if hv else 0)
+        except Exception:
+            pass
+
     # Getters to match existing App expectations
     def get_editor_widget(self):
         try:

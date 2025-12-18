@@ -63,11 +63,19 @@ def make_darker_hex(hex_str, amount=0.2) -> str:
     b = max(0, b * (1 - amount))
     return rgba_to_hex((r, g, b, a))
 
+def make_lighter_hex(hex_str, amount=0.2) -> str:
+    rgba = hex_to_rgba(hex_str)
+    r, g, b, a = rgba
+    r = min(1, r * (1 + amount))
+    g = min(1, g * (1 + amount))
+    b = min(1, b * (1 + amount))
+    return rgba_to_hex((r, g, b, a))
+
 # theme presets (name -> Theme kwargs)
 THEMES = {
     "pianoTAB Light": dict(
-        hue_deg=300,        # golden hue baseline
-        sat=.1,          # gentle saturation
+        hue_deg=300,       # golden hue baseline
+        sat=.1,            # gentle saturation
         val_light=0.97,    # near white background
         val_dark=0.36,     # deep text on light bg
         contrast=0.25,
@@ -76,8 +84,8 @@ THEMES = {
     'pianoTAB Dark': dict(
         hue_deg=45,
         sat=.15,
-        val_light=0.75,
-        val_dark=0.04,
+        val_light=0.95,
+        val_dark=0.05,
         contrast=0.30,
         accent_rgba=hex_to_rgba("#d1773f"),  # brighter orange accent
     ),
@@ -92,6 +100,14 @@ DARK = COLORS['DARK']
 LIGHT_DARKER = COLORS['LIGHT_DARKER']
 DARK_LIGHTER = COLORS['DARK_LIGHTER']
 ACCENT = COLORS['ACCENT']
+
+# # custom seperate colors
+# LIGHT = hex_to_rgba("#d4cac0")
+# DARK = hex_to_rgba("#20051B")
+# LIGHT_DARKER = hex_to_rgba('#a89c92')
+# DARK_LIGHTER = hex_to_rgba('#4b3a4f')
+# ACCENT = hex_to_rgba("#bb19b6")
+
 
 LIGHT_HEX = rgba_to_hex(LIGHT)
 DARK_HEX = rgba_to_hex(DARK)

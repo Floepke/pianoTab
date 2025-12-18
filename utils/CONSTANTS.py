@@ -10,11 +10,11 @@ throughout the application for both editor display and final output.
 # Piano keyboard layout constants
 PIANO_KEY_AMOUNT: int = 88
 '''Total number of piano keys (1-88).'''
-BE_KEYS: list[int] = [3, 8, 15, 20, 27, 32, 39, 44, 51, 56, 63, 68, 75, 80, 87]
-CF_KEYS: list[int] = [4, 9, 16, 21, 28, 33, 40, 45, 52, 57, 64, 69, 76, 81, 88]
-ADG_KEYS: list[int] = [1, 6, 11, 13, 18, 23, 25, 30, 35, 42, 47, 49, 54, 59, 61, 66, 71, 73, 78, 83, 85]
-BLACK_KEYS: list[int] = [2, 5, 7, 10, 12, 14, 17, 19, 22, 24, 26, 29, 31, 34, 36, 38, 41, 43, 46,
-              48, 50, 53, 55, 58, 60, 62, 65, 67, 70, 72, 74, 77, 79, 82, 84, 86]
+from utils.tools import key_class
+BE_KEYS: list[int] = key_class('be')
+CF_KEYS: list[int] = key_class('cf')
+ADG_KEYS: list[int] = key_class('adg')
+BLACK_KEYS: list[int] = key_class('CDFGA')
 WHITE_KEYS: list[int] = [k for k in range(1, PIANO_KEY_AMOUNT + 1) if k not in BLACK_KEYS]
 '''Lists of key numbers for each key color group.'''
 
@@ -72,11 +72,11 @@ DRAWING_LAYERS = [
     # stave elements
     'chord_guide',
     'gridline',
-    'stem_white_space',
     'stavethreeline',
     'stavetwoline',
     'staveclefline',
     'barline',
+    'stem_white_space',
     
     # note elements
     'stop_sign',

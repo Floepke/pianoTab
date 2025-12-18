@@ -214,7 +214,7 @@ class pianoTAB(App):
         # Create initial score once canvas is ready (event-driven)
         def _initialize_score():
             # Load test file on startup
-            test_file = '/home/flop/pianoTab/test.piano'
+            test_file = '/home/flop/pianoTab/Rhythm.piano'
             
             if os.path.exists(test_file):
                 self.file_manager.load_file_manually(test_file)

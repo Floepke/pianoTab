@@ -46,7 +46,7 @@ class Editor(
     - Pitch flows horizontally with your custom spacing
     '''
     
-    def __init__(self, editor_canvas: Canvas, score: SCORE = None, gui=None):
+    def __init__(self, editor_canvas: Canvas, score: SCORE = None, gui=None, horizontal_view: bool = True):
         self.canvas: Canvas = editor_canvas
         self.score: SCORE = None  # Will be initialized via new_score() or load_score()
         self.gui = gui
@@ -117,6 +117,20 @@ class Editor(
 
         # Keyboard overlay moved to separate GUI panel; ensure no legacy overlay state
         self.keyboard_overlay = None
+
+        if horizontal_view:
+            self.set_horizontal_view(True)
+
+    def set_horizontal_view(self, enabled: bool = True):
+        """Rotate the piano-roll drawing 90° counter-clockwise (horizontal time) while
+        keeping mouse input working normally via inverse hit-test transform.
+
+        Args:
+            enabled: True to rotate 90° CCW, False to restore vertical view.
+        """
+        deg = 90 if enabled else 0
+        if hasattr(self.canvas, 'set_view_rotation'):
+            self.canvas.set_view_rotation(deg)
 
     def _apply_settings_from_score(self):
         '''Synchronize editor state from SCORE.fileSettings and SCORE.properties.

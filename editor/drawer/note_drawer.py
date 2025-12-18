@@ -5,11 +5,13 @@ Handles drawing note events on the piano roll canvas.
 '''
 from __future__ import annotations
 from typing import TYPE_CHECKING, Literal, Optional
+import math
 
 from file import note
-from gui.colors import ACCENT_HEX, DARK_HEX, LIGHT_DARKER_HEX, LIGHT_HEX, make_darker_hex
+from gui.colors import ACCENT_HEX, DARK_HEX, DARK_LIGHTER_HEX, LIGHT_DARKER_HEX, LIGHT_HEX, make_darker_hex
 from utils.CONSTANTS import BLACK_KEYS, CF_KEYS, OPERATOR_TRESHOLD, BE_KEYS
 from utils.operator import Operator
+from utils.tools import key_class
 
 if TYPE_CHECKING:
     from file.SCORE import SCORE
@@ -77,7 +79,7 @@ class NoteDrawerMixin:
         
         # Draw all note elements (order doesn't matter - each calculates its own position)
         self._draw_midinote(note, draw_mode, base_tag, color)
-        self._draw_notestop(stave_idx, note, base_tag, color)
+        self._draw_notestop_always(stave_idx, note, base_tag, color)
         self._draw_notehead(note, base_tag, color)
         self._draw_accidental(note, base_tag, color)
         #self._draw_solid_guide(note, base_tag, color)
@@ -217,6 +219,37 @@ class NoteDrawerMixin:
                 outline=False,
                 tags=['stop_sign', base_tag]
             )
+
+    def _draw_notestop_always(self, stave_idx: int, note: Note, base_tag: str, color: str) -> None:
+        '''Draw the note stop sign (triangle) if followed by a rest or a large single pitch jump.'''
+        # Calculate positions
+        x = self.pitch_to_x(note.pitch)
+        y_note_stop = self.time_to_y(note.time + note.duration)
+        
+        # Calculate dimensions
+        semitone_width = self.semitone_width
+
+        # calc width coords
+        if note.pitch in BE_KEYS or note.pitch in CF_KEYS:
+            x1 = x - self.semitone_width * .5
+            x2 = x + self.semitone_width * .5
+        else:
+            x1 = x - self.semitone_width * .5
+            x2 = x + self.semitone_width * .5
+        
+        self.canvas.add_polygon(
+            points_mm=[
+                x1, y_note_stop,
+                x2, y_note_stop,
+                x, y_note_stop - semitone_width
+            ],
+            fill=True,
+            fill_color=DARK_LIGHTER_HEX,
+            outline=False,
+            outline_color=DARK_HEX,
+            outline_width_mm=.1,
+            tags=['stop_sign', base_tag]
+        )
     
     def _draw_notehead(self, note: Note, base_tag: str, color: str) -> None:
         '''Draw the notehead (oval).'''
@@ -227,96 +260,197 @@ class NoteDrawerMixin:
         # determine tag for notehead type
         tag = 'notehead_black' if note.pitch in BLACK_KEYS else 'notehead_white'
 
-        # notehead width
-        '''Design 1: best design to my opinion'''
-        if note.pitch in BE_KEYS:
-            # Trim right side (E/B sit to the left of a white gap)
-            x1 = x - self.semitone_width
-            x2 = x + self.semitone_width * .5
-        elif note.pitch in CF_KEYS:
-            # Trim left side (C/F sit to the right of a white gap) - opposite of BE_GAPS
+        design = 1  # choose design type from 1-5
+
+        if design == 1:
+            # notehead width
+            '''Design 1: best design to my opinion'''
+            if note.pitch in BE_KEYS:
+                # Trim right side (E/B sit to the left of a white gap)
+                x1 = x - self.semitone_width
+                x2 = x + self.semitone_width * .5
+            elif note.pitch in CF_KEYS:
+                # Trim left side (C/F sit to the right of a white gap) - opposite of BE_GAPS
+                x1 = x - self.semitone_width * .5
+                x2 = x + self.semitone_width
+            elif note.pitch in BLACK_KEYS:
+                # Black keys are narrower
+                x1 = x - self.semitone_width * .5
+                x2 = x + self.semitone_width * .5
+            else:
+                # Regular width
+                x1 = x - self.semitone_width * .75
+                x2 = x + self.semitone_width * .75
+            # notehead length
+            if note.pitch in BLACK_KEYS:
+                notehead_length = self.semitone_width * 1.5
+            else:
+                notehead_length = self.semitone_width * 1.5
+            
+            # Adjust y position for black notes above stem
+            if base_tag == 'cursor' and note.pitch in BLACK_KEYS and self.score.properties.globalNote.blackNoteDirection == '^':
+                y -= self.semitone_width * 1.5
+            elif note.blackNoteDirection == '^' and note.pitch in BLACK_KEYS:
+                y -= self.semitone_width * 1.5
+
+            # Draw the notehead
+            self.canvas.add_oval(
+                x1_mm=x1,
+                y1_mm=y,
+                x2_mm=x2,
+                y2_mm=y + notehead_length,
+                fill=True,
+                fill_color=color if note.pitch in BLACK_KEYS else LIGHT_HEX,
+                outline=True,
+                outline_width_mm=self.score.properties.globalNote.stemWidthMm,
+                outline_color=color,
+                tags=[tag, base_tag]
+            )
+
+        if design == 2:
+            '''Design 2: pure rectangle widths and triangle handles'''
             x1 = x - self.semitone_width * .5
-            x2 = x + self.semitone_width
-        elif note.pitch in BLACK_KEYS:
-            # Black keys are narrower
+            x2 = x + self.semitone_width * .5
+            notehead_length = self.semitone_width
+            
+            if note.pitch in BLACK_KEYS:
+                self.canvas.add_polygon(
+                    points_mm=[
+                        x1, y,
+                        x2, y,
+                        x, y + notehead_length
+                    ],
+                    fill=True,
+                    fill_color=DARK_HEX,
+                    outline=False,
+                    tags=[tag, base_tag]
+                )
+            else:
+                outline_w = .1
+                self.canvas.add_polygon(
+                    points_mm=[
+                        x1+outline_w, y,
+                        x2-outline_w, y,
+                        x, y + notehead_length - outline_w
+                    ],
+                    fill=True,
+                    fill_color=LIGHT_HEX,
+                    outline=True,
+                    outline_width_mm=.1,
+                    outline_color=DARK_HEX,
+                    tags=[tag, base_tag]
+                )
+
+        if design == 3:
+            '''Design 3: start line'''
             x1 = x - self.semitone_width * .5
             x2 = x + self.semitone_width * .5
-        else:
-            # Regular width
-            x1 = x - self.semitone_width * .75
-            x2 = x + self.semitone_width * .75
-        # notehead length
-        if note.pitch in BLACK_KEYS:
-            notehead_length = self.semitone_width * 1.5
-        else:
-            notehead_length = self.semitone_width * 1.5
-        
-        # Adjust y position for black notes above stem
-        if base_tag == 'cursor' and note.pitch in BLACK_KEYS and self.score.properties.globalNote.blackNoteDirection == '^':
-            y -= self.semitone_width * 1.5
-        elif note.blackNoteDirection == '^' and note.pitch in BLACK_KEYS:
-            y -= self.semitone_width * 1.5
 
-        # Draw the notehead
-        self.canvas.add_oval(
-            x1_mm=x1,
-            y1_mm=y,
-            x2_mm=x2,
-            y2_mm=y + notehead_length,
-            fill=True,
-            fill_color=color if note.pitch in BLACK_KEYS else LIGHT_HEX,
-            outline=True,
-            outline_width_mm=self.score.properties.globalNote.stemWidthMm,
-            outline_color=color,
-            tags=[tag, base_tag]
-        )
+            self.canvas.add_line(
+                x1_mm=x1,
+                y1_mm=y,
+                x2_mm=x2,
+                y2_mm=y,
+                width_mm=self.score.properties.globalNote.stemWidthMm,
+                color=color,
+                tags=[tag, base_tag]
+            )
 
-        # '''Design 2: pure rectangle widths and triangle handles'''
-        # x1 = x - self.semitone_width * .5
-        # x2 = x + self.semitone_width * .5
-        # notehead_length = self.semitone_width
-        
-        # if note.pitch in BLACK_KEYS:
-        #     self.canvas.add_polygon(
-        #         points_mm=[
-        #             x1, y,
-        #             x2, y,
-        #             x, y + notehead_length
-        #         ],
-        #         fill=True,
-        #         fill_color=DARK_HEX,
-        #         outline=False,
-        #         tags=[tag, base_tag]
-        #     )
-        # else:
-        #     outline_w = .1
-        #     self.canvas.add_polygon(
-        #         points_mm=[
-        #             x1+outline_w, y,
-        #             x2-outline_w, y,
-        #             x, y + notehead_length - outline_w
-        #         ],
-        #         fill=True,
-        #         fill_color=LIGHT_HEX,
-        #         outline=True,
-        #         outline_width_mm=.1,
-        #         outline_color=DARK_HEX,
-        #         tags=[tag, base_tag]
-        #     )
+        if design == 4:
+            '''Design 4: My own Klavarskribo style'''
+            # set width and length of notehead
+            if note.pitch in key_class('dga'): # pitch is d, g or a key
+                x1 = x - self.semitone_width
+                x2 = x + self.semitone_width
+                l = self.semitone_width * 2
+            elif note.pitch in key_class('CDFGA'): # pitch is one of the black keys
+                x1 = x - self.semitone_width * .65
+                x2 = x + self.semitone_width * .65
+                l = self.semitone_width * 2
+            elif note.pitch in key_class('be'): # pitch is b or e key
+                x1 = x - self.semitone_width * .5 * 2
+                x2 = x + self.semitone_width * .5
+                l = self.semitone_width * 2
+            else: # pitch is c or f key
+                x1 = x - self.semitone_width * .5
+                x2 = x + self.semitone_width * .5 * 2
+                l = self.semitone_width * 2
+            c = DARK_HEX if note.pitch in key_class('CDFGA') else LIGHT_HEX
+            l = self.semitone_width * 1.75
+            
+            # draw the notehead
+            self.canvas.add_oval(
+                x1_mm=x1,
+                y1_mm=y,
+                x2_mm=x2,
+                y2_mm=y + l,
+                fill=True,
+                fill_color=c,
+                outline=True,
+                outline_width_mm=self.score.properties.globalNote.stemWidthMm,
+                outline_color=DARK_HEX,
+                tags=[tag, base_tag]
+            )
 
-        '''Design 3: start line'''
-        x1 = x - self.semitone_width * .5
-        x2 = x + self.semitone_width * .5
+        if design == 5:
+            '''Design 5: Bulet style'''
+            x1 = x - self.semitone_width / 2
+            x2 = x + self.semitone_width / 2
+            y1 = y
+            y2 = y + self.semitone_width * 2
 
-        self.canvas.add_line(
-            x1_mm=x1,
-            y1_mm=y,
-            x2_mm=x2,
-            y2_mm=y,
-            width_mm=self.score.properties.globalNote.stemWidthMm,
-            color=color,
-            tags=[tag, base_tag]
-        )
+            if note.pitch not in BLACK_KEYS:
+                x1 += .05
+                x2 -= .05
+                y2 -= .05
+
+            # Half-circle coordinates with 10 points on the arc
+            width = x2 - x1
+            r = width / 2.0
+            cx = x
+            cy_top = y1 + r
+            cy_bot = y1 + self.semitone_width / 2
+
+            points_per_arc = 10  # exactly 10 samples on the curved part
+
+            # Top pos
+            top_pos: list[float] = [x1, y1, x2, y1]
+
+            # Bottom arc: 0° -> 180° (right to left)
+            bottom_arc: list[float] = []
+            for i in range(points_per_arc):
+                theta = 0.0 + (math.pi * i / (points_per_arc - 1))
+                px = cx + r * math.cos(theta)
+                py = cy_bot + r * math.sin(theta)
+                bottom_arc.extend([px, py])
+
+            polygon_points = top_pos + bottom_arc
+
+            self.canvas.add_polygon(
+                points_mm=polygon_points,
+                fill=True,
+                fill_color=DARK_HEX if note.pitch in BLACK_KEYS else LIGHT_HEX,
+                outline=False if note.pitch in BLACK_KEYS else True,
+                outline_width_mm=.1,
+                tags=[tag, base_tag]
+            )
+
+        if design == 6:
+            '''Design 6: simple small circles'''
+            diameter = self.semitone_width
+            self.canvas.add_oval(
+                x1_mm=x - diameter / 2,
+                y1_mm=y,
+                x2_mm=x + diameter / 2,
+                y2_mm=y + diameter,
+                fill=True,
+                fill_color=DARK_HEX if note.pitch in BLACK_KEYS else LIGHT_HEX,
+                outline=True,
+                outline_width_mm=.2,
+                outline_color=DARK_HEX,
+                tags=[tag, base_tag]
+            )
+
     
     def _draw_left_dot(self, note: Note, base_tag: str, color: str) -> None:
         '''

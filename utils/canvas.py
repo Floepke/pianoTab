@@ -396,6 +396,12 @@ class Canvas(Widget):
 
         # Bind to mouse motion for cursor tracking
         Window.bind(mouse_pos=self.on_mouse_motion)
+
+        # View rotation (degrees). Supported: 0 (default), 90 (counter-clockwise)
+        self.view_rotation_deg: int = 0
+        # Rotation instruction groups surrounding drawing layers
+        self._rotation_push_group = None
+        self._rotation_pop_group = None
         
         # Keyboard handling (only for editor canvas, not print preview)
         self._keyboard = None
@@ -827,13 +833,21 @@ class Canvas(Widget):
         '''
         from utils.CONSTANTS import DRAWING_LAYERS
         
-        # Create a group for each layer in DRAWING_LAYERS and add to canvas
+        # Create rotation wrappers so all drawing layers are rotated together
+        self._rotation_push_group = InstructionGroup()
+        self.canvas.add(self._rotation_push_group)
+
+        # Create a group for each layer in DRAWING_LAYERS and add to canvas (between push/pop)
         for z_index in range(len(DRAWING_LAYERS)):
             group = InstructionGroup()
             self._layer_groups[z_index] = group
             # Add directly to canvas between background and border
             self.canvas.add(group)
         
+        # Rotation pop closes the matrix for all layers
+        self._rotation_pop_group = InstructionGroup()
+        self.canvas.add(self._rotation_pop_group)
+
         # Also create groups for auto-increment layers (starting after defined layers)
         # We'll create these on-demand when needed
         self._max_layer_index = len(DRAWING_LAYERS)
@@ -1759,6 +1773,9 @@ class Canvas(Widget):
         if hasattr(self, 'custom_scrollbar'):
             self.custom_scrollbar.update_layout()
 
+        # Update rotation instructions to match current viewport
+        self._update_rotation_instructions()
+
         # Skip the redraw if the editor is updating (editor will call _redraw_all after adding all items)
         if not self._updating_from_editor:
             # Redraw all items with the new scale
@@ -1773,11 +1790,63 @@ class Canvas(Widget):
         return x_px, y_px
 
     def _px_to_mm(self, x_px: float, y_px: float) -> Tuple[float, float]:
-        '''Convert a Kivy px point to top-left mm coordinates.'''
-        mm_x = (x_px - self._view_x) / self._px_per_mm
+        '''Convert a Kivy px point to top-left mm coordinates.
+        Applies inverse of view rotation to keep hit-testing aligned with rotated drawing.'''
+        rx, ry = x_px, y_px
+        if self.view_rotation_deg == 90:
+            # Inverse rotate CW 90° around viewport center
+            cx = self._view_x + self._view_w / 2.0
+            cy = self._view_y + self._view_h / 2.0
+            dx = x_px - cx
+            dy = y_px - cy
+            rx = cx + dy
+            ry = cy - dx
+        # Convert un-rotated pixel to mm
+        mm_x = (rx - self._view_x) / self._px_per_mm
         anchor_px = self._view_y + self._view_h + (self._scroll_px if self.scale_to_width else 0.0)
-        mm_y = (anchor_px - y_px) / self._px_per_mm
+        mm_y = (anchor_px - ry) / self._px_per_mm
         return mm_x, mm_y
+
+    def _update_rotation_instructions(self):
+        """Update rotation Push/Pop instructions to rotate all drawing layers.
+        Only rotates visual output; input is inverse-rotated in _px_to_mm.
+        """
+        if not self._rotation_push_group or not self._rotation_pop_group:
+            return
+        # Clear previous transforms
+        self._rotation_push_group.clear()
+        self._rotation_pop_group.clear()
+        # Per-item rotation applied in draw methods; keep wrapper empty to avoid double transforms.
+
+    def set_view_rotation(self, degrees: int):
+        """Set view rotation (supports 0 or 90 for now) and redraw."""
+        deg = int(degrees) % 360
+        if deg not in (0, 90):
+            deg = 0
+        if deg == self.view_rotation_deg:
+            return
+        self.view_rotation_deg = deg
+        self._update_rotation_instructions()
+        self._redraw_all()
+
+    # ---------- Per-item view rotation helpers ----------
+
+    def _push_view_rotation(self, g: InstructionGroup):
+        rot = int(self.view_rotation_deg) % 360
+        if rot == 0:
+            return
+        cx = self._view_x + self._view_w / 2.0
+        cy = self._view_y + self._view_h / 2.0
+        g.add(PushMatrix())
+        g.add(Translate(cx, cy))
+        g.add(Rotate(angle=float(rot)))  # CCW
+        g.add(Translate(-cx, -cy))
+
+    def _pop_view_rotation(self, g: InstructionGroup):
+        rot = int(self.view_rotation_deg) % 360
+        if rot == 0:
+            return
+        g.add(PopMatrix())
 
     def _point_in_view_px(self, x_px: float, y_px: float) -> bool:
         # Use the computed view width directly; it already accounts for scrollbar when visible
@@ -1937,6 +2006,7 @@ class Canvas(Widget):
             self._draw_text_instr(g, item)
 
     def _draw_rectangle_instr(self, g: InstructionGroup, item: Dict[str, Any]):
+        self._push_view_rotation(g)
         x_mm, y_mm, w_mm, h_mm = item['x_mm'], item['y_mm'], item['w_mm'], item['h_mm']
         # Kivy uses bottom-left for pos; convert using y+height
         pos = self._mm_to_px_point(x_mm, y_mm + h_mm)
@@ -1949,8 +2019,10 @@ class Canvas(Widget):
         if item['outline'] and item['outline_w_mm'] > 0:
             g.add(Color(*item['outline_color']))
             g.add(Line(rectangle=(*pos, *size), width=max(1.0, item['outline_w_mm'] * self._px_per_mm)))
+        self._pop_view_rotation(g)
 
     def _draw_oval_instr(self, g: InstructionGroup, item: Dict[str, Any]):
+        self._push_view_rotation(g)
         x_mm, y_mm, w_mm, h_mm = item['x_mm'], item['y_mm'], item['w_mm'], item['h_mm']
         pos = self._mm_to_px_point(x_mm, y_mm + h_mm)
         size = (w_mm * self._px_per_mm, h_mm * self._px_per_mm)
@@ -1962,8 +2034,10 @@ class Canvas(Widget):
         if item['outline'] and item['outline_w_mm'] > 0:
             g.add(Color(*item['outline_color']))
             g.add(Line(ellipse=(*pos, *size), width=max(1.0, item['outline_w_mm'] * self._px_per_mm)))
+        self._pop_view_rotation(g)
 
     def _draw_line_instr(self, g: InstructionGroup, item: Dict[str, Any]):
+        self._push_view_rotation(g)
         pts_px = []
         pts_mm = item['points_mm']
         for i in range(0, len(pts_mm), 2):
@@ -1982,8 +2056,10 @@ class Canvas(Widget):
             self._draw_dashed_polyline(g, pts_px, width_px, on_px, off_px, cap=kivy_cap)
         else:
             g.add(Line(points=pts_px, width=width_px, close=item.get('close', False), cap=kivy_cap))
+        self._pop_view_rotation(g)
 
     def _draw_path_instr(self, g: InstructionGroup, item: Dict[str, Any]):
+        self._push_view_rotation(g)
         pts_px = []
         pts_mm = item['points_mm']
         for i in range(0, len(pts_mm), 2):
@@ -1997,8 +2073,10 @@ class Canvas(Widget):
             self._draw_dashed_polyline(g, pts_px, width_px, on_px, off_px)
         else:
             g.add(Line(points=pts_px, width=width_px))
+        self._pop_view_rotation(g)
 
     def _draw_polygon_instr(self, g: InstructionGroup, item: Dict[str, Any]):
+        self._push_view_rotation(g)
         pts_mm = item['points_mm']
 
         # Fill first (triangle fan), then outline on top
@@ -2030,8 +2108,11 @@ class Canvas(Widget):
                 pts_px += list(self._mm_to_px_point(pts_mm[i], pts_mm[i + 1]))
             g.add(Color(*item['outline_color']))
             g.add(Line(points=pts_px, width=max(1.0, item['outline_w_mm'] * self._px_per_mm), close=True))
+        self._pop_view_rotation(g)
 
     def _draw_text_instr(self, g: InstructionGroup, item: Dict[str, Any]):
+        # Apply view rotation first so local text rotation stacks on top
+        self._push_view_rotation(g)
         # Prepare label (Courier New, size in px converted from pt)
         text = item['text']
         color_rgba = item['color']
@@ -2064,6 +2145,8 @@ class Canvas(Widget):
         g.add(Color(1.0, 1.0, 1.0, 1.0))
         g.add(Rectangle(texture=tex, pos=(off_x, off_y), size=(w_px, h_px)))
         g.add(PopMatrix())
+        # Pop view rotation
+        self._pop_view_rotation(g)
 
     # ---------- Internal: hit testing ----------
 
@@ -2260,29 +2343,42 @@ class Canvas(Widget):
         if len(pts_px) < 4:
             return
         
-        # Determine if this is a predominantly vertical line
-        # Only apply Y-axis viewport culling to vertical lines
+        # Determine predominant axis in visual space (after view rotation)
         x1, y1 = pts_px[0], pts_px[1]
         x2, y2 = pts_px[-2], pts_px[-1]
-        dx = abs(x2 - x1)
-        dy = abs(y2 - y1)
-        is_vertical = dy > dx  # More vertical than horizontal
-        
-        # Get visible viewport bounds in pixels for Y-axis culling
+        rot = int(getattr(self, 'view_rotation_deg', 0)) % 360
+
+        def _rotated_xy(x: float, y: float) -> tuple[float, float]:
+            if rot == 90:
+                cx = self._view_x + self._view_w / 2.0
+                cy = self._view_y + self._view_h / 2.0
+                dx = x - cx
+                dy = y - cy
+                # CCW 90°: (dx,dy) -> (-dy, dx)
+                return (cx - dy, cy + dx)
+            return (x, y)
+
+        rx1, ry1 = _rotated_xy(x1, y1)
+        rx2, ry2 = _rotated_xy(x2, y2)
+        dx_vis = abs(rx2 - rx1)
+        dy_vis = abs(ry2 - ry1)
+        is_vertical_vis = dy_vis > dx_vis  # More vertical than horizontal in visual space
+
+        # Get visible viewport bounds in pixels for axis-appropriate culling
         visible_y_min_px = None
         visible_y_max_px = None
-        if is_vertical and self.scale_to_width and hasattr(self, '_view_h') and self._view_h > 0:
-            # The pixel coordinates from _mm_to_px_point already include scroll offset in their calculation
-            # So we just need to check against the widget's fixed viewport bounds
+        visible_x_min_px = None
+        visible_x_max_px = None
+        if self.scale_to_width and hasattr(self, '_view_h') and self._view_h > 0:
             buffer_px = 200.0  # Buffer zone to draw dashes slightly outside viewport
-            
-            # Viewport in Kivy coordinates (fixed widget bounds)
-            viewport_bottom_y = self._view_y  # Bottom edge of widget viewport
-            viewport_top_y = self._view_y + self._view_h  # Top edge of widget viewport
-            
-            # Visible range with buffer
+            viewport_bottom_y = self._view_y
+            viewport_top_y = self._view_y + self._view_h
+            viewport_left_x = self._view_x
+            viewport_right_x = self._view_x + self._view_w
             visible_y_min_px = viewport_bottom_y - buffer_px
             visible_y_max_px = viewport_top_y + buffer_px
+            visible_x_min_px = viewport_left_x - buffer_px
+            visible_x_max_px = viewport_right_x + buffer_px
         
         # Iterate segments
         on = True
@@ -2308,13 +2404,32 @@ class Canvas(Widget):
                     
                     # Viewport culling: only create Line if dash segment is visible
                     create_line = True
-                    if visible_y_min_px is not None and visible_y_max_px is not None:
-                        # Check if dash segment intersects visible Y range
-                        seg_y_min = min(y1, y2)
-                        seg_y_max = max(y1, y2)
-                        if seg_y_max < visible_y_min_px or seg_y_min > visible_y_max_px:
-                            create_line = False  # Skip this dash - outside viewport
-                            culled_count += 1
+                    if rot == 90:
+                        # Cull using visual coordinates against X/Y depending on predominant axis
+                        vy1x, vy1y = _rotated_xy(x1, y1)
+                        vy2x, vy2y = _rotated_xy(x2, y2)
+                        if is_vertical_vis:
+                            if visible_y_min_px is not None and visible_y_max_px is not None:
+                                seg_y_min = min(vy1y, vy2y)
+                                seg_y_max = max(vy1y, vy2y)
+                                if seg_y_max < visible_y_min_px or seg_y_min > visible_y_max_px:
+                                    create_line = False
+                                    culled_count += 1
+                        else:
+                            if visible_x_min_px is not None and visible_x_max_px is not None:
+                                seg_x_min = min(vy1x, vy2x)
+                                seg_x_max = max(vy1x, vy2x)
+                                if seg_x_max < visible_x_min_px or seg_x_min > visible_x_max_px:
+                                    create_line = False
+                                    culled_count += 1
+                    else:
+                        # Original Y-axis culling for predominantly vertical lines
+                        if is_vertical_vis and visible_y_min_px is not None and visible_y_max_px is not None:
+                            seg_y_min = min(y1, y2)
+                            seg_y_max = max(y1, y2)
+                            if seg_y_max < visible_y_min_px or seg_y_min > visible_y_max_px:
+                                create_line = False
+                                culled_count += 1
                     
                     if create_line:
                         g.add(Line(points=[x1, y1, x2, y2], width=width_px, cap=cap))
